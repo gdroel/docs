@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "ZeroSettle Docs",
   "colors": {
     "primary": "#16A34A",
     "light": "#07C983",
@@ -17,8 +17,14 @@
             "group": "Getting started",
             "pages": [
               "index",
-              "quickstart",
-              "development"
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Products",
+            "pages": [
+              "wallet/zerosettle-deposit-view",
+              "wallet/zerosettle-deposit-api"
             ]
           },
           {

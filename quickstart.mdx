@@ -1,80 +1,199 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Add ZeroSettleKit to your iOS app and start accepting USDC deposits"
 ---
 
-## Get started in three steps
+Get up and running with ZeroSettleKit in minutes. This guide walks you through adding the Swift package to your Xcode project and making your first deposit.
 
-Get your documentation site running locally and make your first customization.
+## Installation
 
-### Step 1: Set up your local environment
+### Swift Package Manager (Recommended)
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+Add ZeroSettleKit to your Xcode project using Swift Package Manager:
+
+<Steps>
+<Step title="Open your Xcode project">
+  Open your iOS app project in Xcode.
+</Step>
+
+<Step title="Add package dependency">
+  1. Go to **File** → **Add Package Dependencies...**
+  2. Enter the package URL:
+  
+  ```
+  https://github.com/zerosettle/zerosettle-ios
+  ```
+  
+  3. Click **Add Package**
+</Step>
+
+<Step title="Select target">
+  Choose your app target and click **Add Package**
+</Step>
+</Steps>
+
+### Minimum Requirements
+
+<Info>
+  - **iOS 15.0+**
+  - **Swift 5.7+**
+  - **Xcode 14.0+**
+</Info>
+
+## Basic Usage
+
+### 1. Import the Framework
+
+```swift
+import ZSKit
+```
+
+### 2. Show the Prebuilt Deposit View
+
+The fastest way to start accepting deposits is using the prebuilt `ZSDepositView`:
+
+```swift
+import UIKit
+import ZSKit
+
+class YourViewController: UIViewController {
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    func showDepositView() {
+        // Your Solana USDC address
+        let solanaAddress = SolanaAddress("YOUR_SOLANA_ADDRESS")
+        
+        let depositView = ZSDepositView(
+            walletAddress: solanaAddress,
+            onSuccess: { transaction in
+                print("Deposit successful!")
+                print("Amount: \(transaction.amount)")
+                print("Signature: \(transaction.signature)")
+            },
+            onError: { error in
+                print("Deposit failed: \(error)")
+            }
+        )
+        
+        present(depositView, animated: true)
+    }
+}
+```
 
-### Step 2: Deploy your changes
+That's it! The view handles:
+- Payment method selection (Apple Pay, Phantom, Metamask)
+- Amount input
+- Transaction submission
+- Real-time status updates
+- Error handling
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+### 3. Test the Integration
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+Build and run your app, then tap the button that shows the deposit view. You'll see:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+1. A screen with payment method options
+2. Amount input field
+3. A deposit button
+4. Real-time transaction status
 
-### Step 3: Go live
+<Tip>
+  Start with small test amounts (e.g., 1 USDC) while you're developing to minimize costs.
+</Tip>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+## What's Next?
 
 <CardGroup cols={2}>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
+<Card title="ZeroSettle Deposit View" icon="credit-card" href="/wallet/zerosettle-deposit-view">
+  Learn about all the options for the prebuilt deposit UI
 </Card>
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
+<Card title="ZeroSettle Deposit API" icon="code" href="/wallet/zerosettle-deposit-api">
+  Build custom deposit UIs with full control over the flow
 </Card>
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
+<Card title="Payment Methods" icon="wallet" href="/wallet/zerosettle-deposit-view#available-payment-methods">
+  Understand how Apple Pay, Phantom, and Metamask deposits work
 </Card>
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
+<Card title="Error Handling" icon="triangle-exclamation" href="/wallet/zerosettle-deposit-api#error-handling">
+  Handle errors gracefully and provide great UX
 </Card>
 
 </CardGroup>
 
+## Getting Your Solana Address
+
+You need a Solana address to receive USDC deposits. Here's how to get one:
+
+<AccordionGroup>
+  <Accordion title="Using Phantom Wallet">
+    1. Download [Phantom](https://phantom.app) wallet
+    2. Create or import a wallet
+    3. Tap your wallet name at the top
+    4. Tap "Copy Address"
+    5. This is your Solana address for USDC deposits
+  </Accordion>
+  
+  <Accordion title="Using Solflare">
+    1. Download [Solflare](https://solflare.com) wallet
+    2. Create a new wallet
+    3. Tap "Receive"
+    4. Copy your wallet address
+    5. This is your Solana address
+  </Accordion>
+  
+  <Accordion title="Programmatically">
+    If you're managing wallets programmatically, use the Solana SDK:
+    
+    ```swift
+    import Solana
+    
+    let keypair = Keypair.generate()
+    let address = keypair.publicKey.base58EncodedString
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  **Store private keys securely!** Never commit private keys to version control or expose them in your app. Only use public addresses (the receiving address) in your client app.
+</Warning>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Module 'ZSKit' not found">
+    **Solution:** Make sure you've added the Swift package dependency and selected your app target. Clean and rebuild your project (**Cmd+Shift+K**, then **Cmd+B**).
+  </Accordion>
+  
+  <Accordion title="Invalid Solana address error">
+    **Solution:** Solana addresses are base58-encoded strings, typically 32-44 characters. Make sure you're using the public key, not a private key or seed phrase.
+    
+    Valid format: `7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU`
+  </Accordion>
+  
+  <Accordion title="Phantom/Metamask not opening">
+    **Solution:** Test on a physical device, not the simulator. Wallet apps don't work in the iOS Simulator.
+  </Accordion>
+  
+  <Accordion title="Apple Pay not showing">
+    **Solution:** 
+    - Test on a physical device with an Apple Pay-enabled card
+    - Ensure your Apple Developer account has Apple Pay entitlements
+    - Add the Apple Pay capability to your app target in Xcode
+  </Accordion>
+</AccordionGroup>
+
+## Example Project
+
+Want to see a complete working example? Check out the [ZeroSettleKit Example App](https://github.com/zerosettle/zerosettle-ios/tree/main/Example) on GitHub.
+
+The example project demonstrates:
+- ✅ Basic deposit flow
+- ✅ Custom deposit UI
+- ✅ Error handling
+- ✅ Transaction tracking
+- ✅ All payment methods
+
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  **Need help?** Reach out to us at [support@zerosettle.com](mailto:support@zerosettle.com) or check the [GitHub Discussions](https://github.com/zerosettle/zerosettle-ios/discussions).
 </Note>

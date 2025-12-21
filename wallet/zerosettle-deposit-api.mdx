@@ -1,0 +1,666 @@
+---
+title: 'ZeroSettle Deposit API'
+description: 'Build custom deposit UIs with direct access to payment rails.'
+icon: 'code'
+---
+
+The Deposit API provides programmatic access to initiate USDC deposits to Solana addresses from various wallet providers. This API powers the prebuilt `ZSDepositView` under the hood, giving you complete control over your deposit UI and flow while we handle the complexities of wallet connections and transaction submission.
+
+**All deposits are USDC on Solana** - the system supports USDC deposits from multiple wallet providers including Phantom, Metamask, and Apple Pay.
+
+Use this API when you need:
+- Full control over the deposit UI and user experience
+- Custom form validation or business logic before initiating deposits
+- Integration with existing navigation flows and state management
+- Custom transaction monitoring or analytics
+
+## Overview
+
+The Deposit API offers both modern async/await and callback-based interfaces. The API is payment method agnostic—the same signature and behavior work consistently across Apple Pay, Phantom, and Metamask.
+
+### Async/Await (Recommended)
+
+```swift
+func deposit(
+    paymentMethod: PaymentMethod,
+    to destinationAddress: SolanaAddress,
+    amount: USDC,
+    onEvent: ((DepositEvent) -> Void)? = nil
+) async throws -> Transaction
+```
+
+### Callback-Based
+
+```swift
+func deposit(
+    paymentMethod: PaymentMethod,
+    to destinationAddress: SolanaAddress,
+    amount: USDC,
+    onEvent: ((DepositEvent) -> Void)? = nil,
+    completion: @escaping (Result<Transaction, Error>) -> Void
+)
+```
+
+## Basic Usage
+
+The simplest deposit flow using async/await requires just three parameters:
+
+```swift
+import ZSKit
+
+do {
+    let transaction = try await ZSDeposit.deposit(
+        paymentMethod: .phantom,
+        to: SolanaAddress("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"),
+        amount: USDC(10)
+    )
+    
+    print("Transaction signature: \(transaction.signature)")
+    print("USDC deposited: \(transaction.amount)")
+    showSuccessScreen(transaction)
+    
+} catch {
+    print("Deposit failed: \(error)")
+    showErrorScreen(error)
+}
+```
+
+<Note>
+  All async functions and callbacks run on the main actor by default, making it safe to directly update UI elements. Amounts use the `USDC` type for type safety.
+</Note>
+
+### Callback-Based Alternative
+
+```swift
+import ZSKit
+
+ZSDeposit.deposit(
+    paymentMethod: .phantom,
+    to: SolanaAddress("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"),
+    amount: USDC(10)
+) { result in
+    switch result {
+    case .success(let transaction):
+        print("Transaction signature: \(transaction.signature)")
+        showSuccessScreen(transaction)
+        
+    case .failure(let error):
+        print("Deposit failed: \(error)")
+        showErrorScreen(error)
+    }
+}
+```
+
+## Payment Methods
+
+All three payment methods use the same API and deposit USDC to the same Solana address:
+
+```swift
+let destination = SolanaAddress("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU")
+
+// Phantom - transfer USDC from user's Phantom wallet
+let tx1 = try await ZSDeposit.deposit(
+    paymentMethod: .phantom,
+    to: destination,
+    amount: USDC(10)
+)
+
+// Metamask - USDC deposit from Metamask
+let tx2 = try await ZSDeposit.deposit(
+    paymentMethod: .metamask,
+    to: destination,
+    amount: USDC(25)
+)
+
+// Apple Pay - USDC deposit via Apple Pay
+let tx3 = try await ZSDeposit.deposit(
+    paymentMethod: .applePay,
+    to: destination,
+    amount: USDC(50)
+)
+```
+
+<Note>
+  All payment methods require the same Solana address type. There is no per-method address validation—if you have a valid `SolanaAddress`, it works with all payment methods.
+</Note>
+
+## Handling Events
+
+Use the `onEvent` callback to receive real-time updates about the deposit status:
+
+```swift
+do {
+    let transaction = try await ZSDeposit.deposit(
+        paymentMethod: .phantom,
+        to: destination,
+        amount: USDC(50),
+        onEvent: { event in
+            switch event {
+            case .submitted(let signature):
+                print("Transaction submitted: \(signature)")
+                showLoadingView("Confirming USDC deposit on Solana...")
+                
+            case .confirmed(let signature):
+                print("Transaction confirmed: \(signature)")
+                
+            case .failed(let error):
+                print("Transaction failed: \(error)")
+            }
+        }
+    )
+    
+    hideLoadingView()
+    showSuccessScreen(transaction)
+    
+} catch {
+    hideLoadingView()
+    showErrorScreen(error)
+}
+```
+
+### Deposit Events
+
+```swift
+enum DepositEvent {
+    case submitted(signature: TransactionSignature)
+    case confirmed(signature: TransactionSignature)
+    case failed(error: ZSDepositError)
+}
+```
+
+| Event | When it occurs | Use case |
+| --- | --- | --- |
+| `.submitted` | Transaction submitted to Solana | Show loading UI with "Confirming..." message |
+| `.confirmed` | Transaction confirmed on Solana | Update UI to show success (async function will return shortly) |
+| `.failed` | Transaction failed on-chain | Show error UI (async function will throw shortly) |
+
+## Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `paymentMethod` | `PaymentMethod` | Yes | Payment method: `.applePay`, `.phantom`, or `.metamask` |
+| `to` | `SolanaAddress` | Yes | Destination Solana address where USDC will be deposited. Type-safe wrapper around base58-encoded Solana address |
+| `amount` | `USDC` | Yes | Amount to deposit. Use `USDC(10)` for 10 USDC, `USDC(25.50)` for 25.50 USDC |
+| `idempotencyKey` | `String?` | No | Optional key to prevent duplicate deposits. Retrying with the same key returns the same transaction |
+| `onEvent` | `((DepositEvent) -> Void)?` | No | Optional callback for real-time deposit status updates |
+
+## Types
+
+### SolanaAddress
+
+Type-safe wrapper for Solana addresses. Validates base58 encoding at initialization.
+
+```swift
+// Create from string - throws if invalid
+let address = try SolanaAddress("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU")
+
+// Or use failable initializer
+if let address = SolanaAddress("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU") {
+    // Valid address
+}
+
+// Get string representation
+print(address.base58String)
+```
+
+### USDC
+
+Type-safe wrapper for USDC amounts. Prevents common decimal/rounding errors.
+
+```swift
+let amount1 = USDC(10)           // 10 USDC
+let amount2 = USDC(25.50)        // 25.50 USDC
+let amount3 = USDC(cents: 1000)  // 10 USDC (from cents)
+
+print(amount1.value)     // 10.0
+print(amount1.cents)     // 1000
+print(amount1.formatted) // "10.00 USDC"
+```
+
+### Transaction
+
+```swift
+struct Transaction {
+    let signature: TransactionSignature
+    let status: TransactionStatus
+    let amount: USDC
+    let destinationAddress: SolanaAddress
+    let timestamp: Date
+    let paymentMethod: PaymentMethod
+}
+
+enum TransactionStatus {
+    case pending
+    case confirmed
+    case failed
+}
+```
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `signature` | `TransactionSignature` | Solana transaction signature. Use to look up transaction on explorers |
+| `status` | `TransactionStatus` | Always `.confirmed` when returned from successful deposit |
+| `amount` | `USDC` | Amount of USDC deposited |
+| `destinationAddress` | `SolanaAddress` | Destination Solana address |
+| `timestamp` | `Date` | When transaction was confirmed on Solana |
+| `paymentMethod` | `PaymentMethod` | Payment method used |
+
+## Error Handling
+
+### Error Types
+
+```swift
+enum ZSDepositError: Error {
+    case walletNotInstalled(PaymentMethod)
+    case userCancelled
+    case insufficientFunds(required: USDC, available: USDC?)
+    case networkError(underlying: Error, isRetryable: Bool)
+    case invalidAddress
+    case transactionFailed(reason: FailureReason, signature: TransactionSignature?)
+    case duplicateRequest(existingSignature: TransactionSignature)
+}
+```
+
+### Structured Error Handling
+
+All errors include metadata for programmatic handling:
+
+```swift
+do {
+    let transaction = try await ZSDeposit.deposit(...)
+    
+} catch let error as ZSDepositError {
+    switch error {
+    case .walletNotInstalled(let method):
+        showInstallPrompt(for: method)
+        
+    case .userCancelled:
+        // User intentionally cancelled - just reset UI
+        resetButton()
+        
+    case .insufficientFunds(required: let required, available: let available):
+        showAlert("""
+        Insufficient funds. 
+        Required: \(required.formatted)
+        Available: \(available?.formatted ?? "Unknown")
+        """)
+        
+    case .networkError(let underlying, isRetryable: let canRetry):
+        if canRetry {
+            showRetryAlert(error: underlying)
+        } else {
+            showPermanentError(error: underlying)
+        }
+        
+    case .invalidAddress:
+        showAlert("Invalid Solana address")
+        
+    case .transactionFailed(reason: let reason, signature: let sig):
+        showTransactionError(reason: reason, signature: sig)
+        
+    case .duplicateRequest(existingSignature: let sig):
+        // Request was duplicate - return existing transaction
+        showExistingTransaction(signature: sig)
+    }
+}
+```
+
+### Failure Reasons
+
+```swift
+enum FailureReason {
+    case insufficientLamports
+    case accountNotFound
+    case invalidAccountData
+    case programError(code: UInt32)
+    case timeout
+    case unknown(String)
+}
+```
+
+## Checking Capabilities
+
+Before showing payment options, check which methods are available:
+
+```swift
+let capabilities = ZSDeposit.capabilities()
+
+// Show only available methods in UI
+let availableMethods = capabilities.availableMethods
+// e.g., [.applePay, .phantom]
+
+// Check why a method is unavailable
+if let reason = capabilities.unavailableReasons[.metamask] {
+    switch reason {
+    case .notInstalled:
+        // Show "Install Metamask" prompt
+    case .unsupportedPlatform:
+        // Don't show this option at all
+    case .configurationError:
+        // Contact support
+    }
+}
+```
+
+### Capabilities Type
+
+```swift
+struct DepositCapabilities {
+    let availableMethods: [PaymentMethod]
+    let unavailableReasons: [PaymentMethod: UnavailableReason]
+}
+
+enum UnavailableReason {
+    case notInstalled
+    case unsupportedPlatform
+    case configurationError
+}
+```
+
+## Address Validation
+
+All payment methods use Solana addresses. Validate before creating deposits:
+
+```swift
+// Validation helper
+func validateAddress(_ input: String) -> Result<SolanaAddress, ValidationError> {
+    do {
+        let address = try SolanaAddress(input)
+        return .success(address)
+    } catch {
+        return .failure(.invalidFormat)
+    }
+}
+
+// Usage in UI
+func handleDepositTapped() {
+    guard case .success(let address) = validateAddress(addressInput.text ?? "") else {
+        showAlert("Invalid Solana address format")
+        return
+    }
+    
+    // All payment methods accept this address
+    Task {
+        let tx = try await ZSDeposit.deposit(
+            paymentMethod: selectedMethod,
+            to: address,
+            amount: selectedAmount
+        )
+    }
+}
+```
+
+<Warning>
+  Unlike some multi-chain systems, there are **no per-payment-method address rules**. If you have a valid `SolanaAddress`, it works with all payment methods (Phantom, Metamask, and Apple Pay).
+</Warning>
+
+## Complete Example
+
+Here's a production-ready implementation with all best practices:
+
+```swift
+import UIKit
+import ZSKit
+
+@MainActor
+class DepositViewController: UIViewController {
+    
+    private let destinationAddress: SolanaAddress
+    private var selectedAmount = USDC(10)
+    private var selectedMethod: PaymentMethod = .phantom
+    
+    @IBOutlet weak var amountField: UITextField!
+    @IBOutlet weak var methodPicker: UISegmentedControl!
+    @IBOutlet weak var depositButton: UIButton!
+    @IBOutlet weak var statusLabel: UILabel!
+    
+    init(destinationAddress: SolanaAddress) {
+        self.destinationAddress = destinationAddress
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        updateAvailableMethods()
+    }
+    
+    private func updateAvailableMethods() {
+        let caps = ZSDeposit.capabilities()
+        
+        // Configure UI based on available methods
+        methodPicker.removeAllSegments()
+        for (index, method) in caps.availableMethods.enumerated() {
+            methodPicker.insertSegment(
+                withTitle: method.displayName,
+                at: index,
+                animated: false
+            )
+        }
+        
+        // Show why unavailable methods don't work
+        for (method, reason) in caps.unavailableReasons {
+            print("\(method) unavailable: \(reason)")
+        }
+    }
+    
+    @IBAction func depositTapped() {
+        guard validateAmount() else { return }
+        
+        Task {
+            await initiateDeposit()
+        }
+    }
+    
+    private func validateAmount() -> Bool {
+        guard selectedAmount.value >= 1.0 else {
+            showAlert("Minimum deposit is 1 USDC")
+            return false
+        }
+        return true
+    }
+    
+    private func initiateDeposit() async {
+        depositButton.isEnabled = false
+        statusLabel.text = "Initiating deposit..."
+        
+        let idempotencyKey = UUID().uuidString
+        
+        do {
+            let transaction = try await ZSDeposit.deposit(
+                paymentMethod: selectedMethod,
+                to: destinationAddress,
+                amount: selectedAmount,
+                idempotencyKey: idempotencyKey,
+                onEvent: { [weak self] event in
+                    self?.handleDepositEvent(event)
+                }
+            )
+            
+            handleSuccess(transaction: transaction)
+            
+        } catch let error as ZSDepositError {
+            handleError(error)
+        } catch {
+            showAlert("Unexpected error: \(error.localizedDescription)")
+        }
+        
+        depositButton.isEnabled = true
+        statusLabel.text = ""
+    }
+    
+    private func handleDepositEvent(_ event: DepositEvent) {
+        switch event {
+        case .submitted(let signature):
+            statusLabel.text = "Confirming on Solana..."
+            print("Submitted: \(signature.base58)")
+            
+        case .confirmed(let signature):
+            statusLabel.text = "Confirmed!"
+            print("Confirmed: \(signature.base58)")
+            
+        case .failed(let error):
+            statusLabel.text = "Failed"
+            print("Failed: \(error)")
+        }
+    }
+    
+    private func handleSuccess(transaction: Transaction) {
+        // Track analytics
+        Analytics.track("usdc_deposit_completed", [
+            "signature": transaction.signature.base58,
+            "amount": transaction.amount.value,
+            "method": transaction.paymentMethod.rawValue
+        ])
+        
+        // Save to backend
+        saveToBackend(transaction)
+        
+        // Show success
+        let alert = UIAlertController(
+            title: "Deposit Successful",
+            message: "\(transaction.amount.formatted) deposited",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "View on Solscan", style: .default) { _ in
+            let url = URL(string: "https://solscan.io/tx/\(transaction.signature.base58)")!
+            UIApplication.shared.open(url)
+        })
+        alert.addAction(UIAlertAction(title: "Done", style: .cancel))
+        present(alert, animated: true)
+    }
+    
+    private func handleError(_ error: ZSDepositError) {
+        switch error {
+        case .walletNotInstalled(let method):
+            showInstallPrompt(for: method)
+            
+        case .userCancelled:
+            // Silent - user knows they cancelled
+            break
+            
+        case .insufficientFunds(required: let req, available: let avail):
+            showAlert("""
+            Insufficient funds
+            Required: \(req.formatted)
+            Available: \(avail?.formatted ?? "Unknown")
+            """)
+            
+        case .networkError(_, isRetryable: let canRetry):
+            if canRetry {
+                showRetryAlert()
+            } else {
+                showAlert("Network error. Please try again later.")
+            }
+            
+        case .invalidAddress:
+            showAlert("Invalid Solana address")
+            
+        case .transactionFailed(let reason, let sig):
+            showAlert("Transaction failed: \(reason)")
+            if let sig = sig {
+                print("Failed signature: \(sig.base58)")
+            }
+            
+        case .duplicateRequest(let existing):
+            showAlert("This deposit was already processed: \(existing.base58)")
+        }
+    }
+    
+    private func showInstallPrompt(for method: PaymentMethod) {
+        let alert = UIAlertController(
+            title: "\(method.displayName) Not Installed",
+            message: "Install \(method.displayName) to use this payment method",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Install", style: .default) { _ in
+            UIApplication.shared.open(method.installURL)
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+    
+    private func showRetryAlert() {
+        let alert = UIAlertController(
+            title: "Network Error",
+            message: "Unable to connect. Try again?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Retry", style: .default) { [weak self] _ in
+            Task { await self?.initiateDeposit() }
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+    
+    private func showAlert(_ message: String) {
+        let alert = UIAlertController(
+            title: "Deposit",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    
+    private func saveToBackend(_ transaction: Transaction) {
+        // Your API call here
+    }
+}
+
+extension PaymentMethod {
+    var displayName: String {
+        switch self {
+        case .applePay: return "Apple Pay"
+        case .phantom: return "Phantom"
+        case .metamask: return "Metamask"
+        }
+    }
+    
+    var installURL: URL {
+        switch self {
+        case .phantom:
+            return URL(string: "https://apps.apple.com/app/phantom")!
+        case .metamask:
+            return URL(string: "https://apps.apple.com/app/metamask")!
+        case .applePay:
+            fatalError("Apple Pay cannot be installed")
+        }
+    }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use async/await for cleaner code">
+    Modern Swift code is dramatically simpler with async/await. Reserve callbacks only for compatibility with older iOS versions or when you need fine-grained control over threading.
+  </Accordion>
+  
+  <Accordion title="Always validate addresses as Solana">
+    There are no per-payment-method address rules. If you have a `SolanaAddress`, it works everywhere. This eliminates a whole class of bugs.
+  </Accordion>
+  
+  <Accordion title="Use idempotency keys for money movement">
+    Deposits are money movement. Double-taps, retries, and network issues happen. Always use idempotency keys in production.
+  </Accordion>
+  
+  <Accordion title="Check capabilities before showing UI">
+    Use `ZSDeposit.capabilities()` to determine which payment methods are available before rendering your UI. This prevents showing options that won't work.
+  </Accordion>
+  
+  <Accordion title="Handle errors with structured types">
+    Use the structured error types (`ZSDepositError`) to provide specific, helpful error messages. Don't just show `error.localizedDescription`.
+  </Accordion>
+  
+  <Accordion title="Track deposit events for analytics">
+    Use the `onEvent` callback to track deposit lifecycle events (`submitted`, `confirmed`, `failed`) for monitoring and debugging.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  **Prefer the prebuilt UI?** Check out [ZeroSettle Deposit View](/wallet/zerosettle-deposit-view) for a ready-made deposit screen that uses this API internally.
+</Note>
