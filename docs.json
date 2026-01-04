@@ -2,6 +2,10 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "ZeroSettle Docs",
+  "appearance": {
+    "default": "dark",
+    "strict": true
+  },
   "colors": {
     "primary": "#98f875",
     "light": "#98f875",
