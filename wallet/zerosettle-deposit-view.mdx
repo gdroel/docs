@@ -1,271 +1,290 @@
 ---
 title: 'ZeroSettle Deposit View'
-description: 'Present a prebuilt UI for USDC deposits to Solana.'
+description: 'Present a prebuilt UI for USDC deposits.'
 icon: 'credit-card'
 ---
 
-`ZSDepositView` is a prebuilt, full-featured view controller that handles the entire USDC deposit flow. It provides a polished UI for amount selection, payment method switching, transaction status, and error handling—so you don't have to build this from scratch.
-
-**All deposits are USDC on Solana** - users can deposit USDC using Apple Pay, Phantom, or Metamask wallet providers.
-
-Use the prebuilt view when:
-- You want to get USDC deposits working quickly without building custom UI
-- You're happy with the default design and flow
-- You need a consistent deposit experience across your app
-
-For full control over the UI and flow, use the [ZeroSettle Deposit API](/wallet/zerosettle-deposit-api) instead.
+`ZSDepositView` is a prebuilt, full-featured SwiftUI view that handles the entire USDC deposit flow. It provides a polished UI for amount selection, payment method switching, transaction status, and error handling—so you don't have to build this from scratch.
 
 ## Basic Usage
 
-The simplest integration requires just a Solana address for USDC deposits. All three payment methods (Apple Pay, Phantom, Metamask) are shown by default.
+The simplest integration requires just a wallet address:
 
 ```swift
-import ZSKit
+import ZeroSettleKit
 
-let depositView = ZSDepositView(
-    walletAddress: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
-)
-present(depositView, animated: true)
+.sheet(isPresented: $showDeposit) {
+    ZSDepositView(walletAddress: "your_wallet_address")
+}
 ```
 
-The view automatically:
-- Detects which wallets are installed on the user's device
-- Disables or hides unavailable payment methods
-- Handles amount input with USDC validation
-- Shows real-time transaction status on Solana
-- Displays success or error states
+### With Callback
 
-<Tip>
-  You can present `ZSDepositView` modally (using `present()`) or push it onto a navigation stack (using `navigationController?.pushViewController()`). Both work seamlessly.
-</Tip>
-
-<Note>
-  The `walletAddress` parameter must be a valid Solana address. All deposits—whether from Apple Pay, Phantom, or Metamask—are USDC deposited to this Solana address.
-</Note>
-
-## Filtering Payment Methods
-
-Restrict which payment methods are available using the `paymentMethods` parameter. This is useful when:
-- You only want to accept specific payment types
-- You're gradually rolling out new payment methods
-- Different user segments should see different options
+Get notified when a deposit completes:
 
 ```swift
-import ZSKit
+import ZeroSettleKit
 
-let solanaAddress = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
-
-// Only show crypto wallets (no Apple Pay)
-let depositView = ZSDepositView(
-    walletAddress: solanaAddress,
-    paymentMethods: [.phantom, .metamask]
-)
-present(depositView, animated: true)
+.sheet(isPresented: $showDeposit) {
+    ZSDepositView(
+        walletAddress: userWalletAddress,
+        onDeposit: { depositedAmountCents in
+            // Update your user's balance
+            currentUser.balance += depositedAmountCents
+            print("Deposited $\(Double(depositedAmountCents) / 100.0)")
+        }
+    )
+}
 ```
 
-```swift
-// Only show Apple Pay
-let depositView = ZSDepositView(
-    walletAddress: solanaAddress,
-    paymentMethods: [.applePay]
-)
-present(depositView, animated: true)
-```
+## Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `walletAddress` | `String` | Yes | Destination wallet address for USDC deposits. Can be Solana (for Phantom) or Ethereum/Base address (for Apple Pay, MetaMask, Coinbase Wallet) |
+| `onDeposit` | `((Int) -> Void)?` | No | Callback invoked when deposit succeeds. Receives the deposited amount in cents (e.g., 300 = $3.00) |
+
+## Supported Payment Methods
+
+The view automatically shows all available payment methods:
+
+| Method | Description | Network |
+| --- | --- | --- |
+| **Apple Pay** | Instant deposits via Coinbase Pay | Base |
+| **Phantom** | Transfer USDC from Phantom wallet | Solana |
+| **MetaMask** | Transfer USDC from MetaMask wallet | Ethereum |
+| **Coinbase Wallet** | Transfer USDC on Base network | Base |
+
+Users can easily switch between methods in the UI. The view automatically detects which wallets are installed and available.
+
+## Amount Selection
+
+Users can choose from preset amounts or enter a custom amount:
+
+- **Preset amounts**: $1, $2, $3, $5, $10
+- **Custom amount**: Any amount via text input
+
+All amounts are handled internally and returned to your callback in **cents** (e.g., 500 = $5.00).
+
+## Complete Example
+
+Here's a full working example in a SwiftUI view:
 
 ```swift
-// Only show Phantom (direct USDC transfer)
-let depositView = ZSDepositView(
-    walletAddress: solanaAddress,
-    paymentMethods: [.phantom]
-)
-navigationController?.pushViewController(depositView, animated: true)
-```
+import SwiftUI
+import ZeroSettleKit
 
-<Warning>
-  If you specify payment methods that aren't installed (e.g., `.phantom` when Phantom isn't on the device), the view will show an installation prompt instead of the deposit form.
-</Warning>
-
-## Handling Success and Errors
-
-Use callback closures to respond when USDC deposits complete or fail. The view handles all UI states internally, but you'll typically want to:
-- Save the Solana transaction to your backend
-- Update app state or user USDC balance
-- Navigate to a confirmation screen
-- Track analytics
-
-```swift
-import ZSKit
-
-let depositView = ZSDepositView(
-    walletAddress: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-    onSuccess: { transaction in
-        // USDC deposit completed successfully
-        print("✅ USDC deposit successful: \(transaction.id)")
-        print("Amount: \(transaction.amountInCents / 100) USDC")
-        
-        // Save to backend
-        API.saveUSDCTransaction(transaction)
-        
-        // Update local state
-        UserDefaults.standard.set(transaction.id, forKey: "lastSolanaTransaction")
-        
-        // Track analytics
-        Analytics.track("usdc_deposit_completed", properties: [
-            "usdc_amount": transaction.amountInCents / 100,
-            "method": "\(transaction.paymentMethod)",
-            "solana_signature": transaction.id
-        ])
-        
-        // Navigate or update UI
-        self.updateUserUSDCBalance()
-        self.showSolanaExplorerLink(signature: transaction.id)
-    },
-    onError: { error in
-        // Transaction failed
-        print("❌ USDC deposit failed: \(error.localizedDescription)")
-        
-        // Track analytics
-        Analytics.track("usdc_deposit_failed", properties: [
-            "error": error.localizedDescription
-        ])
-        
-        // The view already shows error UI to the user,
-        // but you can do additional handling here
-    }
-)
-present(depositView, animated: true)
-```
-
-<Note>
-  The view shows its own error UI to users (alerts, error messages, etc.), so `onError` is primarily for logging, analytics, or backend updates. You don't need to show additional error UI unless you want to.
-</Note>
-
-## Complete Initialization Example
-
-Here's a full example showing all initialization options:
-
-```swift
-import UIKit
-import ZSKit
-
-class FundWalletViewController: UIViewController {
+struct WalletView: View {
+    @State private var showDeposit = false
+    @State private var currentBalance: Int = 0 // Balance in cents
     
-    let solanaAddress: String
+    let userWalletAddress = "YOUR_WALLET_ADDRESS"
     
-    init(solanaAddress: String) {
-        self.solanaAddress = solanaAddress
-        super.init(nibName: nil, bundle: nil)
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    func showDepositView() {
-        let depositView = ZSDepositView(
-            walletAddress: solanaAddress,
-            paymentMethods: [.applePay, .phantom, .metamask], // Optional, this is the default
-            onSuccess: { [weak self] transaction in
-                guard let self = self else { return }
-                
-                // 1. Save Solana transaction to backend
-                self.saveSolanaTransactionToBackend(transaction)
-                
-                // 2. Update UI
-                self.dismiss(animated: true) {
-                    self.showSuccessMessage(transaction: transaction)
-                }
-                
-                // 3. Refresh user USDC balance
-                self.refreshUserUSDCBalance()
-            },
-            onError: { [weak self] error in
-                // Log error for debugging
-                print("USDC deposit error: \(error)")
-                
-                // Track for monitoring
-                ErrorTracker.log(error, context: "usdc_deposit_flow")
-                
-                // The view handles showing error to user,
-                // but we can do additional cleanup here
-                self?.resetDepositState()
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Balance: $\(balanceFormatted)")
+                .font(.largeTitle)
+                .bold()
+            
+            Button("Deposit USDC") {
+                showDeposit = true
             }
-        )
-        
-        present(depositView, animated: true)
+            .buttonStyle(.borderedProminent)
+        }
+        .sheet(isPresented: $showDeposit) {
+            ZSDepositView(
+                walletAddress: userWalletAddress,
+                onDeposit: { depositedAmountCents in
+                    // Update balance
+                    currentBalance += depositedAmountCents
+                    
+                    // Save to backend
+                    saveBalanceToBackend(currentBalance)
+                    
+                    // Track analytics
+                    Analytics.track("deposit_completed", [
+                        "amount_cents": depositedAmountCents
+                    ])
+                    
+                    // Dismiss sheet
+                    showDeposit = false
+                }
+            )
+        }
     }
     
-    private func saveSolanaTransactionToBackend(_ transaction: Transaction) {
-        // Save Solana signature and USDC amount to your backend
-        let params = [
-            "solana_signature": transaction.id,
-            "usdc_amount": transaction.amountInCents / 100,
-            "payment_method": "\(transaction.paymentMethod)"
-        ]
+    var balanceFormatted: String {
+        String(format: "%.2f", Double(currentBalance) / 100.0)
+    }
+    
+    func saveBalanceToBackend(_ balanceCents: Int) {
         // Your API call here
-    }
-    
-    private func showSuccessMessage(transaction: Transaction) {
-        let usdcAmount = transaction.amountInCents / 100
-        let alert = UIAlertController(
-            title: "USDC Deposit Successful",
-            message: "Your deposit of \(usdcAmount) USDC has been confirmed on Solana!",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "View on Solscan", style: .default) { _ in
-            let url = URL(string: "https://solscan.io/tx/\(transaction.id)")!
-            UIApplication.shared.open(url)
-        })
-        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
-        present(alert, animated: true)
-    }
-    
-    private func refreshUserUSDCBalance() {
-        // Refresh your app's USDC balance display
-    }
-    
-    private func resetDepositState() {
-        // Any cleanup needed after error
     }
 }
 ```
 
-## Parameters Reference
+## Wallet Address Formats
 
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `walletAddress` | `String` | ✅ Yes | - | Destination Solana address where USDC will be deposited. Must be a valid base58-encoded Solana address. Same address used for all payment methods |
-| `paymentMethods` | `[PaymentMethod]` | No | `[.applePay, .phantom, .metamask]` | Array of payment methods to show in the view. Users can switch between these options. All methods deposit USDC to the Solana address |
-| `onSuccess` | `(Transaction) -> Void` | No | `nil` | Callback invoked when a USDC deposit completes successfully. Use this to save the transaction, update UI, or track analytics |
-| `onError` | `(Error) -> Void` | No | `nil` | Callback invoked when a deposit fails. The view already shows error UI, but use this for logging or additional handling |
+The `walletAddress` parameter accepts both Solana and Ethereum-compatible addresses:
 
-## Available Payment Methods
+### Solana Address (for Phantom)
 
-All payment methods deposit USDC on Solana:
+```swift
+ZSDepositView(
+    walletAddress: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+)
+```
 
-| Method | Description | User Experience |
-| --- | --- | --- |
-| `.applePay` | USDC deposit via Apple Pay | Shows Apple Pay sheet for USDC deposit |
-| `.phantom` | USDC transfer from Phantom wallet | Opens Phantom app to sign USDC SPL token transfer |
-| `.metamask` | USDC deposit from Metamask | Opens Metamask app for USDC deposit |
+### Ethereum/Base Address (for Apple Pay, MetaMask, Coinbase)
 
-## View Behavior
+```swift
+ZSDepositView(
+    walletAddress: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
+)
+```
 
-The `ZSDepositView` automatically handles:
+<Tip>
+  You can use the same wallet address for all payment methods, or let users choose by omitting the parameter. The view handles routing automatically.
+</Tip>
 
-✅ **Amount Input** - Formatted text field with validation, minimum/maximum amounts, and USDC currency display
+## What the View Handles
 
-✅ **Payment Method Switching** - Segmented control or buttons to switch between available wallet providers (Apple Pay, Phantom, Metamask)
+The `ZSDepositView` automatically takes care of:
 
-✅ **Wallet Detection** - Automatically detects if Phantom/Metamask are installed and shows installation prompts if needed
+✅ **Payment Method Selection** - Buttons to switch between Apple Pay, Phantom, MetaMask, and Coinbase Wallet
 
-✅ **Loading States** - Shows spinners and status messages during transaction processing
+✅ **Wallet Detection** - Automatically detects installed wallets and shows installation prompts if needed
 
-✅ **Transaction Status** - Real-time updates showing "Pending", "Confirming", "Confirmed" states for Solana transactions
+✅ **Amount Input** - Preset buttons ($1, $2, $3, $5, $10) and custom amount text field
 
-✅ **Error Handling** - User-friendly error messages with retry options for recoverable errors
+✅ **Transaction Processing** - Handles wallet connections, transaction signing, and network submission
 
-✅ **Dismissal** - "Cancel" or "Done" button to dismiss the view (calls `onError` with `.userCancelled` if transaction was in progress)
+✅ **Loading States** - Shows progress indicators during transaction processing
+
+✅ **Transaction Status** - Real-time updates showing "Pending", "Confirming", "Confirmed"
+
+✅ **Error Handling** - User-friendly error messages with retry options
+
+✅ **Dismissal** - Automatic or manual dismissal after success/error
+
+## Working with Amounts
+
+All amounts in ZeroSettle are represented in **cents** to avoid floating-point precision issues:
+
+```swift
+// Amounts in cents
+let oneDollar = 100
+let fiveDollars = 500
+let tenCents = 10
+
+// Converting to display
+let displayAmount = String(format: "$%.2f", Double(amountCents) / 100.0)
+
+// Example callback
+onDeposit: { cents in
+    print("User deposited \(cents) cents")
+    print("That's $\(Double(cents) / 100.0)")
+    
+    // Update balance (also in cents)
+    userBalance += cents
+}
+```
+
+## Common Patterns
+
+### Update UI After Deposit
+
+```swift
+.sheet(isPresented: $showDeposit) {
+    ZSDepositView(
+        walletAddress: walletAddress,
+        onDeposit: { cents in
+            currentBalance += cents
+            showDeposit = false // Dismiss
+            showSuccessAlert = true // Show confirmation
+        }
+    )
+}
+```
+
+### Save to Backend
+
+```swift
+.sheet(isPresented: $showDeposit) {
+    ZSDepositView(
+        walletAddress: walletAddress,
+        onDeposit: { cents in
+            Task {
+                try await backend.updateBalance(cents)
+                await fetchUserBalance()
+            }
+        }
+    )
+}
+```
+
+### Track Analytics
+
+```swift
+.sheet(isPresented: $showDeposit) {
+    ZSDepositView(
+        walletAddress: walletAddress,
+        onDeposit: { cents in
+            Analytics.logEvent("usdc_deposit", parameters: [
+                "amount_usd": Double(cents) / 100.0,
+                "amount_cents": cents,
+                "wallet_address": walletAddress
+            ])
+        }
+    )
+}
+```
+
+## Testing
+
+When testing deposits, use small amounts:
+
+```swift
+// Good for testing
+ZSDepositView(walletAddress: testWalletAddress)
+// User selects $1 or $2 for testing
+
+// Track test deposits separately
+onDeposit: { cents in
+    #if DEBUG
+    print("TEST DEPOSIT: \(cents) cents")
+    #endif
+    currentBalance += cents
+}
+```
+
+<Warning>
+  Always test on **testnet or with small amounts** before deploying to production. USDC transactions are real money.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Store balances in cents">
+    Always store monetary amounts as integers (cents) to avoid floating-point precision errors. Convert to dollars only for display.
+  </Accordion>
+  
+  <Accordion title="Save deposits to your backend">
+    Don't rely solely on the callback. Save deposit records to your backend with transaction details for reconciliation and support.
+  </Accordion>
+  
+  <Accordion title="Dismiss the sheet after success">
+    Set `showDeposit = false` in your callback to automatically dismiss the view after a successful deposit.
+  </Accordion>
+  
+  <Accordion title="Test with all payment methods">
+    Make sure to test with Apple Pay, Phantom, MetaMask, and Coinbase Wallet to ensure all flows work correctly.
+  </Accordion>
+  
+  <Accordion title="Use the correct address format">
+    Solana addresses for Phantom, Ethereum/Base addresses (starting with `0x`) for Apple Pay, MetaMask, and Coinbase Wallet.
+  </Accordion>
+</AccordionGroup>
 
 <Note>
   **Need more control?** Use the [ZeroSettle Deposit API](/wallet/zerosettle-deposit-api) to build fully custom UIs with direct access to payment rails.

@@ -1,97 +1,117 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Welcome to ZeroSettle"
+description: "Accept USDC deposits in your iOS app with a few lines of code"
 ---
 
-## Setting up
+ZeroSettle makes it easy to accept stablecoin (USDC) deposits in your iOS app. Support Apple Pay, Phantom, MetaMask, and Coinbase Wallet with a single, simple API.
 
-Get your documentation site up and running in minutes.
+## Get Started
+
+Add ZeroSettle to your app in minutes:
 
 <Card
-  title="Start here"
+  title="Quickstart Guide"
   icon="rocket"
   href="/quickstart"
   horizontal
 >
-  Follow our three step quickstart guide.
+  Install the SDK and accept your first deposit in under 5 minutes.
 </Card>
 
-## Make it yours
+## Products
 
-Design a docs site that looks great and empowers your users.
+Choose the integration that fits your needs:
 
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="ZeroSettle Deposit View"
+    icon="credit-card"
+    href="/wallet/zerosettle-deposit-view"
   >
-    Edit your docs locally and preview them in real time.
+    Drop-in SwiftUI view with prebuilt UI. Perfect for most apps.
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
+    title="ZeroSettle Deposit API"
     icon="code"
-    href="/essentials/code"
+    href="/wallet/zerosettle-deposit-api"
   >
-    Add sample code to demonstrate how to use your product.
+    Build custom deposit UIs with full control over the flow.
+  </Card>
+</CardGroup>
+
+## Why ZeroSettle?
+
+<CardGroup cols={2}>
+  <Card
+    title="Dead Simple"
+    icon="sparkles"
+  >
+    Just a few lines of SwiftUI code. No complex configuration or backend setup required.
   </Card>
   <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
+    title="Multiple Payment Methods"
+    icon="wallet"
   >
-    Display images and other media.
+    Support Apple Pay, Phantom, MetaMask, and Coinbase Wallet out of the box.
   </Card>
   <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
+    title="Production Ready"
+    icon="shield-check"
   >
-    Write once and reuse across your docs.
+    Battle-tested error handling, transaction status updates, and retry logic built in.
   </Card>
-</Columns>
+  <Card
+    title="SwiftUI Native"
+    icon="swift"
+  >
+    Built for modern iOS apps with SwiftUI. Integrates seamlessly with your existing code.
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Quick Example
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+```swift
+import SwiftUI
+import ZeroSettleKit
+
+.sheet(isPresented: $showDeposit) {
+    ZSDepositView(
+        walletAddress: "your_wallet_address",
+        onDeposit: { depositedAmountCents in
+            balance += depositedAmountCents
+        }
+    )
+}
+```
+
+That's it! The view handles everything: payment methods, amount selection, transactions, and errors.
+
+## What You Get
+
+✅ **Prebuilt UI** - Beautiful, native SwiftUI interface  
+✅ **4 Payment Methods** - Apple Pay, Phantom, MetaMask, Coinbase Wallet  
+✅ **Real-time Updates** - Transaction status and confirmations  
+✅ **Error Handling** - User-friendly error messages and retry logic  
+✅ **Wallet Detection** - Automatic detection of installed wallets  
+✅ **Preset Amounts** - Quick buttons for $1, $2, $3, $5, $10  
+✅ **Custom Amounts** - Users can enter any amount  
+✅ **Multi-chain** - Supports Solana and Ethereum/Base networks
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card
+    title="GitHub"
+    icon="github"
+    href="https://github.com/zerosettle/zerosettle-ios"
+  >
+    View the source code and example project
+  </Card>
+  <Card
+    title="Support"
+    icon="envelope"
+    href="mailto:support@zerosettle.com"
+  >
+    Get help from our team
+  </Card>
+</CardGroup>

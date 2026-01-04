@@ -53,35 +53,37 @@ import ZSKit
 The fastest way to start accepting deposits is using the prebuilt `ZSDepositView`:
 
 ```swift
-import UIKit
-import ZSKit
+import SwiftUI
+import ZeroSettleKit
 
-class YourViewController: UIViewController {
+struct ContentView: View {
+    @State private var showDeposit = false
+    @State private var balance: Int = 0 // Balance in cents
     
-    func showDepositView() {
-        // Your Solana USDC address
-        let solanaAddress = SolanaAddress("YOUR_SOLANA_ADDRESS")
-        
-        let depositView = ZSDepositView(
-            walletAddress: solanaAddress,
-            onSuccess: { transaction in
-                print("Deposit successful!")
-                print("Amount: \(transaction.amount)")
-                print("Signature: \(transaction.signature)")
-            },
-            onError: { error in
-                print("Deposit failed: \(error)")
+    var body: some View {
+        VStack {
+            Text("Balance: $\(Double(balance) / 100.0, specifier: "%.2f")")
+            
+            Button("Deposit USDC") {
+                showDeposit = true
             }
-        )
-        
-        present(depositView, animated: true)
+        }
+        .sheet(isPresented: $showDeposit) {
+            ZSDepositView(
+                walletAddress: "YOUR_WALLET_ADDRESS",
+                onDeposit: { depositedAmountCents in
+                    balance += depositedAmountCents
+                    showDeposit = false
+                }
+            )
+        }
     }
 }
 ```
 
 That's it! The view handles:
-- Payment method selection (Apple Pay, Phantom, Metamask)
-- Amount input
+- Payment method selection (Apple Pay, Phantom, MetaMask, Coinbase Wallet)
+- Amount input ($1, $2, $3, $5, $10, or custom)
 - Transaction submission
 - Real-time status updates
 - Error handling
@@ -90,13 +92,13 @@ That's it! The view handles:
 
 Build and run your app, then tap the button that shows the deposit view. You'll see:
 
-1. A screen with payment method options
-2. Amount input field
+1. Payment method options (Apple Pay, Phantom, MetaMask, Coinbase Wallet)
+2. Preset amount buttons ($1, $2, $3, $5, $10) or custom amount input
 3. A deposit button
 4. Real-time transaction status
 
 <Tip>
-  Start with small test amounts (e.g., 1 USDC) while you're developing to minimize costs.
+  Start with $1 or $2 deposits while testing to minimize costs. The preset $1 button makes testing quick and easy!
 </Tip>
 
 ## What's Next?
@@ -111,8 +113,8 @@ Build and run your app, then tap the button that shows the deposit view. You'll 
   Build custom deposit UIs with full control over the flow
 </Card>
 
-<Card title="Payment Methods" icon="wallet" href="/wallet/zerosettle-deposit-view#available-payment-methods">
-  Understand how Apple Pay, Phantom, and Metamask deposits work
+<Card title="Payment Methods" icon="wallet" href="/wallet/zerosettle-deposit-view#supported-payment-methods">
+  Understand how Apple Pay, Phantom, MetaMask, and Coinbase Wallet work
 </Card>
 
 <Card title="Error Handling" icon="triangle-exclamation" href="/wallet/zerosettle-deposit-api#error-handling">
@@ -121,58 +123,50 @@ Build and run your app, then tap the button that shows the deposit view. You'll 
 
 </CardGroup>
 
-## Getting Your Solana Address
+## Getting Your Wallet Address
 
-You need a Solana address to receive USDC deposits. Here's how to get one:
+You need a wallet address to receive USDC deposits. ZeroSettle supports both Solana and Ethereum/Base addresses:
 
 <AccordionGroup>
-  <Accordion title="Using Phantom Wallet">
+  <Accordion title="Solana Address (for Phantom)">
     1. Download [Phantom](https://phantom.app) wallet
     2. Create or import a wallet
     3. Tap your wallet name at the top
     4. Tap "Copy Address"
-    5. This is your Solana address for USDC deposits
+    5. Use this address - it looks like: `7xKXtg2CW87d97TXJSDpbD5jBkhe...`
   </Accordion>
   
-  <Accordion title="Using Solflare">
-    1. Download [Solflare](https://solflare.com) wallet
-    2. Create a new wallet
-    3. Tap "Receive"
-    4. Copy your wallet address
-    5. This is your Solana address
-  </Accordion>
-  
-  <Accordion title="Programmatically">
-    If you're managing wallets programmatically, use the Solana SDK:
+  <Accordion title="Ethereum/Base Address (for Apple Pay, MetaMask, Coinbase)">
+    1. Download [MetaMask](https://metamask.io) or [Coinbase Wallet](https://www.coinbase.com/wallet)
+    2. Create or import a wallet
+    3. Copy your wallet address
+    4. Use this address - it starts with `0x` like: `0x742d35Cc6634C0532925a3b844...`
     
-    ```swift
-    import Solana
-    
-    let keypair = Keypair.generate()
-    let address = keypair.publicKey.base58EncodedString
-    ```
+    **Note:** The same Ethereum address works on Base network
   </Accordion>
 </AccordionGroup>
 
 <Warning>
-  **Store private keys securely!** Never commit private keys to version control or expose them in your app. Only use public addresses (the receiving address) in your client app.
+  **Security:** Never store or expose private keys in your app. Only use public wallet addresses. Private keys should be stored securely on the backend or in user-controlled wallets only.
 </Warning>
 
 ## Common Issues
 
 <AccordionGroup>
-  <Accordion title="Module 'ZSKit' not found">
+  <Accordion title="Module 'ZeroSettleKit' not found">
     **Solution:** Make sure you've added the Swift package dependency and selected your app target. Clean and rebuild your project (**Cmd+Shift+K**, then **Cmd+B**).
   </Accordion>
   
-  <Accordion title="Invalid Solana address error">
-    **Solution:** Solana addresses are base58-encoded strings, typically 32-44 characters. Make sure you're using the public key, not a private key or seed phrase.
+  <Accordion title="Invalid wallet address error">
+    **Solution:** Make sure you're using a valid address format:
+    - **Solana:** Base58-encoded, 32-44 characters (e.g., `7xKXtg2CW87...`)
+    - **Ethereum/Base:** Hex string starting with `0x`, 42 characters (e.g., `0x742d35Cc...`)
     
-    Valid format: `7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU`
+    Never use private keys or seed phrases—only public addresses!
   </Accordion>
   
-  <Accordion title="Phantom/Metamask not opening">
-    **Solution:** Test on a physical device, not the simulator. Wallet apps don't work in the iOS Simulator.
+  <Accordion title="Phantom/MetaMask not opening">
+    **Solution:** Test on a physical device, not the simulator. Wallet apps don't work in the iOS Simulator. Make sure the wallet app is installed.
   </Accordion>
   
   <Accordion title="Apple Pay not showing">
@@ -180,6 +174,14 @@ You need a Solana address to receive USDC deposits. Here's how to get one:
     - Test on a physical device with an Apple Pay-enabled card
     - Ensure your Apple Developer account has Apple Pay entitlements
     - Add the Apple Pay capability to your app target in Xcode
+    - Make sure you're in a supported region
+  </Accordion>
+  
+  <Accordion title="Amounts not updating correctly">
+    **Solution:** Remember all amounts are in **cents**, not dollars:
+    - 100 cents = $1.00
+    - 500 cents = $5.00
+    - To display: `"$\(Double(cents) / 100.0, specifier: "%.2f")"`
   </Accordion>
 </AccordionGroup>
 
