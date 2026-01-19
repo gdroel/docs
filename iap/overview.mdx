@@ -1,0 +1,102 @@
+---
+title: 'Overview'
+description: 'Web checkout for iOS apps - bypass the 30% App Store fee'
+icon: 'credit-card'
+---
+
+ZeroSettle In-App Purchase lets iOS apps accept payments via web checkout, reducing fees from Apple's 30% to just 4.5%. We act as the Merchant of Record, handling payments, tax compliance, and liability.
+
+<Note>
+  In-App Purchase is currently in early access. [Request access](mailto:support@zerosettle.io) to get started.
+</Note>
+
+## Why ZeroSettle IAP?
+
+Apple's 30% fee is brutal for most apps. With ZeroSettle IAP, you can:
+
+| | Apple IAP | ZeroSettle IAP |
+| --- | --- | --- |
+| **Fee** | 30% (15% for small business) | 4.5%* |
+| **Tax Handling** | You figure it out | We handle it |
+| **Compliance** | Your responsibility | Our responsibility |
+| **Payouts** | 45+ days | Instant |
+
+*\*Standard rate for transactions over \$15. Smaller transactions add \$0.30 flat fee.*
+
+## How It Works
+
+<Steps>
+<Step title="User Taps Purchase">
+  Your app presents a purchase option. When tapped, ZeroSettle opens a web checkout using `ASWebAuthenticationSession` (Apple's approved method for external purchases).
+</Step>
+
+<Step title="User Completes Payment">
+  User pays on our hosted checkout page. We support Apple Pay, credit cards, and more.
+</Step>
+
+<Step title="User Returns to App">
+  After successful payment, user is redirected back to your app via URL scheme with a purchase token.
+</Step>
+
+<Step title="You Verify & Deliver">
+  Your app verifies the purchase token with our API, then unlocks the purchased content.
+</Step>
+</Steps>
+
+## What We Handle
+
+### Payment Processing
+- Stripe-powered checkout
+- Apple Pay on the web
+- Credit/debit cards
+- Multiple currencies
+
+### Tax Compliance
+- Automatic sales tax calculation (US)
+- VAT handling (EU)
+- GST handling (AU, etc.)
+- Tax remittance to authorities
+
+### Merchant of Record
+- We're the legal seller
+- We handle disputes and chargebacks
+- We issue refunds
+- We send receipts
+
+### Compliance
+- Apple's External Link guidelines
+- US geofencing (required by Apple)
+- `ASWebAuthenticationSession` flow
+
+## Use Cases
+
+- **Subscriptions** - Monthly/yearly plans
+- **One-time purchases** - Premium features, content packs
+- **Digital goods** - Credits, tokens, virtual items
+- **Tips & donations** - Creator support
+
+## Apple Compliance
+
+ZeroSettle IAP is designed to comply with Apple's guidelines for external purchases:
+
+- Uses `ASWebAuthenticationSession` (not `WKWebView`)
+- Shows required disclosure before leaving app
+- US-only geofencing (as required)
+- No IAP alternative for digital goods consumed in-app (where prohibited)
+
+<Warning>
+  Apple's rules around external purchases are complex and vary by app category and region. We help you navigate compliance, but you should review Apple's current guidelines for your specific use case.
+</Warning>
+
+## Coming Soon
+
+IAP documentation is being finalized. In the meantime:
+
+<CardGroup cols={2}>
+  <Card title="Request Early Access" icon="envelope" href="mailto:support@zerosettle.io">
+    Get started with IAP today
+  </Card>
+  <Card title="Visit Website" icon="globe" href="https://zerosettle.io">
+    Learn more about ZeroSettle
+  </Card>
+</CardGroup>

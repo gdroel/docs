@@ -1,0 +1,502 @@
+---
+title: 'API Reference'
+description: 'Complete ZeroSettleEscrow API documentation'
+icon: 'code'
+---
+
+Complete reference for the `ZeroSettleEscrow` SDK.
+
+## ZeroSettleEscrow
+
+The main entry point singleton for all escrow operations.
+
+```swift
+import ZeroSettleEscrow
+
+let escrow = ZeroSettleEscrow.shared
+```
+
+### Published Properties
+
+These properties are `@Published` and can be observed in SwiftUI:
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `isConfigured` | `Bool` | Whether `configure()` has been called |
+| `isAuthInitialized` | `Bool` | Whether auth initialization is complete |
+| `isAuthenticated` | `Bool` | Whether user is logged in |
+| `userId` | `UUID?` | ZeroSettle user ID |
+| `walletAddress` | `SolanaAddress?` | User's Solana wallet address |
+| `balanceCents` | `Int` | Current balance in cents |
+| `activeSession` | `GameSession?` | Current game session |
+
+### Delegate
+
+```swift
+public weak var delegate: ZeroSettleEscrowDelegate?
+```
+
+Set this to receive callbacks for auth, balance, and session events.
+
+---
+
+## Configuration
+
+### configure(_:)
+
+Configure the SDK. Must be called before any other methods.
+
+```swift
+public func configure(_ config: EscrowConfig)
+```
+
+**Example:**
+
+```swift
+ZeroSettleEscrow.shared.configure(EscrowConfig(
+    privyAppId: "clxxxxxxxxxxxxxxxx",
+    privyClientId: "client-xxxxxxxx",
+    partnerAppId: 123,
+    environment: .production
+))
+```
+
+### setGameAdminBackend(_:)
+
+Set your game admin backend for server integration.
+
+```swift
+public func setGameAdminBackend(_ backend: GameAdminBackend)
+```
+
+**Example:**
+
+```swift
+let backend = MyGameAdminBackend(baseURL: URL(string: "https://api.mygame.com")!)
+ZeroSettleEscrow.shared.setGameAdminBackend(backend)
+```
+
+---
+
+## Authentication
+
+### initializeAuth()
+
+Initialize authentication and restore any existing session.
+
+```swift
+public func initializeAuth() async
+```
+
+Call this once on app launch:
+
+```swift
+.task {
+    await ZeroSettleEscrow.shared.initializeAuth()
+}
+```
+
+### sendOTP(to:)
+
+Send OTP code to phone number.
+
+```swift
+public func sendOTP(to phoneNumber: String) async throws
+```
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `phoneNumber` | `String` | Phone in E.164 format (e.g., `+14155551234`) |
+
+**Throws:** `Error` if sending fails.
+
+### verifyOTP(code:phoneNumber:)
+
+Verify OTP and complete login.
+
+```swift
+public func verifyOTP(code: String, phoneNumber: String) async throws
+```
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `code` | `String` | The 6-digit OTP code |
+| `phoneNumber` | `String` | Phone in E.164 format |
+
+On success:
+- `isAuthenticated` becomes `true`
+- `userId` and `walletAddress` are set
+- Delegate receives `zeroSettleEscrowDidAuthenticate`
+- Balance subscription starts
+
+### logout()
+
+Logout the current user.
+
+```swift
+public func logout() async
+```
+
+Clears all state and disconnects balance subscription.
+
+---
+
+## Balance
+
+### balanceCents
+
+Current balance in cents, updated in real-time via WebSocket.
+
+```swift
+@Published public private(set) var balanceCents: Int
+```
+
+### forceRefreshBalance()
+
+Manually refresh balance (triggers RPC call).
+
+```swift
+public func forceRefreshBalance() async
+```
+
+Usually not needed—WebSocket updates automatically.
+
+### addDevFunds(cents:) [DEBUG ONLY]
+
+Add test funds to displayed balance.
+
+```swift
+#if DEBUG
+public func addDevFunds(cents: Int)
+#endif
+```
+
+<Warning>
+  Only affects local display. Does not create real on-chain funds.
+</Warning>
+
+---
+
+## Game Sessions
+
+### startSession(...)
+
+Start a new game session.
+
+```swift
+@discardableResult
+public func startSession(
+    gameDefinitionId: UUID,
+    mode: GameMode = .singlePlayer,
+    entryFeeCents: Int,
+    maxPayoutMultiplier: Double
+) async throws -> GameSession
+```
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `gameDefinitionId` | `UUID` | Game definition from dashboard |
+| `mode` | `GameMode` | `.singlePlayer`, `.duel`, or `.tournament` |
+| `entryFeeCents` | `Int` | Entry fee in cents |
+| `maxPayoutMultiplier` | `Double` | Maximum payout multiplier |
+
+**Returns:** `GameSession`
+
+**Throws:**
+- `ZeroSettleEscrowError.notAuthenticated`
+- `ZeroSettleEscrowError.insufficientBalance(required:available:)`
+- Other errors
+
+### confirmEscrow(sessionId:)
+
+Confirm escrow after staking.
+
+```swift
+public func confirmEscrow(sessionId: UUID) async throws
+```
+
+Validates both player and house stakes are confirmed on-chain.
+
+### submitResult(sessionId:playerResults:)
+
+Submit game result and trigger settlement.
+
+```swift
+@discardableResult
+public func submitResult(
+    sessionId: UUID,
+    playerResults: [PlayerResult]
+) async throws
+```
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `sessionId` | `UUID` | Session to settle |
+| `playerResults` | `[PlayerResult]` | Final results for each player |
+
+### clearActiveSession()
+
+Clear the active session.
+
+```swift
+public func clearActiveSession()
+```
+
+Call when returning to menu after game completion.
+
+---
+
+## Game Configuration
+
+### getGameDefinition(name:)
+
+Get a game definition by name.
+
+```swift
+public func getGameDefinition(name: String) async throws -> GameDefinition
+```
+
+Returns the game definition including its payout table.
+
+---
+
+## Types
+
+### EscrowConfig
+
+Configuration for the SDK.
+
+```swift
+public struct EscrowConfig: Sendable {
+    let privyAppId: String
+    let privyClientId: String
+    let partnerAppId: Int
+    let environment: NetworkEnvironment
+    let blockchainEnvironment: NetworkEnvironment
+    let localTokenMint: SolanaAddress?
+    let gameBackendURL: URL?
+}
+```
+
+### NetworkEnvironment
+
+```swift
+public enum NetworkEnvironment: String {
+    case production
+    case development
+    case local
+}
+```
+
+### GameMode
+
+```swift
+public enum GameMode: String, Sendable, Codable {
+    case singlePlayer = "single_player"
+    case duel = "duel"
+    case tournament = "tournament"
+}
+```
+
+### GameSession
+
+```swift
+public struct GameSession: Identifiable, Sendable, Equatable, Codable {
+    let id: UUID
+    let gameDefinitionId: UUID
+    let mode: GameMode
+    let entryFeeCents: Int
+    let maxPayoutMultiplier: Double
+    let players: [SessionPlayer]
+    let state: SessionState
+    let createdAt: Date
+
+    // Computed
+    var totalPotCents: Int
+    var stakedPlayerCount: Int
+    var allPlayersStaked: Bool
+}
+```
+
+### SessionState
+
+```swift
+public enum SessionState: String, Sendable, Codable {
+    case waitingForPlayers = "waiting_for_players"
+    case pendingStakes = "pending_stakes"
+    case escrowConfirmed = "escrow_confirmed"
+    case inProgress = "in_progress"
+    case pendingSettlement = "pending_settlement"
+    case settled = "settled"
+    case cancelled = "cancelled"
+}
+```
+
+### SessionPlayer
+
+```swift
+public struct SessionPlayer: Sendable, Equatable, Identifiable, Codable {
+    let id: UUID
+    let wallet: SolanaAddress
+    let stakeStatus: StakeStatus
+}
+
+public enum StakeStatus: String, Sendable, Codable {
+    case pending = "pending"
+    case staked = "staked"
+    case refunded = "refunded"
+}
+```
+
+### PlayerResult
+
+```swift
+public struct PlayerResult: Sendable, Codable {
+    let userId: UUID
+    let finalMultiplier: Double
+
+    var multiplierBps: Int  // 2.5x = 250
+}
+```
+
+### SettlementResult
+
+```swift
+public struct SettlementResult: Sendable, Codable {
+    let sessionId: UUID
+    let transactionSignature: String
+    let payouts: [PlayerPayout]
+    let platformFeeCents: Int
+}
+
+public struct PlayerPayout: Sendable, Codable {
+    let userId: UUID
+    let wallet: SolanaAddress
+    let amountCents: Int
+}
+```
+
+### GameDefinition
+
+```swift
+public struct GameDefinition: Sendable, Codable, Identifiable {
+    let id: UUID
+    let name: String
+    let displayName: String
+    let description: String?
+    let payoutTable: PayoutTable
+}
+```
+
+### PayoutTable
+
+```swift
+public enum PayoutTable: Sendable, Codable {
+    case discrete(DiscretePayoutTable)
+    case continuous(ContinuousPayoutTable)
+
+    var maxMultiplier: Double
+    func multiplier(for value: Double) -> Double
+}
+```
+
+### SolanaAddress
+
+Type-safe Solana address wrapper.
+
+```swift
+public struct SolanaAddress: Sendable, Equatable, Codable, Hashable {
+    let base58: String
+
+    init(_ base58String: String) throws  // Validates format
+    init(trusted base58String: String)   // Skips validation
+}
+```
+
+---
+
+## Errors
+
+### ZeroSettleEscrowError
+
+```swift
+public enum ZeroSettleEscrowError: Error, LocalizedError {
+    case notConfigured
+    case notAuthenticated
+    case noActiveSession
+    case sessionNotReady(currentState: SessionState)
+    case insufficientBalance(required: Int, available: Int)
+    case invalidConfiguration(String)
+    case signingFailed(String)
+}
+```
+
+---
+
+## Delegate Protocol
+
+### ZeroSettleEscrowDelegate
+
+```swift
+@MainActor
+public protocol ZeroSettleEscrowDelegate: AnyObject {
+    // Authentication
+    func zeroSettleEscrowDidAuthenticate(userId: UUID, walletAddress: SolanaAddress)
+    func zeroSettleEscrowDidLogout()
+    func zeroSettleEscrowAuthenticationFailed(operation: String, error: Error)
+
+    // Balance
+    func zeroSettleEscrowDidUpdateBalance(_ balanceCents: Int)
+    func zeroSettleEscrowBalanceFetchFailed(error: Error)
+
+    // Sessions
+    func zeroSettleEscrowDidCreateSession(_ session: GameSession)
+    func zeroSettleEscrowSessionStateChanged(_ session: GameSession, from previousState: SessionState)
+    func zeroSettleEscrowDidConfirm(session: GameSession)
+    func zeroSettleEscrowDidSettleSession(_ result: SettlementResult)
+
+    // Errors
+    func zeroSettleEscrowSessionCreationFailed(request: SessionCreationRequest, error: Error, canRetry: Bool)
+    func zeroSettleEscrowConfirmationFailed(sessionId: UUID, error: Error, canRetry: Bool)
+    func zeroSettleEscrowSettlementFailed(sessionId: UUID, error: Error, canRetry: Bool)
+}
+```
+
+### SessionCreationRequest
+
+Provided in failure callbacks to identify which creation attempt failed.
+
+```swift
+public struct SessionCreationRequest: Sendable {
+    let gameDefinitionId: UUID
+    let mode: GameMode
+    let entryFeeCents: Int
+    let maxPayoutMultiplier: Double
+}
+```
+
+---
+
+## GameAdminBackend Protocol
+
+Implement this protocol to integrate your game server.
+
+```swift
+public protocol GameAdminBackend: AnyObject, Sendable {
+    /// Called when player has staked. Your server should stake the house side.
+    func onPlayerStaked(
+        sessionId: UUID,
+        gameDefinitionId: Int,
+        entryFeeLamports: Int,
+        maxPayoutMultiplier: Double,
+        playerWalletAddress: String
+    ) async throws -> String  // Returns transaction signature
+
+    /// Called when game ends. Your server should submit result on-chain.
+    func submitResult(
+        sessionId: UUID,
+        finalMultiplierBps: Int,
+        playerWalletAddress: String
+    ) async throws
+}
+```

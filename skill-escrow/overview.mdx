@@ -1,0 +1,63 @@
+---
+title: 'Overview'
+description: 'Competitive gaming with blockchain escrow for iOS'
+icon: 'trophy'
+---
+
+ZeroSettle Skill-Based Escrow lets you build competitive games where players stake real money and earn payouts based on their performance. Funds are locked in an on-chain Solana escrow until settlement—neither you nor the player can cheat.
+
+## Why Skill-Based Escrow?
+
+Traditional in-app purchases don't work for competitive gaming:
+- Players want to win real money, not virtual currency
+- You need provably fair payouts
+- Funds must be held securely during gameplay
+
+ZeroSettle Escrow solves this with:
+- **On-chain escrow** - Funds locked in a Solana smart contract
+- **Embedded wallets** - No seed phrases or wallet apps required
+- **Instant settlement** - Payouts in seconds, not days
+- **Payout tables** - Flexible discrete or continuous payout curves
+
+## How It Works
+
+```
+Player Stakes → Escrow Locked → Player Competes → Result Submitted → Payout Settled
+```
+
+1. **Player authenticates** with phone number (OTP via Privy)
+2. **Player stakes** their wager (e.g., $1) into the escrow
+3. **House stakes** the liability (your game server)
+4. **Escrow confirmed** - both sides locked, game begins
+5. **Player competes** normally in your app
+6. **Result submitted** with final multiplier
+7. **Settlement** - player receives payout instantly
+
+## Game Modes
+
+| Mode | Description | Players |
+| --- | --- | --- |
+| **Single Player** | Player vs house. Payout based on performance. | 1 |
+| **Duel** | Player vs player. Winner takes pot. | 2 |
+| **Tournament** | Multiple players. Prize pool distribution. | N |
+
+## Example Games
+
+- **Wordle-style** - Fewer guesses = higher payout
+- **Puzzle games** - Faster completion = higher payout
+- **Score-based** - Higher score = higher payout
+- **Trivia** - More correct answers = higher payout
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/skill-escrow/quickstart">
+    Install the SDK and run your first session
+  </Card>
+  <Card title="Sessions" icon="gamepad" href="/skill-escrow/sessions">
+    Deep dive into session lifecycle and payout tables
+  </Card>
+  <Card title="API Reference" icon="code" href="/skill-escrow/api-reference">
+    Complete API documentation
+  </Card>
+</CardGroup>

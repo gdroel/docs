@@ -1,116 +1,135 @@
 ---
 title: "Welcome to ZeroSettle"
-description: "Accept USDC deposits in your iOS app with a few lines of code"
+description: "Payments infrastructure for iOS apps"
 ---
 
-ZeroSettle makes it easy to accept stablecoin (USDC) deposits in your iOS app. Support Apple Pay, Phantom, MetaMask, and Coinbase Wallet with a single, simple API.
-
-## Get Started
-
-Add ZeroSettle to your app in minutes:
-
-<Card
-  title="Quickstart Guide"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Install the SDK and accept your first deposit in under 5 minutes.
-</Card>
+ZeroSettle provides two products for iOS developers: **In-App Purchase** for web-based payments that bypass App Store fees, and **Skill-Based Escrow** for competitive gaming with real-money stakes.
 
 ## Products
 
-Choose the integration that fits your needs:
-
 <CardGroup cols={2}>
   <Card
-    title="ZeroSettle Deposit View"
+    title="In-App Purchase"
     icon="credit-card"
-    href="/wallet/zerosettle-deposit-view"
+    href="/iap/overview"
   >
-    Drop-in SwiftUI view with prebuilt UI. Perfect for most apps.
+    Web checkout for iOS apps. Reduce fees from 30% to 4.5%. We handle tax, VAT/GST, and compliance.
   </Card>
   <Card
-    title="ZeroSettle Deposit API"
-    icon="code"
-    href="/wallet/zerosettle-deposit-api"
+    title="Skill-Based Escrow"
+    icon="trophy"
+    href="/skill-escrow/overview"
   >
-    Build custom deposit UIs with full control over the flow.
+    Competitive gaming with blockchain escrow. Players stake, compete, and get paid based on performance.
   </Card>
 </CardGroup>
 
-## Why ZeroSettle?
+---
 
-<CardGroup cols={2}>
-  <Card
-    title="Dead Simple"
-    icon="sparkles"
-  >
-    Just a few lines of SwiftUI code. No complex configuration or backend setup required.
-  </Card>
-  <Card
-    title="Multiple Payment Methods"
-    icon="wallet"
-  >
-    Support Apple Pay, Phantom, MetaMask, and Coinbase Wallet out of the box.
-  </Card>
-  <Card
-    title="Production Ready"
-    icon="shield-check"
-  >
-    Battle-tested error handling, transaction status updates, and retry logic built in.
-  </Card>
-  <Card
-    title="SwiftUI Native"
-    icon="swift"
-  >
-    Built for modern iOS apps with SwiftUI. Integrates seamlessly with your existing code.
-  </Card>
-</CardGroup>
+## In-App Purchase
 
-## Quick Example
+Replace Apple's 30% cut with our 4.5% fee. ZeroSettle acts as your Merchant of Record—we handle the entire payment flow, tax remittance, and compliance so you don't have to.
 
-```swift
-import SwiftUI
-import ZeroSettleKit
+### How It Works
 
-.sheet(isPresented: $showDeposit) {
-    ZSDepositView(
-        walletAddress: "your_wallet_address",
-        onDeposit: { depositedAmountCents in
-            balance += depositedAmountCents
-        }
-    )
-}
-```
+<Steps>
+<Step title="User Taps Purchase">
+  Your app shows a purchase button. When tapped, ZeroSettle opens a web checkout via `ASWebAuthenticationSession`.
+</Step>
 
-That's it! The view handles everything: payment methods, amount selection, transactions, and errors.
+<Step title="User Pays">
+  User completes payment on our hosted checkout. We support Apple Pay, cards, and more.
+</Step>
 
-## What You Get
+<Step title="User Returns to App">
+  After payment, user is redirected back to your app with a success token.
+</Step>
 
-✅ **Prebuilt UI** - Beautiful, native SwiftUI interface  
-✅ **4 Payment Methods** - Apple Pay, Phantom, MetaMask, Coinbase Wallet  
-✅ **Real-time Updates** - Transaction status and confirmations  
-✅ **Error Handling** - User-friendly error messages and retry logic  
-✅ **Wallet Detection** - Automatic detection of installed wallets  
-✅ **Preset Amounts** - Quick buttons for $1, $2, $3, $5, $10  
-✅ **Custom Amounts** - Users can enter any amount  
-✅ **Multi-chain** - Supports Solana and Ethereum/Base networks
+<Step title="You Deliver Content">
+  Verify the purchase with our API and unlock the content for your user.
+</Step>
+</Steps>
+
+### What We Handle
+
+- **Payment Processing** - Stripe-powered checkout with Apple Pay support
+- **Tax Compliance** - Automatic sales tax, VAT, and GST calculation and remittance
+- **Merchant of Record** - We're the seller of record, handling liability and disputes
+- **Refunds** - We handle refund requests and chargebacks
+- **Receipts** - Automatic email receipts to customers
+
+<Card title="Get Started with IAP" icon="rocket" href="/iap/quickstart">
+  Coming soon — request early access
+</Card>
+
+---
+
+## Skill-Based Escrow
+
+Build competitive games where players stake real money and earn payouts based on performance. ZeroSettle handles the on-chain escrow, ensuring fair and transparent payouts.
+
+### How It Works
+
+<Steps>
+<Step title="Player Authenticates">
+  Phone-based login via Privy. We create an embedded Solana wallet for each user automatically.
+</Step>
+
+<Step title="Player Stakes">
+  Player chooses a wager (e.g., $1). Funds are locked in an on-chain escrow until game completion.
+</Step>
+
+<Step title="Player Competes">
+  Your game runs normally. ZeroSettle stays out of the way.
+</Step>
+
+<Step title="Result & Payout">
+  Submit the game result. We calculate the payout from your payout table and settle on-chain instantly.
+</Step>
+</Steps>
+
+### What We Handle
+
+- **On-Chain Escrow** - Funds locked in Solana smart contract
+- **Embedded Wallets** - No seed phrases, no wallet apps—just phone verification
+- **Real-time Balance** - WebSocket-powered instant balance updates
+- **Payout Tables** - Flexible discrete or continuous payout curves
+- **Settlement** - Automatic on-chain settlement in seconds
+
+<Card title="Get Started with Escrow" icon="rocket" href="/skill-escrow/quickstart">
+  Install the SDK and run your first session
+</Card>
+
+---
+
+## Quick Comparison
+
+| Feature | In-App Purchase | Skill-Based Escrow |
+| --- | --- | --- |
+| **Use Case** | Subscriptions, one-time purchases, digital goods | Skill-based games, contests, tournaments |
+| **Payment Flow** | Web checkout via browser | On-chain staking via embedded wallet |
+| **Fee** | 4.5%* | 5% of pot |
+| **Settlement** | Instant to your Stripe account | Instant on-chain to player wallet |
+| **Compliance** | Tax, VAT/GST, MoR | Skill gaming regulations |
+
+*\*Standard rate for transactions over \$15. Smaller transactions add \$0.30 flat fee.*
+
+---
 
 ## Need Help?
 
 <CardGroup cols={2}>
   <Card
-    title="GitHub"
-    icon="github"
-    href="https://github.com/zerosettle/zerosettle-ios"
+    title="Documentation"
+    icon="book"
+    href="/skill-escrow/quickstart"
   >
-    View the source code and example project
+    Guides and API reference
   </Card>
   <Card
     title="Support"
     icon="envelope"
-    href="mailto:support@zerosettle.com"
+    href="mailto:support@zerosettle.io"
   >
     Get help from our team
   </Card>

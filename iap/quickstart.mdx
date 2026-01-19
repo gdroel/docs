@@ -1,0 +1,75 @@
+---
+title: 'Quickstart'
+description: 'Get started with ZeroSettle In-App Purchase'
+icon: 'rocket'
+---
+
+<Note>
+  IAP SDK documentation is coming soon. [Request early access](mailto:support@zerosettle.io) to get started today.
+</Note>
+
+## Overview
+
+The ZeroSettle IAP SDK will provide:
+
+```swift
+import ZeroSettleIAP
+
+// Configure
+ZeroSettleIAP.shared.configure(
+    apiKey: "your-api-key",
+    environment: .production
+)
+
+// Start a purchase flow
+ZeroSettleIAP.shared.purchase(
+    productId: "premium_monthly",
+    presenting: self
+) { result in
+    switch result {
+    case .success(let purchase):
+        // Unlock content
+        unlockPremium(purchase.transactionId)
+    case .cancelled:
+        // User cancelled
+        break
+    case .failure(let error):
+        // Handle error
+        showError(error)
+    }
+}
+```
+
+## Features
+
+### Simple Integration
+- Single SDK import
+- 3 lines of code to start a purchase
+- Automatic URL scheme handling
+
+### Web Checkout
+- Hosted checkout page (no PCI compliance needed)
+- Apple Pay support
+- Multiple payment methods
+
+### Compliance Built-in
+- `ASWebAuthenticationSession` flow
+- Required disclosures shown automatically
+- US geofencing handled
+
+### Webhooks
+- Purchase completed
+- Subscription renewed
+- Subscription cancelled
+- Refund issued
+
+## Coming Soon
+
+- Full SDK documentation
+- API reference
+- Webhook integration guide
+- Dashboard setup
+
+<Card title="Request Early Access" icon="envelope" href="mailto:support@zerosettle.io">
+  Get started with IAP before public launch
+</Card>

@@ -1,0 +1,475 @@
+---
+title: "Quickstart"
+description: "Add ZeroSettle escrow to your iOS game"
+icon: "rocket"
+---
+
+Get up and running with ZeroSettle in minutes. This guide walks you through installation, configuration, and running your first escrow session.
+
+## Installation
+
+### Swift Package Manager
+
+Add ZeroSettleEscrow to your Xcode project:
+
+<Steps>
+<Step title="Open your Xcode project">
+  Open your iOS app project in Xcode.
+</Step>
+
+<Step title="Add package dependency">
+  1. Go to **File** → **Add Package Dependencies...**
+  2. Enter the package URL:
+
+  ```
+  https://github.com/ArkEcosystem/zerosettle-ios
+  ```
+
+  3. Click **Add Package**
+</Step>
+
+<Step title="Select products">
+  Select `ZeroSettleEscrow` and add it to your app target.
+</Step>
+</Steps>
+
+### Requirements
+
+<Info>
+  - **iOS 15.0+**
+  - **Swift 5.9+**
+  - **Xcode 15.0+**
+</Info>
+
+## Configuration
+
+### 1. Get Your Credentials
+
+You'll need three things from your [ZeroSettle Dashboard](https://zerosettle.io/developer-login/):
+
+| Credential | Description |
+| --- | --- |
+| `privyAppId` | Your Privy app ID for authentication |
+| `privyClientId` | Your Privy client ID |
+| `partnerAppId` | Your ZeroSettle partner app ID (integer) |
+
+### 2. Configure on App Launch
+
+Configure ZeroSettle early in your app lifecycle (e.g., in your `App` init or `AppDelegate`):
+
+```swift
+import SwiftUI
+import ZeroSettleEscrow
+
+@main
+struct MyGameApp: App {
+    init() {
+        ZeroSettleEscrow.shared.configure(EscrowConfig(
+            privyAppId: "clxxxxxxxxxxxxxxxx",
+            privyClientId: "client-xxxxxxxx",
+            partnerAppId: 123,
+            environment: .production  // or .development for testing
+        ))
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+```
+
+### 3. Initialize Authentication
+
+Restore any existing session when your app launches:
+
+```swift
+struct ContentView: View {
+    @StateObject private var escrow = ZeroSettleEscrow.shared
+
+    var body: some View {
+        Group {
+            if !escrow.isAuthInitialized {
+                ProgressView("Loading...")
+            } else if escrow.isAuthenticated {
+                GameView()
+            } else {
+                LoginView()
+            }
+        }
+        .task {
+            await ZeroSettleEscrow.shared.initializeAuth()
+        }
+    }
+}
+```
+
+## Authentication
+
+ZeroSettle uses phone-based authentication via Privy. Users verify their phone number with an OTP code, and ZeroSettle automatically creates an embedded Solana wallet for them.
+
+### Send OTP
+
+```swift
+@State private var phoneNumber = ""
+@State private var isLoading = false
+@State private var showCodeEntry = false
+
+func sendCode() async {
+    isLoading = true
+    defer { isLoading = false }
+
+    do {
+        try await ZeroSettleEscrow.shared.sendOTP(to: phoneNumber)
+        showCodeEntry = true
+    } catch {
+        // Handle error - show alert
+        print("Failed to send OTP: \(error)")
+    }
+}
+```
+
+### Verify OTP
+
+```swift
+@State private var otpCode = ""
+
+func verifyCode() async {
+    isLoading = true
+    defer { isLoading = false }
+
+    do {
+        try await ZeroSettleEscrow.shared.verifyOTP(
+            code: otpCode,
+            phoneNumber: phoneNumber
+        )
+        // User is now authenticated!
+        // escrow.isAuthenticated == true
+        // escrow.userId and escrow.walletAddress are set
+    } catch {
+        print("Failed to verify OTP: \(error)")
+    }
+}
+```
+
+<Tip>
+  Phone numbers must be in E.164 format: `+14155551234` (country code + number, no spaces or dashes).
+</Tip>
+
+## Running a Game Session
+
+Once authenticated, you can run escrow sessions. Here's the complete flow:
+
+### 1. Check Balance
+
+```swift
+// Balance is automatically updated via WebSocket
+let balanceCents = ZeroSettleEscrow.shared.balanceCents
+
+// Display formatted
+let balanceText = String(format: "$%.2f", Double(balanceCents) / 100.0)
+```
+
+### 2. Start Session
+
+```swift
+// Ensure user has enough balance
+let entryFeeCents = 100  // $1.00
+
+guard escrow.balanceCents >= entryFeeCents else {
+    showInsufficientBalanceAlert()
+    return
+}
+
+do {
+    let session = try await ZeroSettleEscrow.shared.startSession(
+        gameDefinitionId: myGameId,  // UUID from your dashboard
+        mode: .singlePlayer,
+        entryFeeCents: entryFeeCents,
+        maxPayoutMultiplier: 2.0
+    )
+
+    print("Session created: \(session.id)")
+    // Session is now in .pendingStakes state
+
+} catch ZeroSettleEscrowError.insufficientBalance(let required, let available) {
+    print("Need \(required) cents, have \(available)")
+} catch {
+    print("Failed to start session: \(error)")
+}
+```
+
+### 3. Confirm Escrow
+
+After starting the session, confirm that escrow is ready:
+
+```swift
+do {
+    try await ZeroSettleEscrow.shared.confirmEscrow(sessionId: session.id)
+    // Session is now in .escrowConfirmed state
+    // Game can begin!
+
+} catch {
+    print("Escrow confirmation failed: \(error)")
+}
+```
+
+### 4. Play the Game
+
+Run your game normally. ZeroSettle doesn't interfere with gameplay.
+
+```swift
+// Your game logic here
+let result = await playMyGame()
+let score = result.score  // e.g., number of guesses, final score, etc.
+```
+
+### 5. Submit Result & Settle
+
+When the game ends, submit the result:
+
+```swift
+// Get the multiplier from your payout table
+let multiplier = gameDefinition.payoutTable.multiplier(for: Double(score))
+
+do {
+    try await ZeroSettleEscrow.shared.submitResult(
+        sessionId: session.id,
+        playerResults: [
+            PlayerResult(
+                userId: escrow.userId!,
+                finalMultiplier: multiplier
+            )
+        ]
+    )
+
+    // Session is now settled!
+    // User's balance is updated automatically via WebSocket
+
+} catch {
+    print("Settlement failed: \(error)")
+}
+```
+
+## Complete Example
+
+Here's a complete SwiftUI view for a simple Wordle-style game:
+
+```swift
+import SwiftUI
+import ZeroSettleEscrow
+
+struct BlitzGameView: View {
+    @StateObject private var escrow = ZeroSettleEscrow.shared
+
+    @State private var gameState: GameState = .ready
+    @State private var currentSession: GameSession?
+    @State private var guessCount = 0
+
+    let gameDefinitionId = UUID(uuidString: "your-game-uuid")!
+    let entryFeeCents = 100
+
+    enum GameState {
+        case ready
+        case staking
+        case playing
+        case settling
+        case complete
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            // Balance display
+            Text("Balance: $\(String(format: "%.2f", Double(escrow.balanceCents) / 100.0))")
+                .font(.headline)
+
+            switch gameState {
+            case .ready:
+                Button("Play ($1.00)") {
+                    Task { await startGame() }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(escrow.balanceCents < entryFeeCents)
+
+            case .staking:
+                ProgressView("Staking...")
+
+            case .playing:
+                // Your game UI here
+                Text("Guesses: \(guessCount)")
+                Button("Guess Correct!") {
+                    guessCount += 1
+                    Task { await endGame() }
+                }
+
+            case .settling:
+                ProgressView("Settling...")
+
+            case .complete:
+                Text("Game complete!")
+                Button("Play Again") {
+                    gameState = .ready
+                    guessCount = 0
+                }
+            }
+        }
+        .padding()
+    }
+
+    func startGame() async {
+        gameState = .staking
+
+        do {
+            // Start session and stake
+            let session = try await escrow.startSession(
+                gameDefinitionId: gameDefinitionId,
+                entryFeeCents: entryFeeCents,
+                maxPayoutMultiplier: 2.0
+            )
+            currentSession = session
+
+            // Confirm escrow
+            try await escrow.confirmEscrow(sessionId: session.id)
+
+            // Start playing
+            gameState = .playing
+
+        } catch {
+            print("Failed to start: \(error)")
+            gameState = .ready
+        }
+    }
+
+    func endGame() async {
+        guard let session = currentSession else { return }
+
+        gameState = .settling
+
+        // Calculate multiplier (example: fewer guesses = higher payout)
+        let multiplier = max(0, 2.0 - Double(guessCount - 1) * 0.3)
+
+        do {
+            try await escrow.submitResult(
+                sessionId: session.id,
+                playerResults: [
+                    PlayerResult(userId: escrow.userId!, finalMultiplier: multiplier)
+                ]
+            )
+
+            gameState = .complete
+
+        } catch {
+            print("Settlement failed: \(error)")
+            gameState = .complete
+        }
+    }
+}
+```
+
+## Using the Delegate
+
+For more control, implement the delegate to receive callbacks:
+
+```swift
+class GameManager: ZeroSettleEscrowDelegate {
+    init() {
+        ZeroSettleEscrow.shared.delegate = self
+    }
+
+    // Auth events
+    func zeroSettleEscrowDidAuthenticate(userId: UUID, walletAddress: SolanaAddress) {
+        print("User authenticated: \(userId)")
+    }
+
+    func zeroSettleEscrowDidLogout() {
+        print("User logged out")
+    }
+
+    func zeroSettleEscrowAuthenticationFailed(operation: String, error: Error) {
+        print("Auth failed (\(operation)): \(error)")
+    }
+
+    // Balance events
+    func zeroSettleEscrowDidUpdateBalance(_ balanceCents: Int) {
+        print("Balance updated: \(balanceCents) cents")
+    }
+
+    func zeroSettleEscrowBalanceFetchFailed(error: Error) {
+        print("Balance fetch failed: \(error)")
+    }
+
+    // Session events
+    func zeroSettleEscrowDidCreateSession(_ session: GameSession) {
+        print("Session created: \(session.id)")
+    }
+
+    func zeroSettleEscrowSessionStateChanged(_ session: GameSession, from previousState: SessionState) {
+        print("Session \(session.id): \(previousState) → \(session.state)")
+    }
+
+    func zeroSettleEscrowDidConfirm(session: GameSession) {
+        print("Escrow confirmed, game can start!")
+    }
+
+    func zeroSettleEscrowDidSettleSession(_ result: SettlementResult) {
+        print("Settled! Tx: \(result.transactionSignature)")
+    }
+
+    // Error events
+    func zeroSettleEscrowSessionCreationFailed(request: SessionCreationRequest, error: Error, canRetry: Bool) {
+        print("Session creation failed: \(error)")
+    }
+
+    func zeroSettleEscrowConfirmationFailed(sessionId: UUID, error: Error, canRetry: Bool) {
+        print("Confirmation failed: \(error)")
+    }
+
+    func zeroSettleEscrowSettlementFailed(sessionId: UUID, error: Error, canRetry: Bool) {
+        print("Settlement failed: \(error)")
+    }
+}
+```
+
+## Testing
+
+### Development Environment
+
+Use `.development` environment to test against devnet:
+
+```swift
+ZeroSettleEscrow.shared.configure(EscrowConfig(
+    privyAppId: "your-privy-app-id",
+    privyClientId: "your-privy-client-id",
+    partnerAppId: 123,
+    environment: .development  // Uses Solana devnet
+))
+```
+
+### Dev Funds (Debug Only)
+
+In debug builds, you can add test funds:
+
+```swift
+#if DEBUG
+ZeroSettleEscrow.shared.addDevFunds(cents: 1000)  // Add $10
+#endif
+```
+
+<Warning>
+  `addDevFunds` only updates the local balance display—it doesn't create real on-chain funds. Use devnet for full end-to-end testing.
+</Warning>
+
+## What's Next?
+
+<CardGroup cols={2}>
+
+<Card title="Escrow Overview" icon="lock" href="/wallet/zerosettle-escrow">
+  Deep dive into sessions, payout tables, and game modes
+</Card>
+
+<Card title="API Reference" icon="code" href="/wallet/zerosettle-api">
+  Complete API documentation with all methods and types
+</Card>
+
+</CardGroup>

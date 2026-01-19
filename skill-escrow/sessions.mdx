@@ -1,0 +1,328 @@
+---
+title: 'Escrow Sessions'
+description: 'Deep dive into game sessions, payout tables, and settlement'
+icon: 'lock'
+---
+
+ZeroSettle escrow sessions are the core primitive for skill-based gaming. A session represents a single game where a player stakes funds, plays, and receives a payout based on performance.
+
+## Session Lifecycle
+
+Every session goes through these states:
+
+```
+waitingForPlayers → pendingStakes → escrowConfirmed → inProgress → pendingSettlement → settled
+                                                                                      ↘ cancelled
+```
+
+| State | Description |
+| --- | --- |
+| `waitingForPlayers` | Session created, waiting for players to join (multiplayer) |
+| `pendingStakes` | Players have joined, stakes being submitted to blockchain |
+| `escrowConfirmed` | Both player and house stakes confirmed on-chain |
+| `inProgress` | Game is being played |
+| `pendingSettlement` | Game complete, settlement in progress |
+| `settled` | Payout complete |
+| `cancelled` | Session was cancelled (refunds issued) |
+
+## Creating a Session
+
+```swift
+let session = try await ZeroSettleEscrow.shared.startSession(
+    gameDefinitionId: gameId,
+    mode: .singlePlayer,
+    entryFeeCents: 100,
+    maxPayoutMultiplier: 2.0
+)
+```
+
+### Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `gameDefinitionId` | `UUID` | The game definition from your dashboard |
+| `mode` | `GameMode` | `.singlePlayer`, `.duel`, or `.tournament` |
+| `entryFeeCents` | `Int` | Entry fee in cents (100 = $1.00) |
+| `maxPayoutMultiplier` | `Double` | Maximum possible payout multiplier |
+
+### What Happens
+
+When you call `startSession`:
+
+1. **Balance Check** - SDK verifies user has sufficient balance
+2. **Session Created** - Backend creates session record
+3. **Player Stake Tx** - SDK signs and submits player's stake transaction
+4. **House Stake** - Your game admin backend stakes the house side
+5. **Session Ready** - Both stakes confirmed, session is `.pendingStakes`
+
+## Game Modes
+
+### Single Player (Blitz)
+
+Player stakes against the house. Payout is determined by the payout table.
+
+```swift
+let session = try await escrow.startSession(
+    gameDefinitionId: wordleGameId,
+    mode: .singlePlayer,
+    entryFeeCents: 100,
+    maxPayoutMultiplier: 2.0
+)
+```
+
+**Use case:** Wordle-style games, puzzle games, score-based games.
+
+### Duel (Coming Soon)
+
+Two players stake equal amounts. Winner takes the pot (minus platform fee).
+
+```swift
+let session = try await escrow.startSession(
+    gameDefinitionId: chessGameId,
+    mode: .duel,
+    entryFeeCents: 500,
+    maxPayoutMultiplier: 1.9  // 2x minus 5% fee
+)
+```
+
+**Use case:** Head-to-head games like chess, trivia battles.
+
+### Tournament (Coming Soon)
+
+Multiple players, prize pool distributed to top finishers.
+
+**Use case:** Leaderboard competitions, bracket tournaments.
+
+## Payout Tables
+
+Payout tables define how game performance maps to payouts. ZeroSettle supports two types:
+
+### Discrete Payout Tables
+
+Fixed multipliers for specific outcomes. Perfect for games with countable results.
+
+**Example: Wordle (solved in N guesses)**
+
+| Guesses | Multiplier | $1 Stake → Payout |
+| --- | --- | --- |
+| 1 | 2.0x | $2.00 |
+| 2 | 1.8x | $1.80 |
+| 3 | 1.5x | $1.50 |
+| 4 | 1.2x | $1.20 |
+| 5 | 0.8x | $0.80 |
+| 6 | 0.5x | $0.50 |
+| Failed | 0.0x | $0.00 |
+
+```swift
+let table = DiscretePayoutTable(
+    id: UUID(),
+    entries: [
+        DiscretePayoutEntry(outcome: 1, multiplier: 2.0),
+        DiscretePayoutEntry(outcome: 2, multiplier: 1.8),
+        DiscretePayoutEntry(outcome: 3, multiplier: 1.5),
+        DiscretePayoutEntry(outcome: 4, multiplier: 1.2),
+        DiscretePayoutEntry(outcome: 5, multiplier: 0.8),
+        DiscretePayoutEntry(outcome: 6, multiplier: 0.5),
+        DiscretePayoutEntry(outcome: 7, multiplier: 0.0)  // Failed
+    ]
+)
+
+// Get multiplier
+let multiplier = table.multiplier(for: guessCount)
+```
+
+### Continuous Payout Tables
+
+Multiplier calculated from a curve function. Perfect for score-based games.
+
+**Example: 2048 (score-based)**
+
+```swift
+let table = ContinuousPayoutTable(
+    id: UUID(),
+    baseMultiplier: 0.0,      // Minimum payout
+    maxMultiplier: 3.0,        // Maximum payout
+    targetScore: 10000,        // Score needed for max payout
+    curveType: .logarithmic    // Curve shape
+)
+
+// Score 5000 → ~2.1x (logarithmic curve)
+let multiplier = table.multiplier(for: 5000)
+```
+
+### Curve Types
+
+| Type | Description | Best For |
+| --- | --- | --- |
+| `.linear` | Straight line from base to max | Even difficulty scaling |
+| `.exponential(n)` | Slow start, fast finish | Rewarding high scores heavily |
+| `.logarithmic` | Fast start, slow finish | Rewarding early progress |
+
+```swift
+// Linear: multiplier grows evenly with score
+.linear
+
+// Exponential: harder to get high multipliers
+.exponential(2.0)  // Quadratic curve
+
+// Logarithmic: easier to get decent multipliers
+.logarithmic
+```
+
+## Confirming Escrow
+
+After `startSession`, call `confirmEscrow` to verify both stakes are on-chain:
+
+```swift
+try await ZeroSettleEscrow.shared.confirmEscrow(sessionId: session.id)
+// Session is now .escrowConfirmed
+// Game can begin!
+```
+
+This step validates:
+- Player stake transaction is confirmed
+- House stake transaction is confirmed
+- Session is ready for gameplay
+
+## Submitting Results
+
+When the game ends, submit the result:
+
+```swift
+// Calculate multiplier from payout table
+let multiplier = payoutTable.multiplier(for: Double(score))
+
+try await ZeroSettleEscrow.shared.submitResult(
+    sessionId: session.id,
+    playerResults: [
+        PlayerResult(userId: userId, finalMultiplier: multiplier)
+    ]
+)
+```
+
+### What Happens
+
+1. **Result Submitted** - Game result recorded on-chain via your game admin server
+2. **Settlement Triggered** - ZeroSettle backend calculates final payout
+3. **On-Chain Settlement** - Funds distributed from escrow
+4. **Balance Updated** - User's balance updated via WebSocket
+
+### Player Result
+
+```swift
+public struct PlayerResult: Sendable, Codable {
+    public let userId: UUID
+    public let finalMultiplier: Double
+
+    // Multiplier in basis points (2.5x = 250)
+    public var multiplierBps: Int {
+        Int(finalMultiplier * 100)
+    }
+}
+```
+
+## Session State
+
+Access the current session via the published property:
+
+```swift
+@StateObject private var escrow = ZeroSettleEscrow.shared
+
+// Current session (nil if none active)
+let session = escrow.activeSession
+
+// Check state
+if session?.state == .escrowConfirmed {
+    // Ready to play
+}
+```
+
+### Session Properties
+
+```swift
+public struct GameSession {
+    let id: UUID
+    let gameDefinitionId: UUID
+    let mode: GameMode
+    let entryFeeCents: Int
+    let maxPayoutMultiplier: Double
+    let players: [SessionPlayer]
+    let state: SessionState
+    let createdAt: Date
+
+    // Computed
+    var totalPotCents: Int      // All stakes combined
+    var stakedPlayerCount: Int  // Players who have staked
+    var allPlayersStaked: Bool  // All players ready
+}
+```
+
+## Error Handling
+
+Session operations can throw these errors:
+
+```swift
+do {
+    let session = try await escrow.startSession(...)
+} catch ZeroSettleEscrowError.notConfigured {
+    // SDK not configured - call configure() first
+} catch ZeroSettleEscrowError.notAuthenticated {
+    // User not logged in
+} catch ZeroSettleEscrowError.insufficientBalance(let required, let available) {
+    // Not enough funds
+    print("Need \(required) cents, have \(available)")
+} catch ZeroSettleEscrowError.sessionNotReady(let state) {
+    // Wrong session state for this operation
+    print("Session is \(state), expected different state")
+} catch {
+    // Other error
+    print("Error: \(error)")
+}
+```
+
+## Delegate Callbacks
+
+Implement the delegate for fine-grained control:
+
+```swift
+// Session created
+func zeroSettleEscrowDidCreateSession(_ session: GameSession)
+
+// State changed
+func zeroSettleEscrowSessionStateChanged(_ session: GameSession, from previousState: SessionState)
+
+// Escrow confirmed - game can start
+func zeroSettleEscrowDidConfirm(session: GameSession)
+
+// Settlement complete
+func zeroSettleEscrowDidSettleSession(_ result: SettlementResult)
+
+// Errors
+func zeroSettleEscrowSessionCreationFailed(request: SessionCreationRequest, error: Error, canRetry: Bool)
+func zeroSettleEscrowConfirmationFailed(sessionId: UUID, error: Error, canRetry: Bool)
+func zeroSettleEscrowSettlementFailed(sessionId: UUID, error: Error, canRetry: Bool)
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always confirm escrow before starting gameplay">
+    Don't let users play until `confirmEscrow` succeeds. This ensures funds are locked.
+  </Accordion>
+
+  <Accordion title="Handle insufficient balance gracefully">
+    Check `balanceCents` before showing "Play" button. Disable or show deposit prompt.
+  </Accordion>
+
+  <Accordion title="Use the delegate for UI updates">
+    The delegate gives you real-time updates. Use it to show loading states and confirmations.
+  </Accordion>
+
+  <Accordion title="Clear session after completion">
+    Call `clearActiveSession()` when returning to menu to reset state.
+  </Accordion>
+
+  <Accordion title="Test payout calculations locally">
+    Verify your payout table logic before deploying. Edge cases matter.
+  </Accordion>
+</AccordionGroup>

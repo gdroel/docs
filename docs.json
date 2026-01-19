@@ -3,32 +3,39 @@
   "theme": "mint",
   "name": "ZeroSettle Docs",
   "appearance": {
-    "default": "dark",
-    "strict": true
+    "default": "dark"
   },
   "colors": {
-    "primary": "#98f875",
-    "light": "#98f875",
-    "dark": "#7dd65a"
+    "primary": "#7CB866",
+    "light": "#7CB866",
+    "dark": "#5FA34A"
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart"
+              "index"
             ]
           },
           {
-            "group": "Products",
+            "group": "In-App Purchase",
             "pages": [
-              "wallet/zerosettle-deposit-view",
-              "wallet/zerosettle-deposit-api"
+              "iap/overview",
+              "iap/quickstart"
+            ]
+          },
+          {
+            "group": "Skill-Based Escrow",
+            "pages": [
+              "skill-escrow/overview",
+              "skill-escrow/quickstart",
+              "skill-escrow/sessions",
+              "skill-escrow/api-reference"
             ]
           }
         ]
@@ -39,34 +46,33 @@
     }
   },
   "logo": {
-    "light": "/logo/logo.png",
+    "light": "/logo/logo-light.png",
     "dark": "/logo/logo.png"
   },
   "navbar": {
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:support@zerosettle.io"
       }
     ]
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/zerosettle",
+      "github": "https://github.com/zerosettle"
     }
   }
 }
