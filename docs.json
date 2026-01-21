@@ -27,11 +27,13 @@
             "pages": [
               "iap/overview",
               "iap/quickstart",
-              "iap/revenuecat-integration"
+              "iap/revenuecat-integration",
+              "iap/storekit-integration",
+              "iap/subscription-state"
             ]
           },
           {
-            "group": "Skill-Based Escrow",
+            "group": "Escrow Services",
             "pages": [
               "skill-escrow/overview",
               "skill-escrow/quickstart",

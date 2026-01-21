@@ -1,0 +1,81 @@
+---
+title: 'StoreKit Integration'
+description: 'Native integration between ZeroSettle and Apple StoreKit'
+icon: 'apple'
+---
+
+## Overview
+
+ZeroSettle provides native support for Apple's StoreKit 2 framework, enabling developers to integrate payment incentives directly into their existing in-app purchase flows. Wherever StoreKit subscription transactions are supported, you can add a `ZSCheckoutButton` to offer incentivized checkout through ZeroSettle.
+
+## Implementation
+
+Add the `ZSCheckoutButton` to your subscription or product purchase flow by providing the StoreKit product ID and user ID:
+
+```swift
+import StoreKit
+import ZeroSettle
+
+ZSCheckoutButton(
+    productId: "com.yourapp.premium.monthly",
+    userId: currentUser.id
+)
+```
+
+## Integration Example
+
+Here's a complete example showing how to integrate ZeroSettle with your existing StoreKit purchase flow:
+
+```swift
+import SwiftUI
+import StoreKit
+import ZeroSettle
+
+struct SubscriptionView: View {
+    let product: Product
+    let userId: String
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // Your existing subscription UI
+            Text(product.displayName)
+            Text(product.displayPrice)
+            
+            // Add ZeroSettle checkout option
+            ZSCheckoutButton(
+                productId: product.id,
+                userId: userId
+            )
+            
+            // Or traditional StoreKit purchase
+            Button("Buy with App Store") {
+                Task {
+                    try await product.purchase()
+                }
+            }
+        }
+    }
+}
+```
+
+## Technical Details
+
+The `ZSCheckoutButton` component integrates directly with Apple's StoreKit 2 SDK and ZeroSettle's backend infrastructure to provide the following functionality:
+
+The button uses the provided `productId` to match against your StoreKit product configuration and the `userId` to identify the purchaser. When tapped, it initiates a ZeroSettle checkout flow that automatically applies any applicable incentive discounts configured in your dashboard.
+
+## Button Parameters
+
+```swift
+ZSCheckoutButton(
+    productId: String,  // StoreKit product identifier
+    userId: String       // Your app's user identifier
+)
+```
+
+## Requirements
+
+- iOS 15.0+ (StoreKit 2)
+- ZeroSettle SDK 1.0+
+- Xcode 13.0+
+- Valid StoreKit product IDs configured in App Store Connect

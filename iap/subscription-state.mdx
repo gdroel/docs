@@ -1,0 +1,107 @@
+---
+title: 'Subscription State'
+description: 'Fetch and manage user subscription status'
+icon: 'arrows-rotate'
+---
+
+## Overview
+
+ZeroSettle provides a simple API for querying and managing subscription state across your application. The SDK maintains real-time synchronization with your backend, ensuring subscription status is always current and accurate.
+
+## Fetching Subscription State
+
+Use the `ZeroSettle.shared.getSubscriptionState()` method to retrieve the current user's subscription status:
+
+```swift
+import ZeroSettle
+
+Task {
+    do {
+        let state = try await ZeroSettle.shared.getSubscriptionState()
+        
+        if state.isActive {
+            // User has active subscription
+            enablePremiumFeatures()
+        } else {
+            // User does not have active subscription
+            showPaywall()
+        }
+    } catch {
+        // Handle error
+        print("Failed to fetch subscription state: \(error)")
+    }
+}
+```
+
+## Subscription State Properties
+
+The `SubscriptionState` object contains the following properties:
+
+```swift
+struct SubscriptionState {
+    /// Whether the subscription is currently active
+    let isActive: Bool
+    
+    /// The product ID of the active subscription
+    let productId: String?
+    
+    /// Subscription expiration date (nil if no active subscription)
+    let expiresAt: Date?
+    
+    /// Whether the subscription will auto-renew
+    let willAutoRenew: Bool
+    
+    /// The subscription status (active, expired, cancelled, trial)
+    let status: SubscriptionStatus
+    
+    /// Any active promotional discounts applied
+    let activeDiscount: Discount?
+}
+```
+
+## Real-Time Updates
+
+Subscribe to subscription state changes using the observation API:
+
+```swift
+import ZeroSettle
+
+ZeroSettle.shared.observeSubscriptionState { state in
+    if state.isActive {
+        enablePremiumFeatures()
+    } else {
+        disablePremiumFeatures()
+    }
+}
+```
+
+## Checking Specific Entitlements
+
+For more granular access control, check specific entitlements:
+
+```swift
+import ZeroSettle
+
+let hasFeature = await ZeroSettle.shared.hasEntitlement("premium_feature")
+
+if hasFeature {
+    // User has access to this specific feature
+    unlockFeature()
+}
+```
+
+## Technical Details
+
+The subscription state is cached locally and updated automatically through:
+- Background refresh on app launch
+- Webhook notifications from ZeroSettle backend
+- Manual refresh after successful purchases
+- Periodic validation checks
+
+The SDK handles token refresh, retry logic, and offline scenarios automatically, ensuring your app always has the most accurate subscription state available.
+
+## Requirements
+
+- ZeroSettle SDK 1.0+
+- iOS 15.0+
+- Network connectivity for initial fetch
