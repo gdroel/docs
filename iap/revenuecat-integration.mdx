@@ -1,0 +1,36 @@
+---
+title: 'RevenueCat Integration'
+description: 'Seamless integration between ZeroSettle and RevenueCat paywalls'
+icon: 'puzzle-piece'
+---
+
+## Overview
+
+ZeroSettle provides native support for RevenueCat's paywall infrastructure, enabling developers to integrate payment incentives directly into their existing subscription flows. The integration is designed to be minimally invasive, requiring only a single component addition to your existing `PaywallView` implementation.
+
+## Implementation
+
+The integration architecture leverages SwiftUI's declarative layout system. Simply wrap your existing `PaywallView` component within a `ZStack` and add the `ZSCheckoutButton` component positioned at the bottom:
+
+```swift
+import RevenueCat
+import ZeroSettle
+
+ZStack() {
+    PaywallView()
+    ZSCheckoutButton()
+}
+```
+
+## Technical Details
+
+The `ZSCheckoutButton` component integrates directly with RevenueCat's SDK and ZeroSettle's backend infrastructure to provide the following functionality:
+
+### Automatic Package Detection
+The button automatically detects and retrieves the currently selected subscription package from RevenueCat's `PaywallView`, eliminating the need for manual package state management or prop passing.
+
+## Requirements
+
+- RevenueCat SDK 4.0+
+- ZeroSettle SDK 1.0+
+- iOS 15.0+

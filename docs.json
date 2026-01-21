@@ -26,7 +26,8 @@
             "group": "In-App Purchase",
             "pages": [
               "iap/overview",
-              "iap/quickstart"
+              "iap/quickstart",
+              "iap/revenuecat-integration"
             ]
           },
           {
