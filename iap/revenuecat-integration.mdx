@@ -31,58 +31,17 @@ That's it! When users tap this button, they'll be directed to a payment screen w
 
 After the purchase flow completes, ZeroSettle automatically redirects users back to your app using your app's bundle ID. Simply use the same bundle identifier, and we'll handle the redirection with either a `success` or `cancelled` status.
 
-### Handling Deep Links
+### Configure Deep Links in Xcode
 
-Handle the deep link callback in your app delegate to respond to purchase completion:
+First, set up your URL scheme in your project's Info section:
 
-```swift
-import UIKit
+<img src="/images/deeplink.png" alt="Deep Link Configuration" />
 
-class AppDelegate: UIResponder, UIApplicationDelegate {
-    
-    func application(_ app: UIApplication, 
-                    open url: URL, 
-                    options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-        
-        // Handle ZeroSettle redirect
-        if url.scheme == "your-bundle-id" {
-            let status = url.lastPathComponent
-            
-            switch status {
-            case "success":
-                // Purchase completed successfully
-                // Refresh subscription status, show confirmation, etc.
-                handlePurchaseSuccess()
-                
-            case "cancelled":
-                // User cancelled the purchase
-                // Return to paywall or show appropriate message
-                handlePurchaseCancelled()
-                
-            default:
-                break
-            }
-            
-            return true
-        }
-        
-        return false
-    }
-    
-    private func handlePurchaseSuccess() {
-        // Refresh RevenueCat customer info
-        // Show success message
-        // Navigate to appropriate screen
-    }
-    
-    private func handlePurchaseCancelled() {
-        // Handle cancellation
-        // Return to paywall or previous screen
-    }
-}
-```
+Add a URL Type with your app name as the URL scheme. For example, if your bundle ID is `com.gaberoeloffs.divecast`, use `divecast` as the URL scheme.
 
-For SwiftUI apps, use the `onOpenURL` modifier:
+### Handle Deep Links in Your App
+
+Use the `onOpenURL` modifier to handle the callback:
 
 ```swift
 import SwiftUI
@@ -93,15 +52,18 @@ struct YourApp: App {
         WindowGroup {
             ContentView()
                 .onOpenURL { url in
-                    if url.scheme == "your-bundle-id" {
+                    // If your bundle ID is com.gaberoeloffs.divecast, use "divecast"
+                    if url.scheme == "divecast" {
                         let status = url.lastPathComponent
                         
                         switch status {
                         case "success":
                             // Handle successful purchase
+                            // Refresh subscription status, show confirmation, etc.
                             break
                         case "cancelled":
                             // Handle cancellation
+                            // Return to paywall or show appropriate message
                             break
                         default:
                             break
@@ -112,16 +74,6 @@ struct YourApp: App {
     }
 }
 ```
-
-## No Code Changes Required
-
-Unlike traditional integrations, ZeroSettle's RevenueCat integration requires:
-- ❌ No Swift SDK installation
-- ❌ No code modifications
-- ❌ No custom components
-- ✅ Just a simple checkout URL
-
-The payment flow, discount application, and subscription management are all handled automatically through the ZeroSettle platform.
 
 ## Requirements
 
