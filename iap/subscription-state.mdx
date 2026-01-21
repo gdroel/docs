@@ -1,107 +1,112 @@
 ---
-title: 'Subscription State'
-description: 'Fetch and manage user subscription status'
+title: 'Getting Subscription Status'
+description: 'Determining the subscription status for a user'
 icon: 'arrows-rotate'
 ---
 
-## Overview
+ZeroSettle makes it easy to determine subscription status with the ZeroSettle SDK and REST API.
 
-ZeroSettle provides a simple API for querying and managing subscription state across your application. The SDK maintains real-time synchronization with your backend, ensuring subscription status is always current and accurate.
+## Getting subscription status via the SDK
 
-## Fetching Subscription State
+The `CustomerInfo` object contains all of the purchase and subscription data available about a customer.
 
-Use the `ZeroSettle.shared.getSubscriptionState()` method to retrieve the current user's subscription status:
+This object is updated whenever a purchase or restore occurs and periodically throughout the lifecycle of your app. The latest information can always be retrieved by calling `getCustomerInfo()`:
 
 ```swift
-import ZeroSettle
+// Using Swift Concurrency
+do {
+    let customerInfo = try await ZeroSettle.shared.customerInfo()
+} catch {
+    // handle error
+}
 
-Task {
-    do {
-        let state = try await ZeroSettle.shared.getSubscriptionState()
-        
-        if state.isActive {
-            // User has active subscription
-            enablePremiumFeatures()
-        } else {
-            // User does not have active subscription
-            showPaywall()
-        }
-    } catch {
-        // Handle error
-        print("Failed to fetch subscription state: \(error)")
+// Using Completion Blocks
+ZeroSettle.shared.getCustomerInfo { (customerInfo, error) in
+    // access latest customerInfo
+}
+```
+
+It's safe to call `getCustomerInfo()` frequently throughout your app. Since the SDK updates and caches the latest `CustomerInfo` when the app becomes active, the completion block won't need to make a network request in most cases.
+
+## Checking If A User Is Subscribed
+
+The subscription status for a user can easily be determined with the `CustomerInfo` and `EntitlementInfo` objects.
+
+For most apps that only have one entitlement, the `isActive` status can be quickly checked for your entitlement ID.
+
+```swift
+if customerInfo.entitlements["your_entitlement_id"]?.isActive == true {
+    // user has access to "your_entitlement_id"
+}
+```
+
+If your app has multiple entitlements, you might also want to check if the customer has any active entitlements:
+
+```swift
+if !customerInfo.entitlements.active.isEmpty {
+    // user has access to some entitlement
+}
+```
+
+It's important to note that `CustomerInfo` will be empty if no purchases have been made and no transactions have been synced. This means that entitlements may not exist in `CustomerInfo` even if they have been set up in the ZeroSettle dashboard.
+
+## Restoring Purchases
+
+Restoring purchases is a mechanism by which your user can restore their in-app purchases, reactivating any content that had previously been purchased from the same store account.
+
+It is recommended that all apps have some way for users to trigger the `restorePurchases` method, even if you require all customers to create accounts.
+
+```swift
+do {
+    let customerInfo = try await ZeroSettle.shared.restorePurchases()
+    // access latest customerInfo
+} catch {
+    // handle error
+}
+```
+
+## Cache
+
+The SDK caches the user's subscription information to reduce your app's reliance on the network.
+
+Users who unlock entitlements will be able to access them even without an internet connection. The SDK will update the cache if it's older than 5 minutes, but only if you call `getCustomerInfo()`, make a purchase, or restore purchases, so it's a good idea to call `getCustomerInfo()` any time a user accesses premium content.
+
+## Listening For CustomerInfo Updates
+
+Since ZeroSettle SDK works seamlessly on any platform, a user's `CustomerInfo` may change from a variety of sources. You can respond to any changes in `CustomerInfo` by conforming to an optional delegate method, `zeroSettle:receivedUpdated:`. This will fire whenever we receive a change in `CustomerInfo` on the current device and you should expect it to be called at launch and throughout the life of the app.
+
+`CustomerInfo` updates are not pushed to your app from the ZeroSettle backend, updates can only happen from an outbound network request to ZeroSettle.
+
+Depending on your app, it may be sufficient to ignore the delegate and simply handle changes to customer information the next time your app is launched. Or throughout your app as you request new `CustomerInfo` objects.
+
+```swift
+// Option 1: using ZeroSettleDelegate:
+ZeroSettle.configure(withAPIKey: <public_api_key>)
+ZeroSettle.shared.delegate = self // make sure to set this after calling configure
+
+extension AppDelegate: ZeroSettleDelegate {
+    func zeroSettle(_ zeroSettle: ZeroSettle, receivedUpdated customerInfo: CustomerInfo) {
+        // handle any changes to customerInfo
     }
 }
-```
 
-## Subscription State Properties
-
-The `SubscriptionState` object contains the following properties:
-
-```swift
-struct SubscriptionState {
-    /// Whether the subscription is currently active
-    let isActive: Bool
-    
-    /// The product ID of the active subscription
-    let productId: String?
-    
-    /// Subscription expiration date (nil if no active subscription)
-    let expiresAt: Date?
-    
-    /// Whether the subscription will auto-renew
-    let willAutoRenew: Bool
-    
-    /// The subscription status (active, expired, cancelled, trial)
-    let status: SubscriptionStatus
-    
-    /// Any active promotional discounts applied
-    let activeDiscount: Discount?
+// Option 2: using Swift Concurrency:
+for try await customerInfo in ZeroSettle.shared.customerInfoStream {
+    // handle any changes to customerInfo
 }
 ```
 
-## Real-Time Updates
+## Getting subscription status via the REST API
 
-Subscribe to subscription state changes using the observation API:
+If you need to get a user's subscription status from outside of the ZeroSettle SDK, for example, from your own backend, you should use the REST API.
 
-```swift
-import ZeroSettle
-
-ZeroSettle.shared.observeSubscriptionState { state in
-    if state.isActive {
-        enablePremiumFeatures()
-    } else {
-        disablePremiumFeatures()
-    }
-}
+```bash
+curl --request GET \
+  --url https://api.zerosettle.io/v1/subscribers/app_user_id \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer PUBLIC_API_KEY'
 ```
 
-## Checking Specific Entitlements
+## Handling Refunds
 
-For more granular access control, check specific entitlements:
-
-```swift
-import ZeroSettle
-
-let hasFeature = await ZeroSettle.shared.hasEntitlement("premium_feature")
-
-if hasFeature {
-    // User has access to this specific feature
-    unlockFeature()
-}
-```
-
-## Technical Details
-
-The subscription state is cached locally and updated automatically through:
-- Background refresh on app launch
-- Webhook notifications from ZeroSettle backend
-- Manual refresh after successful purchases
-- Periodic validation checks
-
-The SDK handles token refresh, retry logic, and offline scenarios automatically, ensuring your app always has the most accurate subscription state available.
-
-## Requirements
-
-- ZeroSettle SDK 1.0+
-- iOS 15.0+
-- Network connectivity for initial fetch
+ZeroSettle can handle refunds across all platforms for both subscription and non-subscription products. As soon as ZeroSettle detects a refund, the `CustomerInfo` will be updated to reflect the correct entitlement status - no action required on your part!

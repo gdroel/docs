@@ -1,0 +1,37 @@
+---
+title: 'Customer Portal'
+description: 'How customers can manage their own subscriptions'
+icon: 'user-gear'
+---
+
+ZeroSettle comes with a no-code customer portal for customers to manage their own subscriptions.
+
+## Accessing the customer portal
+
+Each email (subscription confirmation, renewal, billing issue) that ZeroSettle sends to customers contains a link for the customer to access their customer portal. You can also programmatically generate a portal link for your users:
+
+```swift
+do {
+    let portalURL = try await ZeroSettle.shared.getManagementURL(userId: currentUser.id)
+    if let url = portalURL {
+        // Open management portal
+        UIApplication.shared.open(url)
+    }
+} catch {
+    print("Failed to get management URL: \(error)")
+}
+```
+
+## Managing subscriptions through the customer portal
+
+In the customer portal, customers can:
+
+- **See upcoming payment information** - View details about their next billing cycle
+- **Cancel a subscription** - End their subscription with immediate effect or at period end
+- **Change subscription products** - Upgrade or downgrade to different subscription tiers
+- **Re-subscribe** - Reactivate a cancelled subscription before it expires
+- **Update payment methods** - Change or add new payment methods
+- **View payment history** - See a complete list of all past payments
+- **Download receipts and invoices** - Get PDF receipts and invoices for their records
+
+All changes made in the customer portal are automatically synchronized with your app, and the `CustomerInfo` will be updated accordingly.

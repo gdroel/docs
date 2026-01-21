@@ -29,7 +29,9 @@
               "iap/quickstart",
               "iap/revenuecat-integration",
               "iap/storekit-integration",
-              "iap/subscription-state"
+              "iap/subscription-state",
+              "iap/customer-portal",
+              "iap/refunding-payments"
             ]
           },
           {
