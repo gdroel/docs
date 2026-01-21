@@ -6,60 +6,124 @@ icon: 'puzzle-piece'
 
 ## Overview
 
-ZeroSettle provides native support for RevenueCat's paywall infrastructure, enabling developers to integrate payment incentives directly into their existing subscription flows. The integration is designed to be minimally invasive, requiring only a single component addition to your existing `PaywallView` implementation.
+ZeroSettle integrates with RevenueCat's paywall system through a simple checkout flow. No SDK integration or Swift code changes are required—simply add a custom checkout button to your paywall that directs users to the ZeroSettle payment screen.
 
 ## Implementation
 
-The integration architecture leverages SwiftUI's declarative layout system. Simply wrap your existing `PaywallView` component within a `ZStack` and add the `ZSCheckoutButton` component positioned at the bottom:
+To enable ZeroSettle checkout in your RevenueCat paywall, add a purchase button with the "custom checkout" option that links to:
+
+```
+https://zerosettle.io/checkout
+```
+
+<img src="/images/revenuecat.png" alt="RevenueCat Integration" />
+
+That's it! When users tap this button, they'll be directed to a payment screen with the discount you configured in your ZeroSettle dashboard already applied.
+
+## How It Works
+
+1. **Configure Your Discount**: Set up your payment incentive discount in the ZeroSettle dashboard
+2. **Add Custom Checkout Button**: In your RevenueCat paywall, add a purchase button with custom checkout enabled
+3. **Link to ZeroSettle**: Point the button to `https://zerosettle.io/checkout`
+4. **Automatic Discount Application**: Users will see the discounted price automatically applied based on your dashboard settings
+
+## Deep Link Redirection
+
+After the purchase flow completes, ZeroSettle automatically redirects users back to your app using your app's bundle ID. Simply use the same bundle identifier, and we'll handle the redirection with either a `success` or `cancelled` status.
+
+### Handling Deep Links
+
+Handle the deep link callback in your app delegate to respond to purchase completion:
 
 ```swift
-import RevenueCat
-import ZeroSettle
+import UIKit
 
-ZStack() {
-    PaywallView()
-    ZSCheckoutButton()
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    
+    func application(_ app: UIApplication, 
+                    open url: URL, 
+                    options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+        
+        // Handle ZeroSettle redirect
+        if url.scheme == "your-bundle-id" {
+            let status = url.lastPathComponent
+            
+            switch status {
+            case "success":
+                // Purchase completed successfully
+                // Refresh subscription status, show confirmation, etc.
+                handlePurchaseSuccess()
+                
+            case "cancelled":
+                // User cancelled the purchase
+                // Return to paywall or show appropriate message
+                handlePurchaseCancelled()
+                
+            default:
+                break
+            }
+            
+            return true
+        }
+        
+        return false
+    }
+    
+    private func handlePurchaseSuccess() {
+        // Refresh RevenueCat customer info
+        // Show success message
+        // Navigate to appropriate screen
+    }
+    
+    private func handlePurchaseCancelled() {
+        // Handle cancellation
+        // Return to paywall or previous screen
+    }
 }
 ```
 
-## Technical Details
-
-The `ZSCheckoutButton` component integrates directly with RevenueCat's SDK and ZeroSettle's backend infrastructure to provide the following functionality:
-
-The button automatically detects and retrieves the currently selected subscription package from RevenueCat's `PaywallView`, eliminating the need for manual package state management or prop passing.
-
-## Cancellation via Customer Portal
-
-Direct users to the customer portal to manage their subscription:
+For SwiftUI apps, use the `onOpenURL` modifier:
 
 ```swift
-import ZeroSettle
+import SwiftUI
 
-Button("Manage Subscription") {
-    Task {
-        do {
-            let url = try await ZeroSettle.shared.getManagementURL(userId: currentUser.id)
-            if let url = url {
-                // Open management portal
-                UIApplication.shared.open(url)
-            }
-        } catch {
-            print("Failed to get management URL: \(error)")
+@main
+struct YourApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .onOpenURL { url in
+                    if url.scheme == "your-bundle-id" {
+                        let status = url.lastPathComponent
+                        
+                        switch status {
+                        case "success":
+                            // Handle successful purchase
+                            break
+                        case "cancelled":
+                            // Handle cancellation
+                            break
+                        default:
+                            break
+                        }
+                    }
+                }
         }
     }
 }
 ```
 
-The management portal allows users to:
-- Cancel their subscription
-- Update payment methods
-- View billing history
-- Reactivate cancelled subscriptions
+## No Code Changes Required
 
-All cancellation events are automatically synchronized between ZeroSettle and RevenueCat, ensuring consistent state across both platforms.
+Unlike traditional integrations, ZeroSettle's RevenueCat integration requires:
+- ❌ No Swift SDK installation
+- ❌ No code modifications
+- ❌ No custom components
+- ✅ Just a simple checkout URL
+
+The payment flow, discount application, and subscription management are all handled automatically through the ZeroSettle platform.
 
 ## Requirements
 
-- RevenueCat SDK 4.0+
-- ZeroSettle SDK 1.0+
-- iOS 15.0+
+- RevenueCat account with paywall configured
+- ZeroSettle account with discount settings configured
