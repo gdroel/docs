@@ -4,7 +4,7 @@ description: 'Web checkout for iOS apps - bypass the 30% App Store fee'
 icon: 'credit-card'
 ---
 
-ZeroSettle In-App Purchase lets iOS apps accept payments via web checkout, reducing fees from Apple's 30% to just 4.5%. We act as the Merchant of Record, handling payments, tax compliance, and liability.
+ZeroSettle In-App Purchase lets iOS apps accept payments via web checkout, reducing fees from Apple's 30% to just 4.5% + 30¢. We act as the Merchant of Record, handling payments, tax compliance, and liability.
 
 <Note>
   In-App Purchase is currently in early access. [Request access](mailto:support@zerosettle.io) to get started.
@@ -16,12 +16,10 @@ Apple's 30% fee is brutal for most apps. With ZeroSettle IAP, you can:
 
 | | Apple IAP | ZeroSettle IAP |
 | --- | --- | --- |
-| **Fee** | 30% (15% for small business) | 4.5%* |
-| **Tax Handling** | You figure it out | We handle it |
+| **Fee** | 30% (15% for small business) | 4.5% + 30¢ |
+| **Tax Handling** | Apple handles | We handle |
 | **Compliance** | Your responsibility | Our responsibility |
-| **Payouts** | 45+ days | Instant |
-
-*\*Standard rate for transactions over \$15. Smaller transactions add \$0.30 flat fee.*
+| **Payouts** | 45+ days | [Instant via Stripe](https://connect.stripe.com/express_login) |
 
 ## How It Works
 
@@ -62,6 +60,10 @@ Apple's 30% fee is brutal for most apps. With ZeroSettle IAP, you can:
 - We handle disputes and chargebacks
 - We issue refunds
 - We send receipts
+
+<Tip>
+  [View your payouts](https://connect.stripe.com/express_login) in your connected Stripe Express dashboard.
+</Tip>
 
 ### Compliance
 - Apple's External Link guidelines

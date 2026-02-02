@@ -1,0 +1,165 @@
+---
+title: 'User Identity'
+description: 'How ZeroSettle identifies users across purchases and devices'
+icon: 'user'
+---
+
+ZeroSettle supports three integration patterns for user identity. Choose based on your app's auth system.
+
+## Integration Patterns
+
+<CardGroup cols={3}>
+  <Card title="RevenueCat" icon="puzzle-piece">
+    Already use RevenueCat? Pass your existing `appUserID`.
+  </Card>
+  <Card title="Custom Auth" icon="key">
+    Have your own auth? Pass your user ID.
+  </Card>
+  <Card title="Anonymous" icon="user-secret">
+    No auth system? Email from checkout is used.
+  </Card>
+</CardGroup>
+
+## Option 1: RevenueCat Users
+
+If you use RevenueCat for subscription management, pass the same user ID:
+
+```swift
+import ZeroSettleIAP
+import RevenueCat
+
+// Configure - disable StoreKit sync since RevenueCat handles it
+ZeroSettleIAP.shared.configure(.init(
+    publishableKey: "pk_live_...",
+    syncStoreKitTransactions: false
+))
+
+// Purchase - use your RC user ID
+try await ZeroSettleIAP.shared.purchase(
+    productId: "premium_monthly",
+    userId: Purchases.shared.appUserID
+)
+```
+
+**How it works**: ZeroSettle processes the web payment and pushes it to RevenueCat via webhook. RevenueCat manages entitlements—you query RC as usual.
+
+**Restoration**: RevenueCat handles it. Call `Purchases.shared.restorePurchases()`.
+
+<Note>
+  Set `syncStoreKitTransactions: false` when using RevenueCat. This prevents duplicate transaction reporting since RevenueCat already handles StoreKit.
+</Note>
+
+## Option 2: Custom Auth (Recommended)
+
+If you have your own authentication system:
+
+```swift
+import ZeroSettleIAP
+
+// Configure
+ZeroSettleIAP.shared.configure(.init(publishableKey: "pk_live_..."))
+
+// Purchase - use your user ID
+try await ZeroSettleIAP.shared.purchase(
+    productId: "premium_monthly",
+    userId: Auth.currentUser.id
+)
+
+// Later: restore entitlements
+let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+    userId: Auth.currentUser.id
+)
+```
+
+**How it works**: ZeroSettle links purchases to your user ID and tracks entitlements. The `restoreEntitlements(userId:)` method fetches all active entitlements from both web checkout and StoreKit sources.
+
+**Restoration**: Call `restoreEntitlements(userId:)` after login or on app launch. Works across devices.
+
+## Option 3: Anonymous Users
+
+No user system? Users are identified by their email from checkout:
+
+```swift
+import ZeroSettleIAP
+
+// Configure
+ZeroSettleIAP.shared.configure(.init(publishableKey: "pk_live_..."))
+
+// Purchase - pass empty string for userId
+try await ZeroSettleIAP.shared.purchase(
+    productId: "premium_lifetime",
+    userId: ""
+)
+```
+
+**How it works**: When `userId` is empty, the user enters their email during Stripe checkout. ZeroSettle links the purchase to that email address.
+
+**Restoration**: The user's entitlements are tied to their email. If you later add user accounts, you can query entitlements using the email they provided at checkout.
+
+<Warning>
+  Anonymous users cannot use `restoreEntitlements()` without an account system. Consider prompting users to create an account after purchase for better cross-device support.
+</Warning>
+
+## Checking Entitlements
+
+After restoring entitlements, check if a user has access:
+
+```swift
+let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+    userId: currentUser.id
+)
+
+// Check for a specific product
+let hasPremium = entitlements.contains {
+    $0.productId == "premium_monthly" && $0.isActive
+}
+
+// Or check if any entitlement is active
+let hasAnyAccess = entitlements.contains { $0.isActive }
+```
+
+Each `Entitlement` includes:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `String` | Unique entitlement identifier |
+| `productId` | `String` | The product ID this entitlement grants |
+| `source` | `EntitlementSource` | `.storeKit` or `.webCheckout` |
+| `isActive` | `Bool` | Whether currently valid |
+| `expiresAt` | `Date?` | Expiration date for subscriptions |
+| `purchasedAt` | `Date` | When the purchase was made |
+
+## Entitlement Sources
+
+Entitlements can come from two sources:
+
+- **`.webCheckout`**: Purchases made through ZeroSettle's Stripe checkout
+- **`.storeKit`**: Purchases made through Apple's native StoreKit (if `syncStoreKitTransactions: true`)
+
+The SDK merges entitlements from both sources when you call `restoreEntitlements()`.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always pass the same userId">
+    Use a stable identifier that doesn't change. UUIDs work well. Avoid using email addresses directly as they can change.
+  </Accordion>
+  <Accordion title="Call restoreEntitlements on app launch">
+    This ensures entitlements are synced even if the app was deleted and reinstalled, or if a purchase was made on another device.
+  </Accordion>
+  <Accordion title="Handle the checkout callback">
+    Implement the universal link handler to capture successful purchases. See the [Quickstart](/iap/quickstart) for setup.
+  </Accordion>
+</AccordionGroup>
+
+## User ID Guidelines
+
+| Do | Don't |
+|----|-------|
+| Use your backend's user ID | Use device identifiers (they change) |
+| Use a UUID you generate | Use email (users change emails) |
+| Keep it consistent across platforms | Use different IDs per platform |
+
+<Card title="Quickstart" icon="rocket" href="/iap/quickstart">
+  Get started with the full SDK setup
+</Card>

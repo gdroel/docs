@@ -1,0 +1,243 @@
+---
+title: 'Universal Links Setup'
+description: 'Configure your app to receive checkout callbacks via universal links'
+icon: 'link'
+---
+
+After a user completes (or cancels) checkout in Safari, ZeroSettle redirects them back to your app via a universal link. This guide covers the setup required to receive these callbacks.
+
+## How It Works
+
+1. User initiates purchase with `ZeroSettleIAP.shared.purchase()`
+2. SDK opens Stripe checkout in Safari
+3. User completes payment (or cancels)
+4. Stripe redirects to `https://api.zerosettle.io/checkout/callback?...`
+5. iOS opens your app via universal link
+6. SDK parses the callback and updates entitlements
+
+## Step 1: Add Associated Domains Entitlement
+
+In Xcode, add the Associated Domains capability to your app target:
+
+1. Select your app target in Xcode
+2. Go to **Signing & Capabilities**
+3. Click **+ Capability**
+4. Select **Associated Domains**
+5. Add: `applinks:api.zerosettle.io`
+
+Your entitlements file should include:
+
+```xml
+<key>com.apple.developer.associated-domains</key>
+<array>
+    <string>applinks:api.zerosettle.io</string>
+</array>
+```
+
+### Developer Mode
+
+During development, add `?mode=developer` to bypass Apple's AASA caching:
+
+```xml
+<key>com.apple.developer.associated-domains</key>
+<array>
+    <string>applinks:api.zerosettle.io?mode=developer</string>
+</array>
+```
+
+| Mode | Behavior |
+|------|----------|
+| Normal | iOS caches the AASA file and refreshes infrequently. Changes can take hours to propagate. |
+| Developer | iOS fetches the AASA file directly on each app install, bypassing CDN caching. |
+
+<Note>
+  Use `?mode=developer` during development for faster iteration. Remove it before submitting to the App Store—developer mode only works on devices registered in your Apple Developer account.
+</Note>
+
+<Warning>
+  Associated Domains requires a paid Apple Developer account. The capability won't work with free provisioning profiles.
+</Warning>
+
+## Step 2: Register Your App ID
+
+Contact ZeroSettle support to register your app's bundle ID and team ID for universal link handling. We need:
+
+| Field | Example | Where to Find |
+|-------|---------|---------------|
+| Team ID | `YUM5K9J52M` | Apple Developer Portal → Membership |
+| Bundle ID | `com.yourcompany.yourapp` | Xcode → Target → General |
+
+We'll add your app to our `apple-app-site-association` file hosted at `https://api.zerosettle.io/.well-known/apple-app-site-association`.
+
+## Step 3: Handle the Callback
+
+### SwiftUI
+
+Use the `.zeroSettleIAPHandler()` view modifier on your root view:
+
+```swift
+@main
+struct YourApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .zeroSettleIAPHandler()
+        }
+    }
+}
+```
+
+This automatically handles both `onOpenURL` and `onContinueUserActivity` for you.
+
+### UIKit (SceneDelegate)
+
+```swift
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+              let url = userActivity.webpageURL else {
+            return
+        }
+        ZeroSettleIAP.shared.handleUniversalLink(url)
+    }
+}
+```
+
+### UIKit (AppDelegate - iOS 12 and earlier)
+
+```swift
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        continue userActivity: NSUserActivity,
+        restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+    ) -> Bool {
+        guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+              let url = userActivity.webpageURL else {
+            return false
+        }
+        return ZeroSettleIAP.shared.handleUniversalLink(url)
+    }
+}
+```
+
+## Step 4: Handle Checkout Results
+
+Use the delegate to respond to checkout completion:
+
+```swift
+class PurchaseManager: ZeroSettleIAPDelegate {
+    init() {
+        ZeroSettleIAP.shared.delegate = self
+    }
+
+    func zeroSettleIAPCheckoutDidComplete(transaction: ZSTransaction) {
+        // Purchase successful - unlock content
+        unlockProduct(transaction.productId)
+        showSuccessMessage()
+    }
+
+    func zeroSettleIAPCheckoutDidCancel(productId: String) {
+        // User cancelled - no action needed, or show a prompt
+    }
+
+    func zeroSettleIAPCheckoutDidFail(productId: String, error: Error) {
+        // Something went wrong
+        showError(error.localizedDescription)
+    }
+}
+```
+
+## Callback URL Format
+
+The callback URL contains these parameters:
+
+```
+https://api.zerosettle.io/checkout/callback
+    ?transaction_id=txn_abc123
+    &product_id=premium_monthly
+    &status=success
+```
+
+| Parameter | Description |
+|-----------|-------------|
+| `transaction_id` | Unique transaction identifier |
+| `product_id` | The product that was purchased |
+| `status` | `success` or `cancelled` |
+
+<Note>
+  You don't need to parse this URL yourself. The SDK's `handleUniversalLink(_:)` method handles parsing and verification.
+</Note>
+
+## Testing Universal Links
+
+### Simulator Limitations
+
+Universal links don't work reliably in the iOS Simulator. Test on a physical device.
+
+### Testing Checklist
+
+1. Install a **development build** on a physical device
+2. Ensure the device has internet access
+3. Start a purchase flow
+4. Complete checkout in Safari
+5. Verify you're redirected back to the app
+
+### Debugging Tips
+
+If the redirect isn't working:
+
+1. **Check Associated Domains** - Verify the entitlement is correctly added in Xcode
+2. **Verify Registration** - Confirm your app ID is registered with ZeroSettle
+3. **Check AASA** - Visit `https://api.zerosettle.io/.well-known/apple-app-site-association` and verify your app ID is listed
+4. **Reinstall the App** - iOS caches AASA; reinstalling forces a refresh
+5. **Check Console Logs** - Look for `swcd` process logs in Console.app
+
+### Manual Testing
+
+You can test the universal link handler directly:
+
+```swift
+// In your app, simulate a callback
+let testURL = URL(string: "https://api.zerosettle.io/checkout/callback?transaction_id=test&product_id=test&status=success")!
+ZeroSettleIAP.shared.handleUniversalLink(testURL)
+```
+
+## Fallback Handling
+
+If the universal link fails to open your app, users will see the callback page in Safari. This page displays a success/cancel message and provides a button to manually open the app.
+
+To handle this case, you can also:
+
+1. **Poll for transaction status** - The SDK stores a pending transaction ID that can be verified on next app launch
+2. **Restore entitlements** - Call `restoreEntitlements(userId:)` on app launch to sync any missed purchases
+
+```swift
+// On app launch, restore entitlements to catch missed callbacks
+Task {
+    let entitlements = try? await ZeroSettleIAP.shared.restoreEntitlements(
+        userId: currentUser.id
+    )
+    updateUI(entitlements)
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Universal link opens Safari instead of my app">
+    - Reinstall the app to refresh the AASA cache
+    - Verify your bundle ID and team ID are registered with ZeroSettle
+    - Check that Associated Domains is enabled in your provisioning profile
+  </Accordion>
+  <Accordion title="handleUniversalLink returns false">
+    - The URL may not be a ZeroSettle callback URL
+    - Check that the URL host is `api.zerosettle.io`
+    - Verify the path starts with `/checkout/callback`
+  </Accordion>
+  <Accordion title="Delegate methods not called">
+    - Ensure `ZeroSettleIAP.shared.delegate` is set before the callback
+    - Verify the SDK is configured with `configure()`
+    - Check that `handleUniversalLink` is being called from `onOpenURL` or scene delegate
+  </Accordion>
+</AccordionGroup>

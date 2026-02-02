@@ -1,0 +1,410 @@
+---
+title: 'Best Practices'
+description: 'Recommendations for a reliable in-app purchase implementation'
+icon: 'star'
+---
+
+Follow these recommendations to build a robust in-app purchase experience with ZeroSettle.
+
+## SDK Configuration
+
+### Configure Early
+
+Initialize the SDK as early as possible in your app's lifecycle:
+
+```swift
+@main
+struct YourApp: App {
+    init() {
+        // Configure before any views load
+        ZeroSettleIAP.shared.configure(.init(
+            publishableKey: "pk_live_..."
+        ))
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+```
+
+### Use Sandbox Keys for Development
+
+Keep sandbox and live keys separate:
+
+```swift
+#if DEBUG
+let publishableKey = "pk_test_..."  // Sandbox - no real charges
+#else
+let publishableKey = "pk_live_..."  // Live - real payments
+#endif
+
+ZeroSettleIAP.shared.configure(.init(publishableKey: publishableKey))
+```
+
+## Entitlement Management
+
+### Restore on Every Launch
+
+Always restore entitlements when your app launches to catch purchases made on other devices or missed callbacks:
+
+```swift
+struct ContentView: View {
+    @State private var isLoading = true
+    @State private var entitlements: [Entitlement] = []
+
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView()
+            } else {
+                MainContent(entitlements: entitlements)
+            }
+        }
+        .task {
+            entitlements = (try? await ZeroSettleIAP.shared.restoreEntitlements(
+                userId: Auth.currentUser.id
+            )) ?? []
+            isLoading = false
+        }
+    }
+}
+```
+
+### Cache Entitlements Locally
+
+For offline access, cache entitlements to UserDefaults or Keychain:
+
+```swift
+class EntitlementCache {
+    private let key = "cached_entitlements"
+
+    func save(_ entitlements: [Entitlement]) {
+        let data = try? JSONEncoder().encode(entitlements)
+        UserDefaults.standard.set(data, forKey: key)
+    }
+
+    func load() -> [Entitlement] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let entitlements = try? JSONDecoder().decode([Entitlement].self, from: data) else {
+            return []
+        }
+        return entitlements
+    }
+}
+
+// Use cached while fetching fresh
+let cached = entitlementCache.load()
+updateUI(cached)
+
+let fresh = try await ZeroSettleIAP.shared.restoreEntitlements(userId: userId)
+entitlementCache.save(fresh)
+updateUI(fresh)
+```
+
+### Check Expiration for Subscriptions
+
+Subscriptions have an `expiresAt` date. Check it when validating access:
+
+```swift
+func hasActiveSubscription(_ entitlements: [Entitlement]) -> Bool {
+    entitlements.contains { entitlement in
+        guard entitlement.isActive else { return false }
+
+        // For subscriptions, also check expiration
+        if let expiresAt = entitlement.expiresAt {
+            return expiresAt > Date()
+        }
+
+        // Lifetime purchases have no expiration
+        return true
+    }
+}
+```
+
+## Purchase Flow
+
+### Show Loading State
+
+Purchases open Safari, which can feel slow. Show feedback immediately:
+
+```swift
+struct PurchaseButton: View {
+    @ObservedObject var iap = ZeroSettleIAP.shared
+    let product: Product
+
+    var body: some View {
+        Button {
+            Task {
+                try await iap.purchase(
+                    productId: product.id,
+                    userId: Auth.currentUser.id
+                )
+            }
+        } label: {
+            if iap.pendingCheckout {
+                ProgressView()
+            } else {
+                Text("Buy \(product.displayName)")
+            }
+        }
+        .disabled(iap.pendingCheckout)
+    }
+}
+```
+
+### Handle All Delegate Callbacks
+
+Implement all delegate methods to handle every outcome:
+
+```swift
+class PurchaseManager: ZeroSettleIAPDelegate {
+    func zeroSettleIAPCheckoutDidBegin(productId: String) {
+        // Optional: log analytics
+        Analytics.track("checkout_started", productId: productId)
+    }
+
+    func zeroSettleIAPCheckoutDidComplete(transaction: ZSTransaction) {
+        // Unlock content immediately
+        unlockProduct(transaction.productId)
+
+        // Show confirmation
+        showToast("Purchase complete!")
+
+        // Track conversion
+        Analytics.track("purchase_completed", transaction: transaction)
+    }
+
+    func zeroSettleIAPCheckoutDidCancel(productId: String) {
+        // User chose not to buy - don't show an error
+        Analytics.track("checkout_cancelled", productId: productId)
+    }
+
+    func zeroSettleIAPCheckoutDidFail(productId: String, error: Error) {
+        // Something went wrong
+        showError("Purchase failed. Please try again.")
+        Analytics.track("checkout_failed", error: error)
+    }
+
+    func zeroSettleIAPEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
+        // Sync UI with current entitlements
+        updatePremiumUI(entitlements)
+    }
+}
+```
+
+### Provide a Restore Button
+
+Apple requires a way for users to restore purchases. Add a visible restore option:
+
+```swift
+Button("Restore Purchases") {
+    Task {
+        do {
+            let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+                userId: Auth.currentUser.id
+            )
+
+            if entitlements.isEmpty {
+                showMessage("No purchases found")
+            } else {
+                showMessage("Purchases restored!")
+            }
+        } catch {
+            showError("Restore failed: \(error.localizedDescription)")
+        }
+    }
+}
+```
+
+## User Identity
+
+### Use Stable Identifiers
+
+Choose a user ID that won't change:
+
+```swift
+// Good: Backend-generated UUID
+userId: user.id  // "usr_abc123"
+
+// Good: Firebase UID
+userId: Auth.auth().currentUser?.uid ?? ""
+
+// Bad: Email (users can change it)
+userId: user.email
+
+// Bad: Device identifier (changes on reinstall)
+userId: UIDevice.current.identifierForVendor?.uuidString ?? ""
+```
+
+### Handle Logged-Out State
+
+If your app supports logged-out usage, decide how to handle purchases:
+
+```swift
+func purchase(product: Product) async throws {
+    guard let user = Auth.currentUser else {
+        // Option 1: Require login first
+        showLoginPrompt()
+        return
+
+        // Option 2: Use anonymous purchase (email from checkout)
+        // try await ZeroSettleIAP.shared.purchase(productId: product.id, userId: "")
+    }
+
+    try await ZeroSettleIAP.shared.purchase(
+        productId: product.id,
+        userId: user.id
+    )
+}
+```
+
+## Error Handling
+
+### Graceful Degradation
+
+If the SDK fails to initialize or fetch products, fall back gracefully:
+
+```swift
+struct PaywallView: View {
+    @State private var products: [Product] = []
+    @State private var loadError: Error?
+
+    var body: some View {
+        Group {
+            if let error = loadError {
+                // Show fallback UI
+                VStack {
+                    Text("Unable to load products")
+                    Button("Retry") { loadProducts() }
+                }
+            } else if products.isEmpty {
+                ProgressView()
+            } else {
+                ProductList(products: products)
+            }
+        }
+        .task { loadProducts() }
+    }
+
+    func loadProducts() {
+        Task {
+            do {
+                products = try await ZeroSettleIAP.shared.fetchProducts()
+                loadError = nil
+            } catch {
+                loadError = error
+            }
+        }
+    }
+}
+```
+
+### Log Errors for Debugging
+
+Log errors to help diagnose issues in production:
+
+```swift
+func zeroSettleIAPCheckoutDidFail(productId: String, error: Error) {
+    // Log to your crash reporting service
+    Crashlytics.record(error: error, userInfo: [
+        "product_id": productId,
+        "user_id": Auth.currentUser?.id ?? "anonymous"
+    ])
+
+    // Show user-friendly message
+    showError("Something went wrong. Please try again.")
+}
+```
+
+## Testing
+
+### Test the Full Flow
+
+Before releasing, test these scenarios on a physical device:
+
+| Scenario | Expected Behavior |
+|----------|-------------------|
+| Complete purchase | Entitlements update, content unlocks |
+| Cancel checkout | No entitlement change, no error shown |
+| Restore purchases | All previous purchases recovered |
+| App killed during checkout | Entitlements sync on next launch |
+| Network offline | Cached entitlements still work |
+| Different device, same account | Entitlements sync via restore |
+
+### Use Sandbox Keys
+
+Test with sandbox keys before going live:
+
+```swift
+// Sandbox key for development - no real charges
+ZeroSettleIAP.shared.configure(.init(publishableKey: "pk_test_..."))
+```
+
+## Performance
+
+### Fetch Products Once
+
+Don't fetch products on every view appearance. Fetch once and cache:
+
+```swift
+class ProductStore: ObservableObject {
+    @Published var products: [Product] = []
+    private var hasFetched = false
+
+    func fetchIfNeeded() async {
+        guard !hasFetched else { return }
+        hasFetched = true
+
+        products = (try? await ZeroSettleIAP.shared.fetchProducts()) ?? []
+    }
+}
+```
+
+### Prefetch Products
+
+Fetch products before the user reaches the paywall:
+
+```swift
+struct HomeView: View {
+    var body: some View {
+        TabView {
+            // ...
+        }
+        .task {
+            // Prefetch while user is on home screen
+            _ = try? await ZeroSettleIAP.shared.fetchProducts()
+        }
+    }
+}
+```
+
+## Security
+
+### Never Trust Client-Side Entitlements Alone
+
+For critical features, verify entitlements server-side:
+
+```swift
+// Client: User claims to have premium
+// Server: Verify with ZeroSettle API before granting access
+
+// Your backend
+GET /api/user/entitlements
+Authorization: Bearer <user_token>
+
+// Your backend calls ZeroSettle
+GET https://api.zerosettle.io/v1/iap/entitlements?user_id=<user_id>
+X-ZeroSettle-Key: <secret_key>
+```
+
+### Keep Secret Keys Server-Side
+
+Only use publishable keys in your app. Secret keys belong on your server:
+
+| Key Type | Prefix | Where to Use |
+|----------|--------|--------------|
+| Publishable | `pk_live_` / `pk_test_` | iOS app |
+| Secret | `sk_live_` / `sk_test_` | Your backend only |

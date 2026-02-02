@@ -4,72 +4,232 @@ description: 'Get started with ZeroSettle In-App Purchase'
 icon: 'rocket'
 ---
 
-<Note>
-  IAP SDK documentation is coming soon. [Request early access](mailto:support@zerosettle.io) to get started today.
-</Note>
+## Installation
 
-## Overview
+Add ZeroSettleKit to your project via Swift Package Manager:
 
-The ZeroSettle IAP SDK will provide:
+```
+https://github.com/zerosettle/ZeroSettleKit
+```
+
+Or add it to your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/zerosettle/ZeroSettleKit", from: "1.0.0")
+]
+```
+
+## Configuration
+
+Configure the SDK early in your app's lifecycle:
 
 ```swift
 import ZeroSettleIAP
 
-// Configure
-ZeroSettleIAP.shared.configure(
-    apiKey: "your-api-key",
-    environment: .production
-)
+@main
+struct YourApp: App {
+    init() {
+        ZeroSettleIAP.shared.configure(.init(
+            publishableKey: "pk_live_..."  // From your ZeroSettle dashboard
+        ))
+    }
 
-// Start a purchase flow
-ZeroSettleIAP.shared.purchase(
-    productId: "premium_monthly",
-    presenting: self
-) { result in
-    switch result {
-    case .success(let purchase):
-        // Unlock content
-        unlockPremium(purchase.transactionId)
-    case .cancelled:
-        // User cancelled
-        break
-    case .failure(let error):
-        // Handle error
-        showError(error)
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
     }
 }
 ```
 
-## Features
+### Configuration Options
 
-### Simple Integration
-- Single SDK import
-- 3 lines of code to start a purchase
-- Automatic URL scheme handling
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `publishableKey` | Required | Your publishable key from the dashboard |
+| `syncStoreKitTransactions` | `true` | Set to `false` if using RevenueCat |
 
-### Web Checkout
-- Hosted checkout page (no PCI compliance needed)
-- Apple Pay support
-- Multiple payment methods
+### Sandbox vs Live Mode
 
-### Compliance Built-in
-- `ASWebAuthenticationSession` flow
-- Required disclosures shown automatically
-- US geofencing handled
+Your publishable key determines the mode:
 
-### Webhooks
-- Purchase completed
-- Subscription renewed
-- Subscription cancelled
-- Refund issued
+- **Sandbox**: `pk_test_...` - Use for development and testing. No real charges.
+- **Live**: `pk_live_...` - Use for production. Real payments processed.
 
-## Coming Soon
+```swift
+// Development
+ZeroSettleIAP.shared.configure(.init(publishableKey: "pk_test_abc123"))
 
-- Full SDK documentation
-- API reference
-- Webhook integration guide
-- Dashboard setup
+// Production
+ZeroSettleIAP.shared.configure(.init(publishableKey: "pk_live_xyz789"))
+```
 
-<Card title="Request Early Access" icon="envelope" href="mailto:support@zerosettle.io">
-  Get started with IAP before public launch
-</Card>
+## Fetch Products
+
+Fetch your product catalog with web checkout pricing:
+
+```swift
+let products = try await ZeroSettleIAP.shared.fetchProducts()
+
+for product in products {
+    print("\(product.displayName): \(product.webPrice)")
+}
+```
+
+Products are cached in `ZeroSettleIAP.shared.products` after fetching.
+
+## Make a Purchase
+
+Initiate a web checkout for a product:
+
+```swift
+try await ZeroSettleIAP.shared.purchase(
+    productId: "premium_monthly",
+    userId: currentUser.id  // Your user's ID
+)
+```
+
+This opens Safari with the Stripe checkout page. See [User Identity](/iap/user-identity) for guidance on the `userId` parameter.
+
+## Handle Universal Link Callback
+
+The checkout result comes back via universal link. Add the `.zeroSettleIAPHandler()` modifier to your root view:
+
+```swift
+@main
+struct YourApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .zeroSettleIAPHandler()
+        }
+    }
+}
+```
+
+This handles both `onOpenURL` and `onContinueUserActivity` automatically.
+
+For UIKit apps, handle it manually in your SceneDelegate:
+
+```swift
+// SceneDelegate.swift
+func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    guard let url = userActivity.webpageURL else { return }
+    ZeroSettleIAP.shared.handleUniversalLink(url)
+}
+```
+
+## Listen for Events
+
+Use the delegate to respond to checkout events:
+
+```swift
+class PurchaseManager: ZeroSettleIAPDelegate {
+    init() {
+        ZeroSettleIAP.shared.delegate = self
+    }
+
+    func zeroSettleIAPCheckoutDidComplete(transaction: ZSTransaction) {
+        // Unlock content
+        unlockProduct(transaction.productId)
+    }
+
+    func zeroSettleIAPCheckoutDidCancel(productId: String) {
+        // User cancelled checkout
+    }
+
+    func zeroSettleIAPCheckoutDidFail(productId: String, error: Error) {
+        // Handle error
+        showError(error)
+    }
+
+    func zeroSettleIAPEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
+        // Entitlements changed
+        updateUI(entitlements)
+    }
+}
+```
+
+## Check Entitlements
+
+Restore and check entitlements on app launch:
+
+```swift
+let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+    userId: currentUser.id
+)
+
+let hasPremium = entitlements.contains {
+    $0.productId == "premium_monthly" && $0.isActive
+}
+```
+
+## Complete Example
+
+```swift
+import SwiftUI
+import ZeroSettleIAP
+
+@main
+struct MyApp: App {
+    init() {
+        ZeroSettleIAP.shared.configure(.init(
+            publishableKey: "pk_live_abc123"
+        ))
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .zeroSettleIAPHandler()
+        }
+    }
+}
+
+struct ContentView: View {
+    @State private var products: [Product] = []
+    @State private var isPremium = false
+
+    var body: some View {
+        VStack {
+            ForEach(products) { product in
+                Button(product.displayName) {
+                    Task {
+                        try await ZeroSettleIAP.shared.purchase(
+                            productId: product.id,
+                            userId: Auth.currentUser.id
+                        )
+                    }
+                }
+            }
+        }
+        .task {
+            products = try? await ZeroSettleIAP.shared.fetchProducts()
+
+            if let entitlements = try? await ZeroSettleIAP.shared.restoreEntitlements(
+                userId: Auth.currentUser.id
+            ) {
+                isPremium = entitlements.contains { $0.isActive }
+            }
+        }
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="User Identity" icon="user" href="/iap/user-identity">
+    Learn about the different ways to identify users
+  </Card>
+  <Card title="Subscription State" icon="arrows-rotate" href="/iap/subscription-state">
+    Check subscription status and handle renewals
+  </Card>
+  <Card title="RevenueCat Integration" icon="puzzle-piece" href="/iap/revenuecat-integration">
+    Use ZeroSettle alongside RevenueCat
+  </Card>
+  <Card title="Customer Portal" icon="user-gear" href="/iap/customer-portal">
+    Let users manage their subscriptions
+  </Card>
+</CardGroup>

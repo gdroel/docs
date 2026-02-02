@@ -4,66 +4,71 @@ description: 'Determining the subscription status for a user'
 icon: 'arrows-rotate'
 ---
 
-ZeroSettle makes it easy to determine subscription status with the ZeroSettle SDK and REST API.
+ZeroSettle makes it easy to determine subscription status with the ZeroSettleIAP SDK and REST API.
 
 ## Getting subscription status via the SDK
 
-The `CustomerInfo` object contains all of the purchase and subscription data available about a customer.
-
-This object is updated whenever a purchase or restore occurs and periodically throughout the lifecycle of your app. The latest information can always be retrieved by calling `getCustomerInfo()`:
+The `entitlements` property contains all of the purchase and subscription data available about a user. This is updated whenever a purchase completes or when you call `restoreEntitlements()`.
 
 ```swift
-// Using Swift Concurrency
-do {
-    let customerInfo = try await ZeroSettle.shared.customerInfo()
-} catch {
-    // handle error
-}
+// Restore and get current entitlements
+let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+    userId: currentUser.id
+)
 
-// Using Completion Blocks
-ZeroSettle.shared.getCustomerInfo { (customerInfo, error) in
-    // access latest customerInfo
-}
+// Or access cached entitlements
+let cached = ZeroSettleIAP.shared.entitlements
 ```
 
-It's safe to call `getCustomerInfo()` frequently throughout your app. Since the SDK updates and caches the latest `CustomerInfo` when the app becomes active, the completion block won't need to make a network request in most cases.
+It's safe to call `restoreEntitlements()` frequently throughout your app. The SDK caches entitlements locally and the network request is lightweight.
 
 ## Checking If A User Is Subscribed
 
-The subscription status for a user can easily be determined with the `CustomerInfo` and `EntitlementInfo` objects.
+The subscription status for a user can be determined using the `Entitlement` objects returned by `restoreEntitlements()`.
 
-For most apps that only have one entitlement, the `isActive` status can be quickly checked for your entitlement ID.
+For most apps with a single premium tier, check for a specific product:
 
 ```swift
-if customerInfo.entitlements["your_entitlement_id"]?.isActive == true {
-    // user has access to "your_entitlement_id"
+let hasPremium = entitlements.contains {
+    $0.productId == "premium_monthly" && $0.isActive
+}
+
+if hasPremium {
+    // user has access to premium features
 }
 ```
 
-If your app has multiple entitlements, you might also want to check if the customer has any active entitlements:
+If your app has multiple entitlements, check if any are active:
 
 ```swift
-if !customerInfo.entitlements.active.isEmpty {
+if entitlements.contains(where: { $0.isActive }) {
     // user has access to some entitlement
 }
 ```
 
-It's important to note that `CustomerInfo` will be empty if no purchases have been made and no transactions have been synced. This means that entitlements may not exist in `CustomerInfo` even if they have been set up in the ZeroSettle dashboard.
+<Note>
+  Entitlements will be empty if no purchases have been made. Always handle the empty case in your UI.
+</Note>
 
 ## Restoring Purchases
 
-Restoring purchases is a mechanism by which your user can restore their in-app purchases, reactivating any content that had previously been purchased from the same store account.
+Restoring purchases allows users to recover their in-app purchases on a new device or after reinstalling the app.
 
-It is recommended that all apps have some way for users to trigger the `restorePurchases` method, even if you require all customers to create accounts.
+It is recommended that all apps have a way for users to trigger restore, even if you require accounts.
 
 ```swift
 do {
-    let customerInfo = try await ZeroSettle.shared.restorePurchases()
-    // access latest customerInfo
+    let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+        userId: currentUser.id
+    )
+    // Update UI based on entitlements
+    updatePremiumAccess(entitlements)
 } catch {
     // handle error
 }
 ```
+
+This fetches entitlements from both ZeroSettle's web checkout system and StoreKit (if `syncStoreKitTransactions` is enabled).
 
 ## Cache
 
@@ -71,30 +76,42 @@ The SDK caches the user's subscription information to reduce your app's reliance
 
 Users who unlock entitlements will be able to access them even without an internet connection. The SDK will update the cache if it's older than 5 minutes, but only if you call `getCustomerInfo()`, make a purchase, or restore purchases, so it's a good idea to call `getCustomerInfo()` any time a user accesses premium content.
 
-## Listening For CustomerInfo Updates
+## Listening For Entitlement Updates
 
-Since ZeroSettle SDK works seamlessly on any platform, a user's `CustomerInfo` may change from a variety of sources. You can respond to any changes in `CustomerInfo` by conforming to an optional delegate method, `zeroSettle:receivedUpdated:`. This will fire whenever we receive a change in `CustomerInfo` on the current device and you should expect it to be called at launch and throughout the life of the app.
-
-`CustomerInfo` updates are not pushed to your app from the ZeroSettle backend, updates can only happen from an outbound network request to ZeroSettle.
-
-Depending on your app, it may be sufficient to ignore the delegate and simply handle changes to customer information the next time your app is launched. Or throughout your app as you request new `CustomerInfo` objects.
+Entitlements can change from various sources: web checkout completion, StoreKit transaction updates, or subscription renewals/cancellations. Use the delegate to respond to changes:
 
 ```swift
-// Option 1: using ZeroSettleDelegate:
-ZeroSettle.configure(withAPIKey: <public_api_key>)
-ZeroSettle.shared.delegate = self // make sure to set this after calling configure
+class PurchaseManager: ZeroSettleIAPDelegate {
+    init() {
+        ZeroSettleIAP.shared.delegate = self
+    }
 
-extension AppDelegate: ZeroSettleDelegate {
-    func zeroSettle(_ zeroSettle: ZeroSettle, receivedUpdated customerInfo: CustomerInfo) {
-        // handle any changes to customerInfo
+    func zeroSettleIAPEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
+        // Handle any changes to entitlements
+        updatePremiumUI(entitlements)
     }
 }
+```
 
-// Option 2: using Swift Concurrency:
-for try await customerInfo in ZeroSettle.shared.customerInfoStream {
-    // handle any changes to customerInfo
+You can also observe the `entitlements` published property in SwiftUI:
+
+```swift
+struct ContentView: View {
+    @ObservedObject var iap = ZeroSettleIAP.shared
+
+    var body: some View {
+        if iap.entitlements.contains(where: { $0.isActive }) {
+            PremiumContent()
+        } else {
+            UpgradePrompt()
+        }
+    }
 }
 ```
+
+<Note>
+  Entitlement updates are triggered by SDK operations (purchases, restores). They are not pushed from the backend in real-time.
+</Note>
 
 ## Getting subscription status via the REST API
 

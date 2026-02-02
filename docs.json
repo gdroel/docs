@@ -2,6 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "ZeroSettle Docs",
+  "css": "/global.css",
   "appearance": {
     "default": "dark"
   },
@@ -27,11 +28,14 @@
             "pages": [
               "iap/overview",
               "iap/quickstart",
+              "iap/universal-links",
+              "iap/user-identity",
+              "iap/subscription-state",
               "iap/revenuecat-integration",
               "iap/storekit-integration",
-              "iap/subscription-state",
               "iap/customer-portal",
-              "iap/refunding-payments"
+              "iap/refunding-payments",
+              "iap/best-practices"
             ]
           },
           {

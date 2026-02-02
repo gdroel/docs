@@ -1,0 +1,29 @@
+/* Increase content width for better text density */
+:root {
+  --content-max-width: 900px;
+  --prose-max-width: 900px;
+}
+
+/* Widen the main content area */
+.max-w-prose,
+[class*="max-w-prose"] {
+  max-width: 900px !important;
+}
+
+article.prose,
+.prose {
+  max-width: 900px !important;
+}
+
+/* Target Mintlify's content container */
+main > div,
+.content-container,
+[class*="ContentArea"],
+[class*="content-area"] {
+  max-width: 900px !important;
+}
+
+/* Widen code blocks to match */
+pre {
+  max-width: 100% !important;
+}
