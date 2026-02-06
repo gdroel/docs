@@ -1,45 +1,59 @@
 ---
 title: 'Overview'
-description: 'Web checkout for iOS apps - bypass the 30% App Store fee'
+description: 'Web checkout for iOS apps — keep ~94% of your revenue'
 icon: 'credit-card'
 ---
 
-ZeroSettle In-App Purchase lets iOS apps accept payments via web checkout, reducing fees from Apple's 30% to just 4.5% + 30¢. We act as the Merchant of Record, handling payments, tax compliance, and liability.
+ZeroSettle In-App Purchase lets your iOS app accept payments via web checkout instead of Apple's StoreKit. You keep **~94%** of every transaction instead of 70%.
 
-<Note>
-  In-App Purchase is currently in early access. [Request access](mailto:support@zerosettle.io) to get started.
-</Note>
+We act as the Merchant of Record — we handle payments, tax compliance, refunds, receipts, and liability. You add a few lines of Swift and start earning more.
 
-## Why ZeroSettle IAP?
+## Why?
 
-Apple's 30% fee is brutal for most apps. With ZeroSettle IAP, you can:
+The math is simple:
 
 | | Apple IAP | ZeroSettle IAP |
 | --- | --- | --- |
-| **Fee** | 30% (15% for small business) | 4.5% + 30¢ |
-| **Tax Handling** | Apple handles | We handle |
+| **Fee** | 30% (15% for small business) | 5% + 50¢ |
+| **You keep on a $9.99 sale** | $6.99 | ~$8.99 |
+| **Tax handling** | Apple handles | We handle |
 | **Compliance** | Your responsibility | Our responsibility |
 | **Payouts** | 45+ days | [Instant via Stripe](https://connect.stripe.com/express_login) |
 
 ## How It Works
 
-<Steps>
-<Step title="User Taps Purchase">
-  Your app presents a purchase option. When tapped, ZeroSettle opens a web checkout using `ASWebAuthenticationSession` (Apple's approved method for external purchases).
-</Step>
+When a user taps "Buy" in your app, ZeroSettle presents a checkout experience powered by Stripe. The user pays with Apple Pay or a card, and your app gets a verified transaction back.
 
-<Step title="User Completes Payment">
-  User pays on our hosted checkout page. We support Apple Pay, credit cards, and more.
-</Step>
+There are three checkout modes, controlled server-side via remote config:
 
-<Step title="User Returns to App">
-  After successful payment, user is redirected back to your app via URL scheme with a purchase token.
-</Step>
+### Embedded Payment Sheet (Recommended)
 
-<Step title="You Verify & Deliver">
-  Your app verifies the purchase token with our API, then unlocks the purchased content.
-</Step>
-</Steps>
+`ZSPaymentSheet` presents a native-feeling bottom sheet inside your app. It loads a WKWebView with Apple Pay and card entry. The user never leaves your app.
+
+```swift
+.zsPaymentSheet(isPresented: $showCheckout, product: product, userId: user.id) { result in
+    switch result {
+    case .success(let transaction):
+        print("Purchased: \(transaction.productId)")
+    case .failure(let error):
+        print("Error: \(error)")
+    }
+}
+```
+
+This is the recommended approach for the best conversion rates.
+
+### In-App Safari
+
+Opens an `SFSafariViewController` within your app. The checkout page loads in a Safari view controller, and the result comes back via universal link.
+
+### External Safari
+
+Opens the checkout URL in the user's default browser. The result returns to your app via universal link. This is the fallback mode.
+
+<Tip>
+  The checkout mode is controlled by your remote config on the ZeroSettle dashboard. You can switch modes without an app update.
+</Tip>
 
 ## What We Handle
 
@@ -61,44 +75,34 @@ Apple's 30% fee is brutal for most apps. With ZeroSettle IAP, you can:
 - We issue refunds
 - We send receipts
 
-<Tip>
-  [View your payouts](https://connect.stripe.com/express_login) in your connected Stripe Express dashboard.
-</Tip>
+### Apple Compliance
+- Compliant with Apple's external purchase guidelines
+- US geofencing (as required by Apple)
+- Required disclosure before leaving app (for Safari flows)
 
-### Compliance
-- Apple's External Link guidelines
-- US geofencing (required by Apple)
-- `ASWebAuthenticationSession` flow
+## What You Can Sell
 
-## Use Cases
+- **Subscriptions** — Monthly, yearly, or custom periods
+- **One-time purchases** — Premium features, content packs
+- **Consumables** — Credits, tokens, virtual items
+- **Non-consumables** — Permanent unlocks
 
-- **Subscriptions** - Monthly/yearly plans
-- **One-time purchases** - Premium features, content packs
-- **Digital goods** - Credits, tokens, virtual items
-- **Tips & donations** - Creator support
+## Platform Requirements
 
-## Apple Compliance
+| Requirement | Version |
+|---|---|
+| iOS | 17.0+ |
+| Swift | 5.9+ |
+| Xcode | 15.0+ |
+| Third-party dependencies | None |
 
-ZeroSettle IAP is designed to comply with Apple's guidelines for external purchases:
-
-- Uses `ASWebAuthenticationSession` (not `WKWebView`)
-- Shows required disclosure before leaving app
-- US-only geofencing (as required)
-- No IAP alternative for digital goods consumed in-app (where prohibited)
-
-<Warning>
-  Apple's rules around external purchases are complex and vary by app category and region. We help you navigate compliance, but you should review Apple's current guidelines for your specific use case.
-</Warning>
-
-## Coming Soon
-
-IAP documentation is being finalized. In the meantime:
+## Get Started
 
 <CardGroup cols={2}>
-  <Card title="Request Early Access" icon="envelope" href="mailto:support@zerosettle.io">
-    Get started with IAP today
+  <Card title="Quickstart" icon="rocket" href="/iap/quickstart">
+    Install the SDK and make your first purchase
   </Card>
-  <Card title="Visit Website" icon="globe" href="https://zerosettle.io">
-    Learn more about ZeroSettle
+  <Card title="Payment Sheet" icon="credit-card" href="/iap/payment-sheet">
+    Learn about the embedded checkout UI
   </Card>
 </CardGroup>

@@ -74,7 +74,7 @@ This fetches entitlements from both ZeroSettle's web checkout system and StoreKi
 
 The SDK caches the user's subscription information to reduce your app's reliance on the network.
 
-Users who unlock entitlements will be able to access them even without an internet connection. The SDK will update the cache if it's older than 5 minutes, but only if you call `getCustomerInfo()`, make a purchase, or restore purchases, so it's a good idea to call `getCustomerInfo()` any time a user accesses premium content.
+Users who unlock entitlements will be able to access them even without an internet connection. The SDK will update the cache if it's older than 5 minutes when you call `restoreEntitlements()`, make a purchase, or restore purchases. It's a good idea to call `restoreEntitlements()` any time a user accesses premium content.
 
 ## Listening For Entitlement Updates
 
@@ -119,11 +119,11 @@ If you need to get a user's subscription status from outside of the ZeroSettle S
 
 ```bash
 curl --request GET \
-  --url https://api.zerosettle.io/v1/subscribers/app_user_id \
+  --url https://api.zerosettle.io/v1/iap/entitlements?user_id=app_user_id \
   --header 'Content-Type: application/json' \
-  --header 'Authorization: Bearer PUBLIC_API_KEY'
+  --header 'X-ZeroSettle-Key: your_secret_key'
 ```
 
 ## Handling Refunds
 
-ZeroSettle can handle refunds across all platforms for both subscription and non-subscription products. As soon as ZeroSettle detects a refund, the `CustomerInfo` will be updated to reflect the correct entitlement status - no action required on your part!
+ZeroSettle handles refunds for both subscription and non-subscription products. As soon as a refund is processed, the entitlements will be updated to reflect the correct status — no action required on your part. The `isActive` property on the affected `Entitlement` will be set to `false`.

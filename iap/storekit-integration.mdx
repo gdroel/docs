@@ -1,81 +1,178 @@
 ---
 title: 'StoreKit Integration'
-description: 'Native integration between ZeroSettle and Apple StoreKit'
+description: 'Use StoreKit alongside ZeroSettle web checkout'
 icon: 'apple'
 ---
 
-## Overview
+ZeroSettle works alongside Apple's StoreKit 2. You can use web checkout as your primary payment method and StoreKit as a fallback, or offer both options side-by-side.
 
-ZeroSettle provides native support for Apple's StoreKit 2 framework, enabling developers to integrate payment incentives directly into their existing in-app purchase flows. Wherever StoreKit subscription transactions are supported, you can add a `ZSCheckoutButton` to offer incentivized checkout through ZeroSettle.
+## How It Works
 
-## Implementation
+When `syncStoreKitTransactions` is enabled (the default), the SDK's `StoreKitManager` automatically:
 
-Add the `ZSCheckoutButton` to your subscription or product purchase flow by providing the StoreKit product ID and user ID:
+1. Listens for StoreKit transaction updates in the background
+2. Syncs completed StoreKit transactions to your ZeroSettle backend
+3. Merges StoreKit entitlements with web checkout entitlements
+
+This means a user who purchases via StoreKit on one device will have their entitlements available via `restoreEntitlements()` on any device — alongside their web checkout purchases.
+
+## Configuration
+
+StoreKit sync is enabled by default:
 
 ```swift
-import StoreKit
-import ZeroSettle
+import ZeroSettleIAP
 
-ZSCheckoutButton(
-    productId: "com.yourapp.premium.monthly",
-    userId: currentUser.id
-)
+// StoreKit sync enabled (default)
+ZeroSettleIAP.shared.configure(.init(
+    publishableKey: "your_key"
+))
+
+// StoreKit sync disabled (use with RevenueCat)
+ZeroSettleIAP.shared.configure(.init(
+    publishableKey: "your_key",
+    syncStoreKitTransactions: false
+))
 ```
 
-## Integration Example
+<Warning>
+  If you use RevenueCat, set `syncStoreKitTransactions: false` to avoid conflicts. RevenueCat manages its own StoreKit listener. See [RevenueCat Integration](/iap/revenuecat-integration).
+</Warning>
 
-Here's a complete example showing how to integrate ZeroSettle with your existing StoreKit purchase flow:
+## Purchasing via StoreKit
+
+Use `purchaseViaStoreKit()` to trigger a native StoreKit 2 purchase:
 
 ```swift
-import SwiftUI
-import StoreKit
-import ZeroSettle
+do {
+    let transaction = try await ZeroSettleIAP.shared.purchaseViaStoreKit(
+        productId: "premium_monthly",
+        userId: currentUser.id
+    )
+    // transaction is a StoreKit.Transaction
+    print("StoreKit purchase completed: \(transaction.id)")
+} catch let error as StoreKitPurchaseError {
+    switch error {
+    case .userCancelled:
+        // User tapped Cancel in the StoreKit sheet
+        break
+    case .pending:
+        // Purchase requires approval (e.g., Ask to Buy)
+        showMessage("Purchase pending approval")
+    case .productNotFound(let id):
+        showError("Product \(id) not found in App Store")
+    case .verificationFailed:
+        showError("Transaction verification failed")
+    case .unknown:
+        showError("An unexpected error occurred")
+    }
+}
+```
 
-struct SubscriptionView: View {
+## Hybrid Purchase Flow
+
+A common pattern is to offer web checkout as the primary option with StoreKit as a fallback:
+
+```swift
+struct ProductView: View {
+    @State private var showPaymentSheet = false
     let product: Product
-    let userId: String
-    
+
     var body: some View {
-        VStack(spacing: 20) {
-            // Your existing subscription UI
-            Text(product.displayName)
-            Text(product.displayPrice)
-            
-            // Add ZeroSettle checkout option
-            ZSCheckoutButton(
-                productId: product.id,
-                userId: userId
-            )
-            
-            // Or traditional StoreKit purchase
-            Button("Buy with App Store") {
-                Task {
-                    try await product.purchase()
+        VStack(spacing: 16) {
+            // Primary: Web checkout (lower fees)
+            Button("Buy — \(product.webPrice.formatted)") {
+                showPaymentSheet = true
+            }
+            .zsPaymentSheet(
+                isPresented: $showPaymentSheet,
+                product: product,
+                userId: currentUser.id
+            ) { result in
+                handleResult(result)
+            }
+
+            // Fallback: StoreKit (if user prefers App Store)
+            if product.storeKitAvailable, let skPrice = product.storeKitPrice {
+                Button("Buy with App Store — \(skPrice.formatted)") {
+                    Task {
+                        try? await ZeroSettleIAP.shared.purchaseViaStoreKit(
+                            productId: product.id,
+                            userId: currentUser.id
+                        )
+                    }
                 }
+                .foregroundStyle(.secondary)
             }
         }
     }
 }
 ```
 
-## Technical Details
+The `Product` model tells you whether a StoreKit product is available:
+- `product.storeKitAvailable` — `true` if the product is synced to App Store Connect
+- `product.storeKitPrice` — the App Store price (may differ from `webPrice`)
+- `product.appStorePrice` — same as `storeKitPrice`
 
-The `ZSCheckoutButton` component integrates directly with Apple's StoreKit 2 SDK and ZeroSettle's backend infrastructure to provide the following functionality:
+## StoreKit Sync Delegate
 
-The button uses the provided `productId` to match against your StoreKit product configuration and the `userId` to identify the purchaser. When tapped, it initiates a ZeroSettle checkout flow that automatically applies any applicable incentive discounts configured in your dashboard.
-
-## Button Parameters
+When `syncStoreKitTransactions` is enabled, the SDK automatically syncs StoreKit purchases to your ZeroSettle backend. You can listen for these sync events:
 
 ```swift
-ZSCheckoutButton(
-    productId: String,  // StoreKit product identifier
-    userId: String       // Your app's user identifier
-)
+class PurchaseManager: ZeroSettleIAPDelegate {
+    func zeroSettleIAPDidSyncStoreKitTransaction(productId: String, transactionId: UInt64) {
+        // A StoreKit transaction was synced to ZeroSettle
+        print("Synced StoreKit transaction \(transactionId) for \(productId)")
+    }
+
+    func zeroSettleIAPStoreKitSyncFailed(error: Error) {
+        // StoreKit sync failed — purchase still went through StoreKit
+        // The sync will be retried automatically
+        print("StoreKit sync failed: \(error)")
+    }
+}
 ```
+
+<Note>
+  Sync failures don't affect the StoreKit purchase itself. The user still gets their purchase through Apple. The sync will be retried the next time the app launches.
+</Note>
+
+## Entitlement Sources
+
+Entitlements track where each purchase came from:
+
+```swift
+let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(userId: currentUser.id)
+
+for entitlement in entitlements {
+    switch entitlement.source {
+    case .webCheckout:
+        print("\(entitlement.productId): purchased via ZeroSettle")
+    case .storeKit:
+        print("\(entitlement.productId): purchased via App Store")
+    }
+}
+```
+
+Both sources are merged into a single entitlements list. Your app doesn't need to treat them differently.
+
+## Error Types
+
+### StoreKitPurchaseError
+
+| Error | Description |
+|-------|-------------|
+| `.productNotFound(String)` | Product ID not found in App Store Connect |
+| `.verificationFailed(Error)` | StoreKit transaction verification failed |
+| `.userCancelled` | User tapped Cancel in the StoreKit purchase dialog |
+| `.pending` | Purchase requires approval (Ask to Buy) |
+| `.unknown` | Unexpected error |
 
 ## Requirements
 
-- iOS 15.0+ (StoreKit 2)
-- ZeroSettle SDK 1.0+
-- Xcode 13.0+
-- Valid StoreKit product IDs configured in App Store Connect
+| Requirement | Version |
+|---|---|
+| iOS | 17.0+ |
+| StoreKit | StoreKit 2 |
+| Xcode | 15.0+ |
+| App Store Connect | Products must be configured and approved |

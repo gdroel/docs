@@ -1,15 +1,22 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
+  "theme": "maple",
   "name": "ZeroSettle Docs",
   "css": "/global.css",
   "appearance": {
     "default": "dark"
   },
   "colors": {
-    "primary": "#7CB866",
-    "light": "#7CB866",
-    "dark": "#5FA34A"
+    "primary": "#34C759",
+    "light": "#34C759",
+    "dark": "#2DB84E"
+  },
+  "background": {
+    "decoration": "gradient",
+    "color": {
+      "dark": "#0a0a0a",
+      "light": "#ffffff"
+    }
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -28,6 +35,7 @@
             "pages": [
               "iap/overview",
               "iap/quickstart",
+              "iap/payment-sheet",
               "iap/universal-links",
               "iap/user-identity",
               "iap/subscription-state",

@@ -4,6 +4,10 @@ description: 'Get started with ZeroSettle In-App Purchase'
 icon: 'rocket'
 ---
 
+<Note>
+  Requires **iOS 17.0+**, **Swift 5.9+**, and **Xcode 15.0+**.
+</Note>
+
 ## Installation
 
 Add ZeroSettleKit to your project via Swift Package Manager:
@@ -20,6 +24,8 @@ dependencies: [
 ]
 ```
 
+Then add `ZeroSettleIAP` as a dependency of your target.
+
 ## Configuration
 
 Configure the SDK early in your app's lifecycle:
@@ -31,13 +37,14 @@ import ZeroSettleIAP
 struct YourApp: App {
     init() {
         ZeroSettleIAP.shared.configure(.init(
-            publishableKey: "pk_live_..."  // From your ZeroSettle dashboard
+            publishableKey: "your_live_key"  // From your ZeroSettle dashboard
         ))
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .zeroSettleIAPHandler()  // Handles universal link callbacks
         }
     }
 }
@@ -48,32 +55,25 @@ struct YourApp: App {
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `publishableKey` | Required | Your publishable key from the dashboard |
+| `environment` | `.production` | Set to `.staging` for development |
 | `syncStoreKitTransactions` | `true` | Set to `false` if using RevenueCat |
 
 ### Sandbox vs Live Mode
 
 Your publishable key determines the mode:
 
-- **Sandbox**: `pk_test_...` - Use for development and testing. No real charges.
-- **Live**: `pk_live_...` - Use for production. Real payments processed.
-
-```swift
-// Development
-ZeroSettleIAP.shared.configure(.init(publishableKey: "pk_test_abc123"))
-
-// Production
-ZeroSettleIAP.shared.configure(.init(publishableKey: "pk_live_xyz789"))
-```
+- **Sandbox**: Test keys — use for development. No real charges.
+- **Live**: Production keys — real payments processed.
 
 ## Fetch Products
 
 Fetch your product catalog with web checkout pricing:
 
 ```swift
-let products = try await ZeroSettleIAP.shared.fetchProducts()
+let products = try await ZeroSettleIAP.shared.fetchProducts(userId: currentUser.id)
 
 for product in products {
-    print("\(product.displayName): \(product.webPrice)")
+    print("\(product.displayName): \(product.webPrice.formatted)")
 }
 ```
 
@@ -81,20 +81,53 @@ Products are cached in `ZeroSettleIAP.shared.products` after fetching.
 
 ## Make a Purchase
 
-Initiate a web checkout for a product:
+### Option 1: Payment Sheet (Recommended)
+
+Present an embedded payment sheet with Apple Pay and card support. The user never leaves your app.
+
+```swift
+struct PaywallView: View {
+    @State private var showCheckout = false
+    let product: Product
+
+    var body: some View {
+        Button("Subscribe — \(product.webPrice.formatted)") {
+            showCheckout = true
+        }
+        .zsPaymentSheet(
+            isPresented: $showCheckout,
+            product: product,
+            userId: currentUser.id
+        ) { result in
+            switch result {
+            case .success(let transaction):
+                print("Purchased: \(transaction.productId)")
+            case .failure(let error):
+                print("Error: \(error)")
+            }
+        }
+    }
+}
+```
+
+See [Payment Sheet](/iap/payment-sheet) for the full guide on `ZSPaymentSheet`, including preloading, custom headers, and UIKit usage.
+
+### Option 2: Safari Checkout
+
+Opens the checkout in Safari. The result comes back via universal link.
 
 ```swift
 try await ZeroSettleIAP.shared.purchase(
     productId: "premium_monthly",
-    userId: currentUser.id  // Your user's ID
+    userId: currentUser.id
 )
 ```
 
-This opens Safari with the Stripe checkout page. See [User Identity](/iap/user-identity) for guidance on the `userId` parameter.
+See [Universal Links](/iap/universal-links) for setup instructions.
 
 ## Handle Universal Link Callback
 
-The checkout result comes back via universal link. Add the `.zeroSettleIAPHandler()` modifier to your root view:
+For Safari-based checkout, the result comes back via universal link. Add the `.zeroSettleIAPHandler()` modifier to your root view:
 
 ```swift
 @main
@@ -175,7 +208,7 @@ import ZeroSettleIAP
 struct MyApp: App {
     init() {
         ZeroSettleIAP.shared.configure(.init(
-            publishableKey: "pk_live_abc123"
+            publishableKey: "your_live_key"
         ))
     }
 
@@ -188,29 +221,38 @@ struct MyApp: App {
 }
 
 struct ContentView: View {
-    @State private var products: [Product] = []
-    @State private var isPremium = false
+    @ObservedObject var iap = ZeroSettleIAP.shared
+    @State private var showCheckout = false
+    @State private var selectedProduct: Product?
 
     var body: some View {
         VStack {
-            ForEach(products) { product in
-                Button(product.displayName) {
-                    Task {
-                        try await ZeroSettleIAP.shared.purchase(
-                            productId: product.id,
-                            userId: Auth.currentUser.id
-                        )
-                    }
+            ForEach(iap.products) { product in
+                Button("\(product.displayName) — \(product.webPrice.formatted)") {
+                    selectedProduct = product
+                    showCheckout = true
                 }
             }
         }
         .task {
-            products = try? await ZeroSettleIAP.shared.fetchProducts()
+            try? await iap.fetchProducts(userId: Auth.currentUser.id)
 
-            if let entitlements = try? await ZeroSettleIAP.shared.restoreEntitlements(
+            if let entitlements = try? await iap.restoreEntitlements(
                 userId: Auth.currentUser.id
             ) {
-                isPremium = entitlements.contains { $0.isActive }
+                // Update UI based on entitlements
+            }
+        }
+        .zsPaymentSheet(
+            isPresented: $showCheckout,
+            product: selectedProduct ?? iap.products[0],
+            userId: Auth.currentUser.id
+        ) { result in
+            switch result {
+            case .success(let transaction):
+                print("Purchased \(transaction.productId)")
+            case .failure(let error):
+                print("Error: \(error)")
             }
         }
     }
@@ -220,16 +262,16 @@ struct ContentView: View {
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Payment Sheet" icon="credit-card" href="/iap/payment-sheet">
+    The recommended checkout UI — preloading, custom headers, UIKit
+  </Card>
   <Card title="User Identity" icon="user" href="/iap/user-identity">
     Learn about the different ways to identify users
   </Card>
-  <Card title="Subscription State" icon="arrows-rotate" href="/iap/subscription-state">
-    Check subscription status and handle renewals
+  <Card title="Universal Links" icon="link" href="/iap/universal-links">
+    Set up universal links for Safari checkout callbacks
   </Card>
-  <Card title="RevenueCat Integration" icon="puzzle-piece" href="/iap/revenuecat-integration">
-    Use ZeroSettle alongside RevenueCat
-  </Card>
-  <Card title="Customer Portal" icon="user-gear" href="/iap/customer-portal">
-    Let users manage their subscriptions
+  <Card title="Best Practices" icon="star" href="/iap/best-practices">
+    Recommendations for a reliable implementation
   </Card>
 </CardGroup>

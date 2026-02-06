@@ -1,9 +1,28 @@
 ---
 title: "Welcome to ZeroSettle"
-description: "Payments infrastructure for iOS apps"
+description: "Keep more of your iOS app revenue"
 ---
 
-ZeroSettle provides two products for iOS developers: **In-App Purchase** for web-based payments that bypass App Store fees, and **Skill-Based Escrow** for competitive gaming with real-money stakes.
+ZeroSettle helps iOS developers keep more of what they earn. Instead of handing Apple 30% on every transaction, route eligible purchases through our web checkout and pay just **5% + 50¢**.
+
+We handle everything — payment processing, tax compliance, refunds, and receipts. You stay focused on building your app.
+
+```swift
+import ZeroSettleIAP
+
+// Configure once
+ZeroSettleIAP.shared.configure(.init(publishableKey: "your_key"))
+
+// Fetch your products
+let products = try await ZeroSettleIAP.shared.fetchProducts(userId: user.id)
+
+// Show the payment sheet
+.zsPaymentSheet(isPresented: $showCheckout, product: product, userId: user.id) { result in
+    // Done. That's it.
+}
+```
+
+---
 
 ## Products
 
@@ -13,7 +32,7 @@ ZeroSettle provides two products for iOS developers: **In-App Purchase** for web
     icon="credit-card"
     href="/iap/overview"
   >
-    Web checkout for iOS apps. Reduce fees from 30% to 4.5% + 30¢. We handle tax, VAT/GST, and compliance.
+    Web checkout for iOS apps. Reduce fees from 30% to 5% + 50¢. We handle tax, VAT/GST, and compliance.
   </Card>
   <Card
     title="Skill-Based Escrow"
@@ -28,38 +47,38 @@ ZeroSettle provides two products for iOS developers: **In-App Purchase** for web
 
 ## In-App Purchase
 
-Replace Apple's 30% cut with our 4.5% + 30¢ fee. ZeroSettle acts as your Merchant of Record—we handle the entire payment flow, tax remittance, and compliance so you don't have to.
+Replace Apple's 30% cut with our 5% + 50¢ fee. ZeroSettle acts as your Merchant of Record — we handle the entire payment flow, tax remittance, and compliance so you don't have to.
 
 ### How It Works
 
 <Steps>
 <Step title="User Taps Purchase">
-  Your app shows a purchase button. When tapped, ZeroSettle opens a web checkout via `ASWebAuthenticationSession`.
+  Your app shows a purchase button. When tapped, ZeroSettle presents a native payment sheet with Apple Pay and card support.
 </Step>
 
 <Step title="User Pays">
-  User completes payment on our hosted checkout. We support Apple Pay, cards, and more.
+  The user completes payment without leaving your app. We support Apple Pay, credit cards, and debit cards.
 </Step>
 
-<Step title="User Returns to App">
-  After payment, user is redirected back to your app with a success token.
+<Step title="You Get a Callback">
+  Your app receives a verified `ZSTransaction` confirming the purchase.
 </Step>
 
 <Step title="You Deliver Content">
-  Verify the purchase with our API and unlock the content for your user.
+  Unlock the content. Entitlements are tracked automatically.
 </Step>
 </Steps>
 
 ### What We Handle
 
-- **Payment Processing** - Stripe-powered checkout with Apple Pay support
-- **Tax Compliance** - Automatic sales tax, VAT, and GST calculation and remittance
-- **Merchant of Record** - We're the seller of record, handling liability and disputes
-- **Refunds** - We handle refund requests and chargebacks
-- **Receipts** - Automatic email receipts to customers
+- **Payment Processing** — Stripe-powered checkout with Apple Pay support
+- **Tax Compliance** — Automatic sales tax, VAT, and GST calculation and remittance
+- **Merchant of Record** — We're the seller of record, handling liability and disputes
+- **Refunds** — We handle refund requests and chargebacks
+- **Receipts** — Automatic email receipts to customers
 
 <Card title="Get Started with IAP" icon="rocket" href="/iap/quickstart">
-  Coming soon — request early access
+  Add web checkout to your app in under 10 minutes
 </Card>
 
 ---
@@ -90,11 +109,11 @@ Build competitive games where players stake real money and earn payouts based on
 
 ### What We Handle
 
-- **On-Chain Escrow** - Funds locked in Solana smart contract
-- **Embedded Wallets** - No seed phrases, no wallet apps—just phone verification
-- **Real-time Balance** - WebSocket-powered instant balance updates
-- **Payout Tables** - Flexible discrete or continuous payout curves
-- **Settlement** - Automatic on-chain settlement in seconds
+- **On-Chain Escrow** — Funds locked in Solana smart contract
+- **Embedded Wallets** — No seed phrases, no wallet apps — just phone verification
+- **Real-time Balance** — WebSocket-powered instant balance updates
+- **Payout Tables** — Flexible discrete or continuous payout curves
+- **Settlement** — Automatic on-chain settlement in seconds
 
 <Card title="Get Started with Escrow" icon="rocket" href="/skill-escrow/quickstart">
   Install the SDK and run your first session
@@ -107,9 +126,9 @@ Build competitive games where players stake real money and earn payouts based on
 | Feature | In-App Purchase | Skill-Based Escrow |
 | --- | --- | --- |
 | **Use Case** | Subscriptions, one-time purchases, digital goods | Skill-based games, contests, tournaments |
-| **Payment Flow** | Web checkout via browser | On-chain staking via embedded wallet |
-| **Fee** | 4.5% + 30¢ | 5% of pot |
-| **Settlement** | [Instant to Stripe](https://connect.stripe.com/express_login) | Instant on-chain to player wallet |
+| **Payment Flow** | Web checkout via payment sheet or browser | On-chain staking via embedded wallet |
+| **Fee** | 5% + 50¢ | 5% of pot |
+| **Settlement** | [Instant via Stripe](https://connect.stripe.com/express_login) | Instant on-chain to player wallet |
 | **Compliance** | Tax, VAT/GST, MoR | Skill gaming regulations |
 
 ---
@@ -120,7 +139,7 @@ Build competitive games where players stake real money and earn payouts based on
   <Card
     title="Documentation"
     icon="book"
-    href="/skill-escrow/quickstart"
+    href="/iap/quickstart"
   >
     Guides and API reference
   </Card>

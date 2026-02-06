@@ -1,0 +1,262 @@
+---
+title: 'Payment Sheet'
+description: 'Embedded checkout UI with Apple Pay and card support'
+icon: 'credit-card'
+---
+
+`ZSPaymentSheet` is an embedded checkout experience that presents a native-feeling bottom sheet inside your app. Users can pay with Apple Pay or enter a card — without ever leaving your app.
+
+This is the recommended way to accept payments with ZeroSettle.
+
+## SwiftUI
+
+### Basic Usage
+
+Use the `.zsPaymentSheet()` view modifier to present the payment sheet:
+
+```swift
+struct PaywallView: View {
+    @State private var showCheckout = false
+    let product: Product
+
+    var body: some View {
+        Button("Subscribe — \(product.webPrice.formatted)") {
+            showCheckout = true
+        }
+        .zsPaymentSheet(
+            isPresented: $showCheckout,
+            product: product,
+            userId: currentUser.id
+        ) { result in
+            switch result {
+            case .success(let transaction):
+                unlockContent(transaction.productId)
+            case .failure(let error):
+                showError(error)
+            }
+        }
+    }
+}
+```
+
+### Custom Header
+
+Add a custom header view above the payment sheet to show product details, branding, or promotional messaging:
+
+```swift
+.zsPaymentSheet(
+    isPresented: $showCheckout,
+    product: product,
+    userId: currentUser.id,
+    header: {
+        VStack(spacing: 8) {
+            Image("premium-icon")
+                .resizable()
+                .frame(width: 60, height: 60)
+            Text(product.displayName)
+                .font(.title2.bold())
+            Text(product.productDescription)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+    }
+) { result in
+    // Handle result
+}
+```
+
+### Direct View Usage
+
+You can also use `ZSPaymentSheet` as a standalone view, for example inside a `.sheet()`:
+
+```swift
+.sheet(isPresented: $showCheckout) {
+    ZSPaymentSheet(
+        product: product,
+        userId: currentUser.id
+    ) { result in
+        showCheckout = false
+        handleResult(result)
+    }
+}
+```
+
+Or with a custom header:
+
+```swift
+.sheet(isPresented: $showCheckout) {
+    ZSPaymentSheet(
+        product: product,
+        userId: currentUser.id,
+        header: {
+            Text("Premium Access")
+                .font(.title.bold())
+                .padding()
+        }
+    ) { result in
+        showCheckout = false
+        handleResult(result)
+    }
+}
+```
+
+## UIKit
+
+Present the payment sheet from any view controller:
+
+```swift
+ZSPaymentSheet.present(
+    from: self,
+    product: product,
+    userId: currentUser.id
+) { result in
+    switch result {
+    case .success(let transaction):
+        self.unlockContent(transaction.productId)
+    case .failure(let error):
+        self.showError(error)
+    }
+}
+```
+
+## Preloading
+
+For the fastest possible presentation, preload the payment intent before the user taps "Buy". This creates a Stripe `PaymentIntent` and fetches the checkout URL ahead of time.
+
+```swift
+struct PaywallView: View {
+    @State private var showCheckout = false
+    @State private var preloadedURL: URL?
+    @State private var preloadedTransactionId: String?
+    let product: Product
+
+    var body: some View {
+        Button("Subscribe — \(product.webPrice.formatted)") {
+            showCheckout = true
+        }
+        .zsPaymentSheet(
+            isPresented: $showCheckout,
+            product: product,
+            userId: currentUser.id
+        ) { result in
+            handleResult(result)
+        }
+        .task {
+            // Preload while user is browsing
+            if let preloaded = await ZSPaymentSheet.preload(
+                productId: product.id,
+                userId: currentUser.id
+            ) {
+                preloadedURL = preloaded.checkoutURL
+                preloadedTransactionId = preloaded.transactionId
+            }
+        }
+    }
+}
+```
+
+When preloaded data is available, pass it to the payment sheet for instant presentation:
+
+```swift
+.zsPaymentSheet(
+    isPresented: $showCheckout,
+    product: product,
+    userId: currentUser.id,
+    checkoutURL: preloadedURL,
+    transactionId: preloadedTransactionId
+) { result in
+    handleResult(result)
+}
+```
+
+<Tip>
+  Preloading is especially useful on paywall screens where the user is likely to purchase. The checkout URL is valid for the duration of the PaymentIntent (typically 24 hours).
+</Tip>
+
+## How It Works
+
+Under the hood, `ZSPaymentSheet`:
+
+1. Creates a Stripe `PaymentIntent` via the ZeroSettle API (or uses a preloaded one)
+2. Loads the checkout page in a `WKWebView` with Apple Pay and card entry
+3. Communicates payment status back to your app via a JavaScript bridge
+4. Verifies the transaction server-side
+5. Returns a `ZSTransaction` to your completion handler
+
+The user sees a native-looking sheet with Apple Pay as the primary option and a card form as fallback.
+
+## Error Handling
+
+The completion handler receives a `Result<ZSTransaction, Error>`. Payment-specific errors are of type `PaymentSheetError`:
+
+```swift
+) { result in
+    switch result {
+    case .success(let transaction):
+        unlockContent(transaction.productId)
+
+    case .failure(let error):
+        if let sheetError = error as? PaymentSheetError {
+            switch sheetError {
+            case .cancelled:
+                // User dismissed the sheet — no action needed
+                break
+            case .notConfigured:
+                // SDK not configured — call configure() first
+                break
+            case .presentationFailed:
+                // Could not present the sheet
+                break
+            case .invalidCard:
+                // Card was declined or invalid
+                showError("Please check your card details.")
+            case .paymentFailed(let message):
+                // Payment processing failed
+                showError(message)
+            }
+        }
+    }
+}
+```
+
+### Error Types
+
+| Error | Description |
+|-------|-------------|
+| `PaymentSheetError.cancelled` | User dismissed the payment sheet |
+| `PaymentSheetError.notConfigured` | SDK hasn't been configured yet |
+| `PaymentSheetError.presentationFailed` | Sheet couldn't be presented (e.g., no root view controller) |
+| `PaymentSheetError.invalidCard` | Card was declined or invalid |
+| `PaymentSheetError.paymentFailed(String)` | Payment failed with a message from Stripe |
+
+<Note>
+  `.cancelled` is not a real error — it just means the user changed their mind. Don't show an error message for cancellations.
+</Note>
+
+## Promotions
+
+If a product has an active promotion, the payment sheet automatically shows the promotional price. The `Product.promotion` property contains the details:
+
+```swift
+if let promo = product.promotion {
+    print("\(promo.displayName): \(promo.promotionalPrice.formatted)")
+    // e.g. "Launch Sale: $4.99"
+}
+```
+
+Promotion types include:
+- **Percent off** — e.g., 50% off
+- **Fixed amount** — e.g., $5 off
+- **Free trial** — e.g., 7 days free
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Universal Links" icon="link" href="/iap/universal-links">
+    Required setup for Safari checkout flows
+  </Card>
+  <Card title="StoreKit Integration" icon="apple" href="/iap/storekit-integration">
+    Use StoreKit alongside web checkout
+  </Card>
+</CardGroup>

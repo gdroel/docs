@@ -27,3 +27,77 @@ main > div,
 pre {
   max-width: 100% !important;
 }
+
+/* ─── Dark mode ─── */
+[data-theme="dark"] {
+  --bg-secondary: #111111;
+  --bg-elevated: #161616;
+  --border-color: #262626;
+}
+
+[data-theme="dark"] pre,
+[data-theme="dark"] [class*="CodeBlock"],
+[data-theme="dark"] [class*="codeblock"] {
+  background: #111111 !important;
+  border-color: #262626 !important;
+}
+
+[data-theme="dark"] :not(pre) > code {
+  background: #1a1a1a !important;
+  color: #6ee77a !important;
+}
+
+[data-theme="dark"] [class*="Card"],
+[data-theme="dark"] [class*="callout"],
+[data-theme="dark"] [class*="Callout"] {
+  border-color: #262626 !important;
+}
+
+[data-theme="dark"] table thead,
+[data-theme="dark"] table th {
+  background: #111111 !important;
+}
+
+[data-theme="dark"] table td,
+[data-theme="dark"] table th {
+  border-color: #262626 !important;
+}
+
+/* ─── Light mode ─── */
+[data-theme="light"] {
+  --bg-secondary: #f5f9f4;
+  --border-color: rgba(52, 199, 89, 0.2);
+}
+
+[data-theme="light"] pre,
+[data-theme="light"] [class*="CodeBlock"],
+[data-theme="light"] [class*="codeblock"] {
+  background: #f5f9f4 !important;
+  border-color: rgba(52, 199, 89, 0.15) !important;
+}
+
+[data-theme="light"] :not(pre) > code {
+  background: #f0f7ed !important;
+  color: #2a8a3e !important;
+}
+
+[data-theme="light"] [class*="Card"],
+[data-theme="light"] [class*="callout"],
+[data-theme="light"] [class*="Callout"] {
+  border-color: rgba(52, 199, 89, 0.15) !important;
+}
+
+[data-theme="light"] table thead,
+[data-theme="light"] table th {
+  background: #f5f9f4 !important;
+}
+
+[data-theme="light"] table td,
+[data-theme="light"] table th {
+  border-color: rgba(52, 199, 89, 0.15) !important;
+}
+
+/* ─── Shared interactive styles ─── */
+a:hover {
+  transition: color 0.15s ease;
+}

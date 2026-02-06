@@ -1,69 +1,143 @@
 ---
 title: 'RevenueCat Integration'
-description: 'Seamless integration between ZeroSettle and RevenueCat paywalls'
+description: 'Use ZeroSettle alongside RevenueCat for web checkout'
 icon: 'puzzle-piece'
 ---
 
-## Overview
+ZeroSettle works alongside RevenueCat. You can use RevenueCat for StoreKit subscription management while routing eligible purchases through ZeroSettle's web checkout for lower fees.
 
-ZeroSettle integrates with RevenueCat's paywall system through a simple checkout flow. No SDK integration or Swift code changes are required—simply add a custom checkout button to your paywall that directs users to the ZeroSettle payment screen.
+There are two integration approaches:
 
-## Implementation
+## Option 1: SDK Integration (Recommended)
 
-To enable ZeroSettle checkout in your RevenueCat paywall, add a purchase button with the "custom checkout" option that links to:
+Use the ZeroSettleIAP SDK alongside RevenueCat in your app. This gives you full control over the purchase flow.
 
-```
-https://zerosettle.io/checkout
-```
+### Configuration
 
-<img src="/images/revenuecat.png" alt="RevenueCat Integration" />
-
-That's it! When users tap this button, they'll be directed to a payment screen with the discount you configured in your ZeroSettle dashboard already applied.
-
-## How It Works
-
-1. **Configure Your Discount**: Set up your payment incentive discount in the ZeroSettle dashboard
-2. **Add Custom Checkout Button**: In your RevenueCat paywall, add a purchase button with custom checkout enabled
-3. **Link to ZeroSettle**: Point the button to `https://zerosettle.io/checkout`
-4. **Automatic Discount Application**: Users will see the discounted price automatically applied based on your dashboard settings
-
-## Deep Link Redirection
-
-After the purchase flow completes, ZeroSettle automatically redirects users back to your app using your app's bundle ID. Simply use the same bundle identifier, and we'll handle the redirection with either a `success` or `cancelled` status.
-
-### Configure Deep Links in Xcode
-
-First, set up your URL scheme in your project's Info section:
-
-<img src="/images/deeplink.png" alt="Deep Link Configuration" />
-
-Add a URL Type with your app name as the URL scheme. For example, if your bundle ID is `com.gaberoeloffs.divecast`, use `divecast` as the URL scheme.
-
-### Handle Deep Links in Your App
-
-Use the `onOpenURL` modifier to handle the callback:
+When using RevenueCat, disable ZeroSettle's StoreKit listener to avoid conflicts:
 
 ```swift
-import SwiftUI
+import ZeroSettleIAP
+import RevenueCat
 
+@main
+struct YourApp: App {
+    init() {
+        // Configure RevenueCat first
+        Purchases.configure(withAPIKey: "your_revenuecat_key")
+
+        // Configure ZeroSettle with StoreKit sync disabled
+        ZeroSettleIAP.shared.configure(.init(
+            publishableKey: "your_zerosettle_key",
+            syncStoreKitTransactions: false  // RevenueCat manages StoreKit
+        ))
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .zeroSettleIAPHandler()
+        }
+    }
+}
+```
+
+<Warning>
+  Always set `syncStoreKitTransactions: false` when using RevenueCat. Both SDKs listening for StoreKit transactions will cause conflicts.
+</Warning>
+
+### User Identity
+
+Pass RevenueCat's `appUserID` as the `userId` when making ZeroSettle purchases. This links web checkout purchases to the correct RevenueCat customer:
+
+```swift
+let rcUserId = Purchases.shared.appUserID
+
+// Fetch ZeroSettle products
+let products = try await ZeroSettleIAP.shared.fetchProducts(userId: rcUserId)
+
+// Purchase via web checkout
+try await ZeroSettleIAP.shared.purchase(
+    productId: product.id,
+    userId: rcUserId
+)
+```
+
+### Hybrid Paywall
+
+Show both ZeroSettle (web checkout) and RevenueCat (StoreKit) purchase options:
+
+```swift
+struct PaywallView: View {
+    @State private var showPaymentSheet = false
+    let zsProduct: Product        // From ZeroSettleIAP
+    let rcPackage: Package        // From RevenueCat
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Web checkout — lower fees
+            Button("Subscribe — \(zsProduct.webPrice.formatted)") {
+                showPaymentSheet = true
+            }
+            .zsPaymentSheet(
+                isPresented: $showPaymentSheet,
+                product: zsProduct,
+                userId: Purchases.shared.appUserID
+            ) { result in
+                if case .success = result {
+                    // Refresh RC customer info to pick up the webhook
+                    try? await Purchases.shared.customerInfo()
+                }
+            }
+
+            // StoreKit fallback via RevenueCat
+            Button("Subscribe via App Store — \(rcPackage.localizedPriceString)") {
+                Task {
+                    try? await Purchases.shared.purchase(package: rcPackage)
+                }
+            }
+            .foregroundStyle(.secondary)
+        }
+    }
+}
+```
+
+### Webhook Sync
+
+When a user purchases via ZeroSettle web checkout, you need to sync the entitlement to RevenueCat. Configure a webhook in your ZeroSettle dashboard that posts to RevenueCat's REST API:
+
+1. Go to your ZeroSettle dashboard
+2. Add a webhook endpoint pointing to your backend
+3. Your backend receives the purchase event and calls RevenueCat's [Grant Entitlement API](https://www.revenuecat.com/docs/api-v1#tag/Entitlements/operation/grant-a-promotional-entitlement)
+
+This ensures RevenueCat's `CustomerInfo` stays in sync with web checkout purchases.
+
+## Option 2: RevenueCat Paywall Custom Button
+
+If you use RevenueCat's paywall builder, you can add a custom checkout button that links to ZeroSettle's hosted checkout:
+
+1. In your RevenueCat paywall template, add a purchase button with **custom checkout**
+2. Set the URL to your ZeroSettle checkout link
+3. Configure a URL scheme in your app to handle the callback
+
+### Handle the Callback
+
+```swift
 @main
 struct YourApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .onOpenURL { url in
-                    // If your bundle ID is com.gaberoeloffs.divecast, use "divecast"
-                    if url.scheme == "divecast" {
+                    if url.scheme == "yourapp" {
                         let status = url.lastPathComponent
-                        
                         switch status {
                         case "success":
-                            // Handle successful purchase
-                            // Refresh subscription status, show confirmation, etc.
-                            break
+                            // Refresh RevenueCat customer info
+                            Task {
+                                try? await Purchases.shared.customerInfo()
+                            }
                         case "cancelled":
-                            // Handle cancellation
-                            // Return to paywall or show appropriate message
                             break
                         default:
                             break
@@ -75,7 +149,6 @@ struct YourApp: App {
 }
 ```
 
-## Requirements
-
-- RevenueCat account with paywall configured
-- ZeroSettle account with discount settings configured
+<Note>
+  The SDK integration (Option 1) provides a better user experience since the payment sheet stays inside your app. The custom button approach is useful if you want to use RevenueCat's paywall builder without writing custom UI code.
+</Note>

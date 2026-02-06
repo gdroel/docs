@@ -18,13 +18,14 @@ struct YourApp: App {
     init() {
         // Configure before any views load
         ZeroSettleIAP.shared.configure(.init(
-            publishableKey: "pk_live_..."
+            publishableKey: "your_live_key"
         ))
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .zeroSettleIAPHandler()
         }
     }
 }
@@ -36,9 +37,9 @@ Keep sandbox and live keys separate:
 
 ```swift
 #if DEBUG
-let publishableKey = "pk_test_..."  // Sandbox - no real charges
+let publishableKey = "your_test_key"  // Sandbox - no real charges
 #else
-let publishableKey = "pk_live_..."  // Live - real payments
+let publishableKey = "your_live_key"  // Live - real payments
 #endif
 
 ZeroSettleIAP.shared.configure(.init(publishableKey: publishableKey))
@@ -126,12 +127,59 @@ func hasActiveSubscription(_ entitlements: [Entitlement]) -> Bool {
 
 ## Purchase Flow
 
-### Show Loading State
+### Use the Payment Sheet
 
-Purchases open Safari, which can feel slow. Show feedback immediately:
+`ZSPaymentSheet` provides the best conversion rates because the user stays in your app:
 
 ```swift
 struct PurchaseButton: View {
+    @State private var showCheckout = false
+    let product: Product
+
+    var body: some View {
+        Button("Buy \(product.displayName) — \(product.webPrice.formatted)") {
+            showCheckout = true
+        }
+        .zsPaymentSheet(
+            isPresented: $showCheckout,
+            product: product,
+            userId: Auth.currentUser.id
+        ) { result in
+            switch result {
+            case .success(let transaction):
+                unlockProduct(transaction.productId)
+            case .failure(let error):
+                if let sheetError = error as? PaymentSheetError,
+                   sheetError == .cancelled {
+                    // User cancelled — don't show an error
+                    return
+                }
+                showError(error)
+            }
+        }
+    }
+}
+```
+
+### Preload for Instant Checkout
+
+If you know the user is likely to purchase (e.g., on a paywall screen), preload the payment intent:
+
+```swift
+.task {
+    preloaded = await ZSPaymentSheet.preload(
+        productId: product.id,
+        userId: currentUser.id
+    )
+}
+```
+
+### Show Loading State
+
+For Safari-based checkout, show feedback immediately since it opens an external browser:
+
+```swift
+struct SafariPurchaseButton: View {
     @ObservedObject var iap = ZeroSettleIAP.shared
     let product: Product
 
@@ -191,6 +239,16 @@ class PurchaseManager: ZeroSettleIAPDelegate {
     func zeroSettleIAPEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
         // Sync UI with current entitlements
         updatePremiumUI(entitlements)
+    }
+
+    func zeroSettleIAPDidSyncStoreKitTransaction(productId: String, transactionId: UInt64) {
+        // StoreKit transaction synced to ZeroSettle
+        Analytics.track("storekit_synced", productId: productId)
+    }
+
+    func zeroSettleIAPStoreKitSyncFailed(error: Error) {
+        // StoreKit sync failed — will retry automatically
+        print("StoreKit sync failed: \(error)")
     }
 }
 ```
@@ -263,6 +321,34 @@ func purchase(product: Product) async throws {
 
 ## Error Handling
 
+### Handle Each Error Type
+
+ZeroSettle uses specific error types for different scenarios:
+
+| Error Type | When It's Thrown |
+|---|---|
+| `ZeroSettleIAPError` | SDK configuration and general errors |
+| `PaymentSheetError` | Payment sheet presentation and payment errors |
+| `StoreKitPurchaseError` | StoreKit purchase errors |
+| `CheckoutError` | Legacy checkout view errors (deprecated) |
+
+```swift
+do {
+    try await ZeroSettleIAP.shared.purchase(productId: id, userId: userId)
+} catch let error as ZeroSettleIAPError {
+    switch error {
+    case .notConfigured:
+        fatalError("SDK not configured")
+    case .productNotFound(let id):
+        print("Product \(id) not found")
+    case .networkError(let underlying):
+        showRetry("Network error: \(underlying.localizedDescription)")
+    default:
+        showError(error.localizedDescription)
+    }
+}
+```
+
 ### Graceful Degradation
 
 If the SDK fails to initialize or fetch products, fall back gracefully:
@@ -275,7 +361,6 @@ struct PaywallView: View {
     var body: some View {
         Group {
             if let error = loadError {
-                // Show fallback UI
                 VStack {
                     Text("Unable to load products")
                     Button("Retry") { loadProducts() }
@@ -292,30 +377,15 @@ struct PaywallView: View {
     func loadProducts() {
         Task {
             do {
-                products = try await ZeroSettleIAP.shared.fetchProducts()
+                products = try await ZeroSettleIAP.shared.fetchProducts(
+                    userId: Auth.currentUser.id
+                )
                 loadError = nil
             } catch {
                 loadError = error
             }
         }
     }
-}
-```
-
-### Log Errors for Debugging
-
-Log errors to help diagnose issues in production:
-
-```swift
-func zeroSettleIAPCheckoutDidFail(productId: String, error: Error) {
-    // Log to your crash reporting service
-    Crashlytics.record(error: error, userInfo: [
-        "product_id": productId,
-        "user_id": Auth.currentUser?.id ?? "anonymous"
-    ])
-
-    // Show user-friendly message
-    showError("Something went wrong. Please try again.")
 }
 ```
 
@@ -327,20 +397,22 @@ Before releasing, test these scenarios on a physical device:
 
 | Scenario | Expected Behavior |
 |----------|-------------------|
-| Complete purchase | Entitlements update, content unlocks |
-| Cancel checkout | No entitlement change, no error shown |
+| Complete purchase (payment sheet) | Transaction returned, entitlements update |
+| Complete purchase (Safari) | Universal link callback, entitlements update |
+| Cancel payment sheet | `.cancelled` error, no entitlement change |
+| Cancel Safari checkout | No entitlement change, no error shown |
 | Restore purchases | All previous purchases recovered |
 | App killed during checkout | Entitlements sync on next launch |
 | Network offline | Cached entitlements still work |
 | Different device, same account | Entitlements sync via restore |
+| StoreKit purchase (hybrid flow) | Transaction synced to ZeroSettle |
 
 ### Use Sandbox Keys
 
 Test with sandbox keys before going live:
 
 ```swift
-// Sandbox key for development - no real charges
-ZeroSettleIAP.shared.configure(.init(publishableKey: "pk_test_..."))
+ZeroSettleIAP.shared.configure(.init(publishableKey: "your_test_key"))
 ```
 
 ## Performance
@@ -354,11 +426,11 @@ class ProductStore: ObservableObject {
     @Published var products: [Product] = []
     private var hasFetched = false
 
-    func fetchIfNeeded() async {
+    func fetchIfNeeded(userId: String) async {
         guard !hasFetched else { return }
         hasFetched = true
 
-        products = (try? await ZeroSettleIAP.shared.fetchProducts()) ?? []
+        products = (try? await ZeroSettleIAP.shared.fetchProducts(userId: userId)) ?? []
     }
 }
 ```
@@ -375,7 +447,7 @@ struct HomeView: View {
         }
         .task {
             // Prefetch while user is on home screen
-            _ = try? await ZeroSettleIAP.shared.fetchProducts()
+            _ = try? await ZeroSettleIAP.shared.fetchProducts(userId: Auth.currentUser.id)
         }
     }
 }
@@ -391,10 +463,6 @@ For critical features, verify entitlements server-side:
 // Client: User claims to have premium
 // Server: Verify with ZeroSettle API before granting access
 
-// Your backend
-GET /api/user/entitlements
-Authorization: Bearer <user_token>
-
 // Your backend calls ZeroSettle
 GET https://api.zerosettle.io/v1/iap/entitlements?user_id=<user_id>
 X-ZeroSettle-Key: <secret_key>
@@ -404,7 +472,7 @@ X-ZeroSettle-Key: <secret_key>
 
 Only use publishable keys in your app. Secret keys belong on your server:
 
-| Key Type | Prefix | Where to Use |
-|----------|--------|--------------|
-| Publishable | `pk_live_` / `pk_test_` | iOS app |
-| Secret | `sk_live_` / `sk_test_` | Your backend only |
+| Key Type | Where to Use |
+|----------|--------------|
+| Publishable | iOS app |
+| Secret | Your backend only |

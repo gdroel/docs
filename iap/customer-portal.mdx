@@ -4,34 +4,40 @@ description: 'How customers can manage their own subscriptions'
 icon: 'user-gear'
 ---
 
-ZeroSettle comes with a no-code customer portal for customers to manage their own subscriptions.
+ZeroSettle provides a customer portal powered by Stripe where your customers can manage their subscriptions and payment methods.
 
-## Accessing the customer portal
+## Accessing the Portal
 
-Each email (subscription confirmation, renewal, billing issue) that ZeroSettle sends to customers contains a link for the customer to access their customer portal. You can also programmatically generate a portal link for your users:
+Customers can access their portal through links included in emails that ZeroSettle sends automatically:
 
-```swift
-do {
-    let portalURL = try await ZeroSettle.shared.getManagementURL(userId: currentUser.id)
-    if let url = portalURL {
-        // Open management portal
-        UIApplication.shared.open(url)
-    }
-} catch {
-    print("Failed to get management URL: \(error)")
-}
-```
+- **Subscription confirmation** emails
+- **Renewal receipt** emails
+- **Billing issue** notifications
 
-## Managing subscriptions through the customer portal
+Each email contains a "Manage Subscription" link that opens the Stripe-powered billing portal.
+
+## What Customers Can Do
 
 In the customer portal, customers can:
 
-- **See upcoming payment information** - View details about their next billing cycle
-- **Cancel a subscription** - End their subscription with immediate effect or at period end
-- **Change subscription products** - Upgrade or downgrade to different subscription tiers
-- **Re-subscribe** - Reactivate a cancelled subscription before it expires
-- **Update payment methods** - Change or add new payment methods
-- **View payment history** - See a complete list of all past payments
-- **Download receipts and invoices** - Get PDF receipts and invoices for their records
+- **See upcoming payment information** — View details about their next billing cycle
+- **Cancel a subscription** — End their subscription with immediate effect or at period end
+- **Change subscription products** — Upgrade or downgrade to different subscription tiers
+- **Re-subscribe** — Reactivate a cancelled subscription before it expires
+- **Update payment methods** — Change or add new payment methods
+- **View payment history** — See a complete list of all past payments
+- **Download receipts and invoices** — Get PDF receipts and invoices for their records
 
-All changes made in the customer portal are automatically synchronized with your app, and the `CustomerInfo` will be updated accordingly.
+## Entitlement Updates
+
+All changes made in the customer portal are automatically reflected in your app. When a customer cancels or changes their subscription through the portal, the entitlements returned by `restoreEntitlements()` will reflect the updated status on the next call.
+
+```swift
+// Entitlements stay in sync automatically
+let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+    userId: currentUser.id
+)
+
+// Check if the user still has access
+let hasAccess = entitlements.contains { $0.isActive }
+```
