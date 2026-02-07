@@ -70,7 +70,7 @@ Show both ZeroSettle (web checkout) and RevenueCat (StoreKit) purchase options:
 ```swift
 struct PaywallView: View {
     @State private var showPaymentSheet = false
-    let zsProduct: Product        // From ZeroSettleIAP
+    let zsProduct: ZSProduct      // From ZeroSettleIAP
     let rcPackage: Package        // From RevenueCat
 
     var body: some View {

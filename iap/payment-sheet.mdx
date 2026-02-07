@@ -17,7 +17,7 @@ Use the `.zsPaymentSheet()` view modifier to present the payment sheet:
 ```swift
 struct PaywallView: View {
     @State private var showCheckout = false
-    let product: Product
+    let product: ZSProduct
 
     var body: some View {
         Button("Subscribe — \(product.webPrice.formatted)") {
@@ -63,6 +63,46 @@ Add a custom header view above the payment sheet to show product details, brandi
     }
 ) { result in
     // Handle result
+}
+```
+
+### Item-Based Presentation
+
+If you have an optional `ZSProduct?` binding (e.g., a selected product from a list), use the item-based modifier. The sheet presents when the binding is non-nil and automatically sets it back to `nil` on dismiss:
+
+```swift
+struct PaywallView: View {
+    @ObservedObject var iap = ZeroSettleIAP.shared
+    @State private var selectedProduct: ZSProduct?
+
+    var body: some View {
+        ForEach(iap.products) { product in
+            Button(product.displayName) {
+                selectedProduct = product
+            }
+        }
+        .zsPaymentSheet(
+            item: $selectedProduct,
+            userId: currentUser.id
+        ) { result in
+            handleResult(result)
+        }
+    }
+}
+```
+
+### Non-Dismissable Sheet
+
+Pass `dismissable: false` to prevent the user from swiping to dismiss the sheet. This hides the close button and disables interactive dismiss:
+
+```swift
+.zsPaymentSheet(
+    isPresented: $showCheckout,
+    product: product,
+    userId: currentUser.id,
+    dismissable: false
+) { result in
+    handleResult(result)
 }
 ```
 
@@ -120,49 +160,14 @@ ZSPaymentSheet.present(
 }
 ```
 
-## Preloading
-
-For the fastest possible presentation, preload the payment intent before the user taps "Buy". This creates a Stripe `PaymentIntent` and fetches the checkout URL ahead of time.
+You can also pass `dismissable: false`, or provide a preloaded `checkoutURL` and `transactionId` for instant presentation:
 
 ```swift
-struct PaywallView: View {
-    @State private var showCheckout = false
-    @State private var preloadedURL: URL?
-    @State private var preloadedTransactionId: String?
-    let product: Product
-
-    var body: some View {
-        Button("Subscribe — \(product.webPrice.formatted)") {
-            showCheckout = true
-        }
-        .zsPaymentSheet(
-            isPresented: $showCheckout,
-            product: product,
-            userId: currentUser.id
-        ) { result in
-            handleResult(result)
-        }
-        .task {
-            // Preload while user is browsing
-            if let preloaded = await ZSPaymentSheet.preload(
-                productId: product.id,
-                userId: currentUser.id
-            ) {
-                preloadedURL = preloaded.checkoutURL
-                preloadedTransactionId = preloaded.transactionId
-            }
-        }
-    }
-}
-```
-
-When preloaded data is available, pass it to the payment sheet for instant presentation:
-
-```swift
-.zsPaymentSheet(
-    isPresented: $showCheckout,
+ZSPaymentSheet.present(
+    from: self,
     product: product,
     userId: currentUser.id,
+    dismissable: false,
     checkoutURL: preloadedURL,
     transactionId: preloadedTransactionId
 ) { result in
@@ -170,8 +175,47 @@ When preloaded data is available, pass it to the payment sheet for instant prese
 }
 ```
 
+## Preloading
+
+The `.zsPaymentSheet()` view modifier automatically preloads both the `PaymentIntent` and the `WKWebView` before presenting the sheet. When the user taps "Buy", the checkout is fully rendered the moment it slides up — no manual preloading is needed.
+
+```swift
+// The modifier handles preloading automatically — just use it as normal
+.zsPaymentSheet(
+    isPresented: $showCheckout,
+    product: product,
+    userId: currentUser.id
+) { result in
+    handleResult(result)
+}
+```
+
+### Manual Preloading
+
+For the direct `ZSPaymentSheet` init or UIKit's `present` method, you can preload the `PaymentIntent` yourself using `ZSPaymentSheet.preload()`:
+
+```swift
+// Preload while the user browses
+let preloaded = await ZSPaymentSheet.preload(
+    productId: product.id,
+    userId: currentUser.id
+)
+
+// Later, pass the preloaded data to the direct init
+.sheet(isPresented: $showCheckout) {
+    ZSPaymentSheet(
+        product: product,
+        userId: currentUser.id,
+        checkoutURL: preloaded?.checkoutURL,
+        transactionId: preloaded?.transactionId
+    ) { result in
+        handleResult(result)
+    }
+}
+```
+
 <Tip>
-  Preloading is especially useful on paywall screens where the user is likely to purchase. The checkout URL is valid for the duration of the PaymentIntent (typically 24 hours).
+  Manual preloading is only needed when using `ZSPaymentSheet` as a standalone view or via UIKit's `present` method. The `.zsPaymentSheet()` modifier handles this automatically.
 </Tip>
 
 ## How It Works
@@ -236,7 +280,7 @@ The completion handler receives a `Result<ZSTransaction, Error>`. Payment-specif
 
 ## Promotions
 
-If a product has an active promotion, the payment sheet automatically shows the promotional price. The `Product.promotion` property contains the details:
+If a product has an active promotion, the payment sheet automatically shows the promotional price. The `ZSProduct.promotion` property contains the details:
 
 ```swift
 if let promo = product.promotion {

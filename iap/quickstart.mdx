@@ -88,7 +88,7 @@ Present an embedded payment sheet with Apple Pay and card support. The user neve
 ```swift
 struct PaywallView: View {
     @State private var showCheckout = false
-    let product: Product
+    let product: ZSProduct
 
     var body: some View {
         Button("Subscribe — \(product.webPrice.formatted)") {
@@ -222,15 +222,13 @@ struct MyApp: App {
 
 struct ContentView: View {
     @ObservedObject var iap = ZeroSettleIAP.shared
-    @State private var showCheckout = false
-    @State private var selectedProduct: Product?
+    @State private var selectedProduct: ZSProduct?
 
     var body: some View {
         VStack {
             ForEach(iap.products) { product in
                 Button("\(product.displayName) — \(product.webPrice.formatted)") {
                     selectedProduct = product
-                    showCheckout = true
                 }
             }
         }
@@ -244,8 +242,7 @@ struct ContentView: View {
             }
         }
         .zsPaymentSheet(
-            isPresented: $showCheckout,
-            product: selectedProduct ?? iap.products[0],
+            item: $selectedProduct,
             userId: Auth.currentUser.id
         ) { result in
             switch result {

@@ -134,7 +134,7 @@ func hasActiveSubscription(_ entitlements: [Entitlement]) -> Bool {
 ```swift
 struct PurchaseButton: View {
     @State private var showCheckout = false
-    let product: Product
+    let product: ZSProduct
 
     var body: some View {
         Button("Buy \(product.displayName) — \(product.webPrice.formatted)") {
@@ -161,9 +161,11 @@ struct PurchaseButton: View {
 }
 ```
 
-### Preload for Instant Checkout
+### Preloading
 
-If you know the user is likely to purchase (e.g., on a paywall screen), preload the payment intent:
+The `.zsPaymentSheet()` modifier automatically preloads the `PaymentIntent` and `WKWebView` before presenting the sheet, so the checkout is fully rendered the moment it slides up.
+
+For the standalone `ZSPaymentSheet` init or UIKit's `present` method, you can preload manually:
 
 ```swift
 .task {
@@ -181,7 +183,7 @@ For Safari-based checkout, show feedback immediately since it opens an external 
 ```swift
 struct SafariPurchaseButton: View {
     @ObservedObject var iap = ZeroSettleIAP.shared
-    let product: Product
+    let product: ZSProduct
 
     var body: some View {
         Button {
@@ -302,7 +304,7 @@ userId: UIDevice.current.identifierForVendor?.uuidString ?? ""
 If your app supports logged-out usage, decide how to handle purchases:
 
 ```swift
-func purchase(product: Product) async throws {
+func purchase(product: ZSProduct) async throws {
     guard let user = Auth.currentUser else {
         // Option 1: Require login first
         showLoginPrompt()
