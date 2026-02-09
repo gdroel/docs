@@ -35,6 +35,7 @@
             "pages": [
               "iap/overview",
               "iap/quickstart",
+              "iap/dashboard",
               "iap/payment-sheet",
               "iap/universal-links",
               "iap/user-identity",

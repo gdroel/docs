@@ -13,43 +13,20 @@ import ZeroSettleIAP
 // Configure once
 ZeroSettleIAP.shared.configure(.init(publishableKey: "your_key"))
 
-// Fetch your products
-let products = try await ZeroSettleIAP.shared.fetchProducts(userId: user.id)
+// Fetch your product catalog
+let catalog = try await ZeroSettleIAP.shared.fetchProducts(userId: user.id)
 
 // Show the payment sheet
-.zsPaymentSheet(isPresented: $showCheckout, product: product, userId: user.id) { result in
+.zsPaymentSheet(item: $selectedProduct, userId: user.id) { result in
     // Done. That's it.
 }
 ```
 
 ---
 
-## Products
-
-<CardGroup cols={2}>
-  <Card
-    title="In-App Purchase"
-    icon="credit-card"
-    href="/iap/overview"
-  >
-    Web checkout for iOS apps. Reduce fees from 30% to 5% + 50¢. We handle tax, VAT/GST, and compliance.
-  </Card>
-  <Card
-    title="Skill-Based Escrow"
-    icon="trophy"
-    href="/skill-escrow/overview"
-  >
-    Competitive gaming with blockchain escrow. Players stake, compete, and get paid based on performance.
-  </Card>
-</CardGroup>
-
----
-
-## In-App Purchase
+## How It Works
 
 Replace Apple's 30% cut with our 5% + 50¢ fee. ZeroSettle acts as your Merchant of Record — we handle the entire payment flow, tax remittance, and compliance so you don't have to.
-
-### How It Works
 
 <Steps>
 <Step title="User Taps Purchase">
@@ -80,56 +57,6 @@ Replace Apple's 30% cut with our 5% + 50¢ fee. ZeroSettle acts as your Merchant
 <Card title="Get Started with IAP" icon="rocket" href="/iap/quickstart">
   Add web checkout to your app in under 10 minutes
 </Card>
-
----
-
-## Skill-Based Escrow
-
-Build competitive games where players stake real money and earn payouts based on performance. ZeroSettle handles the on-chain escrow, ensuring fair and transparent payouts.
-
-### How It Works
-
-<Steps>
-<Step title="Player Authenticates">
-  Phone-based login via Privy. We create an embedded Solana wallet for each user automatically.
-</Step>
-
-<Step title="Player Stakes">
-  Player chooses a wager (e.g., $1). Funds are locked in an on-chain escrow until game completion.
-</Step>
-
-<Step title="Player Competes">
-  Your game runs normally. ZeroSettle stays out of the way.
-</Step>
-
-<Step title="Result & Payout">
-  Submit the game result. We calculate the payout from your payout table and settle on-chain instantly.
-</Step>
-</Steps>
-
-### What We Handle
-
-- **On-Chain Escrow** — Funds locked in Solana smart contract
-- **Embedded Wallets** — No seed phrases, no wallet apps — just phone verification
-- **Real-time Balance** — WebSocket-powered instant balance updates
-- **Payout Tables** — Flexible discrete or continuous payout curves
-- **Settlement** — Automatic on-chain settlement in seconds
-
-<Card title="Get Started with Escrow" icon="rocket" href="/skill-escrow/quickstart">
-  Install the SDK and run your first session
-</Card>
-
----
-
-## Quick Comparison
-
-| Feature | In-App Purchase | Skill-Based Escrow |
-| --- | --- | --- |
-| **Use Case** | Subscriptions, one-time purchases, digital goods | Skill-based games, contests, tournaments |
-| **Payment Flow** | Web checkout via payment sheet or browser | On-chain staking via embedded wallet |
-| **Fee** | 5% + 50¢ | 5% of pot |
-| **Settlement** | [Instant via Stripe](https://connect.stripe.com/express_login) | Instant on-chain to player wallet |
-| **Compliance** | Tax, VAT/GST, MoR | Skill gaming regulations |
 
 ---
 

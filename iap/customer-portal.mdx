@@ -4,21 +4,83 @@ description: 'How customers can manage their own subscriptions'
 icon: 'user-gear'
 ---
 
-ZeroSettle provides a customer portal powered by Stripe where your customers can manage their subscriptions and payment methods.
+ZeroSettle provides a customer portal powered by Stripe where your customers can manage their subscriptions and payment methods — both in-app and via email links.
 
-## Accessing the Portal
+## In-App Portal
 
-Customers can access their portal through links included in emails that ZeroSettle sends automatically:
+### SwiftUI Modifier
 
-- **Subscription confirmation** emails
-- **Renewal receipt** emails
-- **Billing issue** notifications
+The simplest way to add subscription management is the `.zsManageSubscription()` modifier:
 
-Each email contains a "Manage Subscription" link that opens the Stripe-powered billing portal.
+```swift
+@State private var showManageSubscription = false
+
+Button("Manage Subscription") {
+    showManageSubscription = true
+}
+.zsManageSubscription(isPresented: $showManageSubscription, userId: currentUser.id)
+```
+
+This automatically routes to the right management UI based on where the user's subscriptions came from.
+
+### Programmatic API
+
+For more control, use the methods on `ZeroSettleIAP.shared` directly:
+
+```swift
+// Smart routing — picks the right UI based on entitlement sources
+try await ZeroSettleIAP.shared.showManageSubscription(userId: currentUser.id)
+
+// Always open the Stripe customer portal
+try await ZeroSettleIAP.shared.openCustomerPortal(userId: currentUser.id)
+```
+
+## Dual-Source Handling
+
+`showManageSubscription()` inspects the user's current entitlements and routes accordingly:
+
+| Entitlement Sources | Management UI |
+|---|---|
+| Web checkout only | Stripe customer portal |
+| StoreKit only | Apple's native subscription management |
+| Both web + StoreKit | Stripe customer portal |
+| No entitlements | Stripe customer portal |
+
+If you always want the Stripe portal regardless of source, call `openCustomerPortal(userId:)` directly.
+
+## Auto-Refresh
+
+Entitlements are automatically refreshed when the management UI is dismissed. Any subscription changes the user makes (cancellation, plan change, re-subscribe) will be reflected in `ZeroSettleIAP.shared.entitlements` and trigger the `zeroSettleIAPEntitlementsDidUpdate(_:)` delegate callback.
+
+```swift
+// Entitlements stay in sync automatically after portal dismiss
+let entitlements = ZeroSettleIAP.shared.entitlements
+let hasAccess = entitlements.contains { $0.isActive }
+```
+
+## Delegate Callbacks
+
+Subscribe to customer portal lifecycle events:
+
+```swift
+class MyDelegate: ZeroSettleIAPDelegate {
+    func zeroSettleIAPCustomerPortalDidOpen(userId: String) {
+        // Portal opened — e.g., log analytics
+    }
+
+    func zeroSettleIAPCustomerPortalDidClose(userId: String) {
+        // Portal dismissed — entitlements already refreshed
+    }
+
+    func zeroSettleIAPCustomerPortalDidFail(userId: String, error: Error) {
+        // Failed to open — e.g., show error alert
+    }
+}
+```
 
 ## What Customers Can Do
 
-In the customer portal, customers can:
+In the Stripe customer portal, customers can:
 
 - **See upcoming payment information** — View details about their next billing cycle
 - **Cancel a subscription** — End their subscription with immediate effect or at period end
@@ -28,16 +90,12 @@ In the customer portal, customers can:
 - **View payment history** — See a complete list of all past payments
 - **Download receipts and invoices** — Get PDF receipts and invoices for their records
 
-## Entitlement Updates
+## Email Links
 
-All changes made in the customer portal are automatically reflected in your app. When a customer cancels or changes their subscription through the portal, the entitlements returned by `restoreEntitlements()` will reflect the updated status on the next call.
+Customers can also access their portal through links included in emails that ZeroSettle sends automatically:
 
-```swift
-// Entitlements stay in sync automatically
-let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
-    userId: currentUser.id
-)
+- **Subscription confirmation** emails
+- **Renewal receipt** emails
+- **Billing issue** notifications
 
-// Check if the user still has access
-let hasAccess = entitlements.contains { $0.isActive }
-```
+Each email contains a "Manage Subscription" link that opens the Stripe-powered billing portal.

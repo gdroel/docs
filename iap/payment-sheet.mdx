@@ -175,7 +175,29 @@ ZSPaymentSheet.present(
 }
 ```
 
-## Preloading
+## Choosing a Presentation API
+
+The payment sheet offers two SwiftUI modifier styles. Choose based on your UI pattern:
+
+| | `isPresented:` | `item:` |
+|---|---|---|
+| **Binding type** | `Binding<Bool>` | `Binding<ZSProduct?>` |
+| **Best for** | Single-product paywalls, "Buy Now" buttons | Product lists, multi-product stores |
+| **Product source** | Passed as a separate parameter | Driven by the binding itself |
+| **Dismiss behavior** | You set `isPresented = false` | Automatically sets `item = nil` |
+| **Re-open speed** | Fast — preloader stays alive, cache hit | Fast — preloader survives nil/non-nil transitions |
+
+<Tip>
+  **Use `item:`** when the user picks from a list of products — it mirrors SwiftUI's `.sheet(item:)` pattern and is the most ergonomic API for multi-product stores.
+
+  **Use `isPresented:`** when you have a fixed product and a simple "Buy" button.
+</Tip>
+
+Both APIs share the same caching and preloading behavior described below.
+
+## Performance & Caching
+
+### Automatic Preloading
 
 The `.zsPaymentSheet()` view modifier automatically preloads both the `PaymentIntent` and the `WKWebView` before presenting the sheet. When the user taps "Buy", the checkout is fully rendered the moment it slides up — no manual preloading is needed.
 
@@ -189,6 +211,75 @@ The `.zsPaymentSheet()` view modifier automatically preloads both the `PaymentIn
     handleResult(result)
 }
 ```
+
+### Built-In Caching
+
+The SDK automatically caches `PaymentIntent` results (the checkout URL and transaction ID) for **5 minutes**. This means:
+
+- **Re-opens after dismiss are near-instant** — if the user dismisses and re-opens the sheet for the same product, the API call is skipped entirely. Only the WebView needs to reload.
+- **The cache is shared** across all payment sheet instances in your app.
+- **The cache invalidates automatically** after a successful payment, so the next open gets a fresh `PaymentIntent`.
+
+No code changes are needed to benefit from caching — it works automatically with both `isPresented:` and `item:` APIs.
+
+### Eager Warm-Up
+
+For the fastest possible first open, call `ZSPaymentSheet.warmUp()` as soon as you know which product the user is likely to buy. This pre-creates the `PaymentIntent` in the background and caches the result:
+
+```swift
+struct StoreView: View {
+    @State private var products: [ZSProduct] = []
+    @State private var selectedProduct: ZSProduct?
+
+    var body: some View {
+        ProductList(products: products, selection: $selectedProduct)
+            .task {
+                products = (try? await ZeroSettleIAP.shared.fetchProducts())?.products ?? []
+
+                // Pre-cache the PaymentIntent so the first sheet open is instant
+                if let first = products.first {
+                    await ZSPaymentSheet.warmUp(
+                        productId: first.id,
+                        userId: currentUser.id
+                    )
+                }
+            }
+            .zsPaymentSheet(item: $selectedProduct, userId: currentUser.id) { result in
+                handleResult(result)
+            }
+    }
+}
+```
+
+<Tip>
+  Call `warmUp()` right after fetching products. The `PaymentIntent` is cached for 5 minutes, so even if the user browses for a while before purchasing, the cache will likely still be warm.
+</Tip>
+
+You can warm up multiple products if your UI makes it likely the user will buy any of them:
+
+```swift
+.task {
+    let catalog = try await ZeroSettleIAP.shared.fetchProducts()
+
+    // Warm up the most popular products
+    for product in catalog.products.prefix(3) {
+        await ZSPaymentSheet.warmUp(productId: product.id, userId: currentUser.id)
+    }
+}
+```
+
+### UX Impact
+
+Understanding what's cached and what must reload helps you set the right expectations:
+
+| Scenario | API Call | WebView Load | Perceived Speed |
+|----------|---------|-------------|-----------------|
+| First open (no warm-up) | Network call | Full load | ~1-2s depending on network |
+| First open (with `warmUp()`) | Cache hit | Full load | ~0.5-1s (WebView only) |
+| Re-open after dismiss (same product) | Cache hit | Full load | ~0.5-1s (WebView only) |
+| Re-open after successful payment | Network call | Full load | ~1-2s (cache was invalidated) |
+
+The API call is typically 200-500ms. Warm-up eliminates this entirely for the first open.
 
 ### Manual Preloading
 
@@ -214,6 +305,10 @@ let preloaded = await ZSPaymentSheet.preload(
 }
 ```
 
+<Note>
+  `preload()` also populates the cache, so subsequent calls for the same product + user are instant. `warmUp()` is just a convenience wrapper around `preload()`.
+</Note>
+
 <Tip>
   Manual preloading is only needed when using `ZSPaymentSheet` as a standalone view or via UIKit's `present` method. The `.zsPaymentSheet()` modifier handles this automatically.
 </Tip>
@@ -222,11 +317,12 @@ let preloaded = await ZSPaymentSheet.preload(
 
 Under the hood, `ZSPaymentSheet`:
 
-1. Creates a Stripe `PaymentIntent` via the ZeroSettle API (or uses a preloaded one)
-2. Loads the checkout page in a `WKWebView` with Apple Pay and card entry
-3. Communicates payment status back to your app via a JavaScript bridge
-4. Verifies the transaction server-side
-5. Returns a `ZSTransaction` to your completion handler
+1. Checks the `PaymentIntent` cache (5-min TTL) — on a cache hit, skips the network call
+2. If no cache hit, creates a Stripe `PaymentIntent` via the ZeroSettle API and caches the result
+3. Loads the checkout page in a `WKWebView` with Apple Pay and card entry
+4. Communicates payment status back to your app via a JavaScript bridge
+5. Verifies the transaction server-side and invalidates the cache for this product
+6. Returns a `ZSTransaction` to your completion handler
 
 The user sees a native-looking sheet with Apple Pay as the primary option and a card form as fallback.
 

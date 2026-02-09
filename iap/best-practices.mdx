@@ -161,9 +161,24 @@ struct PurchaseButton: View {
 }
 ```
 
-### Preloading
+### Preloading & Caching
 
 The `.zsPaymentSheet()` modifier automatically preloads the `PaymentIntent` and `WKWebView` before presenting the sheet, so the checkout is fully rendered the moment it slides up.
+
+`PaymentIntent` results are cached for 5 minutes. This means re-opens after dismiss skip the API call entirely. The cache is invalidated automatically after a successful payment.
+
+For the fastest first open, call `warmUp()` right after fetching products:
+
+```swift
+.task {
+    let catalog = try await ZeroSettleIAP.shared.fetchProducts()
+
+    // Pre-cache the PaymentIntent while the user browses
+    if let first = catalog.products.first {
+        await ZSPaymentSheet.warmUp(productId: first.id, userId: currentUser.id)
+    }
+}
+```
 
 For the standalone `ZSPaymentSheet` init or UIKit's `present` method, you can preload manually:
 
@@ -357,7 +372,7 @@ If the SDK fails to initialize or fetch products, fall back gracefully:
 
 ```swift
 struct PaywallView: View {
-    @State private var products: [Product] = []
+    @State private var products: [ZSProduct] = []
     @State private var loadError: Error?
 
     var body: some View {
@@ -381,7 +396,7 @@ struct PaywallView: View {
             do {
                 products = try await ZeroSettleIAP.shared.fetchProducts(
                     userId: Auth.currentUser.id
-                )
+                ).products
                 loadError = nil
             } catch {
                 loadError = error
@@ -425,21 +440,21 @@ Don't fetch products on every view appearance. Fetch once and cache:
 
 ```swift
 class ProductStore: ObservableObject {
-    @Published var products: [Product] = []
+    @Published var products: [ZSProduct] = []
     private var hasFetched = false
 
     func fetchIfNeeded(userId: String) async {
         guard !hasFetched else { return }
         hasFetched = true
 
-        products = (try? await ZeroSettleIAP.shared.fetchProducts(userId: userId)) ?? []
+        products = (try? await ZeroSettleIAP.shared.fetchProducts(userId: userId))?.products ?? []
     }
 }
 ```
 
-### Prefetch Products
+### Prefetch Products & Warm Up
 
-Fetch products before the user reaches the paywall:
+Fetch products before the user reaches the paywall. Combine with `warmUp()` to pre-cache the `PaymentIntent` so the first sheet open is near-instant:
 
 ```swift
 struct HomeView: View {
@@ -448,12 +463,27 @@ struct HomeView: View {
             // ...
         }
         .task {
-            // Prefetch while user is on home screen
-            _ = try? await ZeroSettleIAP.shared.fetchProducts(userId: Auth.currentUser.id)
+            // Prefetch products while user is on home screen
+            let catalog = try? await ZeroSettleIAP.shared.fetchProducts(
+                userId: Auth.currentUser.id
+            )
+            let products = catalog?.products ?? []
+
+            // Warm up the most likely purchase
+            if let first = products.first {
+                await ZSPaymentSheet.warmUp(
+                    productId: first.id,
+                    userId: Auth.currentUser.id
+                )
+            }
         }
     }
 }
 ```
+
+<Tip>
+  `warmUp()` caches the `PaymentIntent` for 5 minutes. If the user reaches the paywall within that window, the sheet opens without any network delay.
+</Tip>
 
 ## Security
 

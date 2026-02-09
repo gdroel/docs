@@ -1,0 +1,185 @@
+---
+title: 'Dashboard'
+description: 'Configure products, checkout, and campaigns from the ZeroSettle dashboard'
+icon: 'gauge'
+---
+
+The [ZeroSettle dashboard](https://dashboard.zerosettle.io) is where you manage everything that doesn't require a code change — products, pricing, checkout behavior, promotions, and migration campaigns. Changes take effect immediately without an app update.
+
+## API Keys
+
+Your dashboard provides two publishable keys:
+
+| Key prefix | Mode | Description |
+|---|---|---|
+| `zs_pk_test_` | Sandbox | No real charges. Use during development. |
+| `zs_pk_live_` | Live | Real payments processed via Stripe. |
+
+Pass your key to the SDK at launch:
+
+```swift
+ZeroSettleIAP.shared.configure(.init(
+    publishableKey: "zs_pk_live_..."
+))
+```
+
+The key prefix determines sandbox vs live mode — there is no separate environment setting.
+
+## Products
+
+Create and manage your product catalog from the dashboard. Each product has:
+
+| Field | Description |
+|---|---|
+| **Product ID** | Must match your App Store Connect product identifier (e.g., `com.app.premium_monthly`) |
+| **Display name** | Shown to users in the checkout UI |
+| **Description** | Product description |
+| **Type** | Auto-renewable subscription, non-renewing subscription, consumable, or non-consumable |
+| **Web price** | The price charged via web checkout (independent from App Store pricing) |
+| **Synced to ASC** | Whether this product also exists in App Store Connect for StoreKit purchases |
+
+Products are fetched by the SDK via `fetchProducts()` and returned as a `ProductCatalog`:
+
+```swift
+let catalog = try await ZeroSettleIAP.shared.fetchProducts(userId: user.id)
+
+for product in catalog.products {
+    print("\(product.displayName): \(product.webPrice.formatted)")
+}
+```
+
+### Dual Pricing
+
+Web prices are set independently from App Store prices. This lets you pass Apple's fee savings on to customers (or keep the margin). The SDK provides both prices so you can show a comparison in your paywall:
+
+- `product.webPrice` — the web checkout price you set on the dashboard
+- `product.storeKitPrice` — the App Store price (fetched from StoreKit on-device)
+
+## Checkout Configuration
+
+Control how the checkout UI is presented — no code change required. The SDK reads this configuration automatically when you call `fetchProducts()`.
+
+### Checkout Type
+
+Choose one of three checkout modes:
+
+| Mode | Value | Description |
+|---|---|---|
+| **Payment Sheet** | `webview` | Embedded `WKWebView` inside your app. Best conversion rates. |
+| **In-App Safari** | `safari_vc` | `SFSafariViewController` within your app. |
+| **External Safari** | `safari` | Opens the user's default browser. Requires [universal links](/iap/universal-links). |
+
+### Jurisdiction Overrides
+
+Override the checkout type and enable/disable web checkout per jurisdiction:
+
+| Jurisdiction | Countries |
+|---|---|
+| **US** | United States |
+| **EU** | EU member states |
+| **ROW** | Rest of world (default) |
+
+The SDK automatically detects the user's jurisdiction via StoreKit's `Storefront.current` and applies the matching override. If no override is set, the global default is used.
+
+For example, you might use `webview` globally but disable web checkout in the EU:
+
+```swift
+// The SDK handles this automatically — no code needed.
+// Just configure it on the dashboard.
+
+// In your app, check before showing web checkout UI:
+if ZeroSettleIAP.shared.isWebCheckoutEnabled {
+    // Show web checkout button
+} else {
+    // Fall back to StoreKit
+}
+```
+
+### Enable / Disable
+
+You can disable web checkout entirely (globally or per jurisdiction) from the dashboard. When disabled, `isWebCheckoutEnabled` returns `false` and calling `purchase()` throws `webCheckoutDisabledForJurisdiction`. Use this to gracefully fall back to StoreKit.
+
+## Promotions
+
+Create promotional pricing for any product. The SDK returns active promotions alongside products, so your app can display them automatically.
+
+Each promotion has:
+
+| Field | Description |
+|---|---|
+| **Display name** | Label shown to users (e.g., "Launch Sale") |
+| **Type** | `percent_off`, `fixed_amount`, or `free_trial` |
+| **Promotional price** | The discounted price during the promotion |
+| **Expiration** | Optional expiry date (nil = no expiration) |
+
+Access promotions via the product:
+
+```swift
+if let promo = product.promotion {
+    print("\(promo.displayName): \(promo.promotionalPrice.formatted)")
+}
+```
+
+## Migration Campaigns
+
+If your app currently uses StoreKit subscriptions and you want to migrate users to web checkout, the dashboard lets you create a migration campaign.
+
+### How It Works
+
+1. **Enable migration** on the dashboard and configure the campaign
+2. **Set the offer** — choose the product and discount percentage
+3. **Customize messaging** — set the title and message shown to eligible users
+4. The SDK identifies eligible users (those with active StoreKit subscriptions) and returns the campaign data in `ProductCatalog.config.migration`
+
+### Campaign Fields
+
+| Field | Description |
+|---|---|
+| **Product ID** | The product to offer for migration |
+| **Discount %** | Discount off the web price (e.g., 20 for 20% off) |
+| **Title** | Prompt heading (e.g., "Save 20% on your subscription") |
+| **Message** | Prompt body explaining the offer |
+
+### Using Migration Data
+
+The SDK provides a built-in `ZSMigrateTipView` widget, or you can build your own UI:
+
+```swift
+let catalog = try await ZeroSettleIAP.shared.fetchProducts(userId: user.id)
+
+if let migration = catalog.config?.migration {
+    // Show migration prompt to eligible users
+    print("\(migration.title): \(migration.discountPercent)% off")
+}
+```
+
+After a successful migration purchase, track the conversion:
+
+```swift
+try await ZeroSettleIAP.shared.trackMigrationConversion(userId: user.id)
+```
+
+See [StoreKit Integration](/iap/storekit-integration) for the full migration guide.
+
+## Stripe Onboarding
+
+ZeroSettle processes payments through your Stripe Express account. The dashboard walks you through connecting Stripe — once connected, payouts go directly to your bank account.
+
+You can check your Stripe connection status and manage your account from the dashboard at any time.
+
+## What Requires a Code Change?
+
+Most configuration is dashboard-driven. Here's a quick reference:
+
+| Change | Dashboard | Code |
+|---|---|---|
+| Switch checkout type | Yes | No |
+| Change web pricing | Yes | No |
+| Create/end promotions | Yes | No |
+| Enable/disable web checkout | Yes | No |
+| Launch migration campaign | Yes | No |
+| Add a new product | Yes | No |
+| Add the SDK to your app | No | Yes |
+| Choose `isPresented:` vs `item:` API | No | Yes |
+| Handle purchase results | No | Yes |
+| Set up universal links (Safari flow) | No | Yes |

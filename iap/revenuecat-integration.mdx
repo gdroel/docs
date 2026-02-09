@@ -53,8 +53,8 @@ Pass RevenueCat's `appUserID` as the `userId` when making ZeroSettle purchases. 
 ```swift
 let rcUserId = Purchases.shared.appUserID
 
-// Fetch ZeroSettle products
-let products = try await ZeroSettleIAP.shared.fetchProducts(userId: rcUserId)
+// Fetch ZeroSettle product catalog
+let catalog = try await ZeroSettleIAP.shared.fetchProducts(userId: rcUserId)
 
 // Purchase via web checkout
 try await ZeroSettleIAP.shared.purchase(
