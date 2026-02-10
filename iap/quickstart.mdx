@@ -24,31 +24,38 @@ dependencies: [
 ]
 ```
 
-Then add `ZeroSettleIAP` as a dependency of your target.
+Then add `ZeroSettleKit` as a dependency of your target.
 
 ## Configuration
 
-Configure the SDK early in your app's lifecycle:
+Configure the SDK early in your app's lifecycle. `configure()` is async — call it from a `.task {}` modifier:
 
 ```swift
-import ZeroSettleIAP
+import ZeroSettleKit
 
 @main
 struct YourApp: App {
-    init() {
-        ZeroSettleIAP.shared.configure(.init(
-            publishableKey: "your_live_key"  // From your ZeroSettle dashboard
-        ))
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .zeroSettleIAPHandler()  // Handles universal link callbacks
+                .task {
+                    await ZeroSettle.shared.configure(.init(
+                        publishableKey: "your_live_key",  // From your ZeroSettle dashboard
+                        userId: Auth.currentUser.id       // Auto-fetches products & entitlements
+                    ))
+                }
+                .zeroSettleHandler()  // Handles universal link callbacks
         }
     }
 }
 ```
+
+When `userId` is provided, `configure()` automatically:
+1. Fetches your product catalog
+2. Warms up the first product's `PaymentIntent` for instant sheet opens
+3. Restores entitlements
+
+All automatic steps are non-fatal — failures are logged but won't prevent the SDK from working.
 
 ### Configuration Options
 
@@ -56,6 +63,7 @@ struct YourApp: App {
 |-----------|---------|-------------|
 | `publishableKey` | Required | Your publishable key from the dashboard |
 | `syncStoreKitTransactions` | `true` | Set to `false` if using RevenueCat |
+| `userId` | `nil` | When provided, auto-fetches products, warms up, and restores entitlements |
 
 ### Sandbox vs Live Mode
 
@@ -64,19 +72,19 @@ Your publishable key prefix determines the mode:
 - **Sandbox** (`zs_pk_test_`): Use for development. No real charges.
 - **Live** (`zs_pk_live_`): Real payments processed.
 
-## Fetch Products
+### Manual Product Fetch
 
-Fetch your product catalog with web checkout pricing:
+If you don't provide `userId` in the configuration, or need to refresh products later, you can fetch them manually:
 
 ```swift
-let catalog = try await ZeroSettleIAP.shared.fetchProducts(userId: currentUser.id)
+let catalog = try await ZeroSettle.shared.fetchProducts(userId: currentUser.id)
 
 for product in catalog.products {
     print("\(product.displayName): \(product.webPrice.formatted)")
 }
 ```
 
-`fetchProducts()` returns a ``ProductCatalog`` containing both the product list and remote configuration. Products are also cached in `ZeroSettleIAP.shared.products` for convenience.
+`fetchProducts()` returns a ``ProductCatalog`` containing both the product list and remote configuration. Products are also cached in `ZeroSettle.shared.products` for convenience.
 
 ## Make a Purchase
 
@@ -116,7 +124,7 @@ See [Payment Sheet](/iap/payment-sheet) for the full guide on `ZSPaymentSheet`, 
 Opens the checkout in Safari. The result comes back via universal link.
 
 ```swift
-try await ZeroSettleIAP.shared.purchase(
+try await ZeroSettle.shared.purchase(
     productId: "premium_monthly",
     userId: currentUser.id
 )
@@ -126,7 +134,7 @@ See [Universal Links](/iap/universal-links) for setup instructions.
 
 ## Handle Universal Link Callback
 
-For Safari-based checkout, the result comes back via universal link. Add the `.zeroSettleIAPHandler()` modifier to your root view:
+For Safari-based checkout, the result comes back via universal link. Add the `.zeroSettleHandler()` modifier to your root view:
 
 ```swift
 @main
@@ -134,7 +142,7 @@ struct YourApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .zeroSettleIAPHandler()
+                .zeroSettleHandler()
         }
     }
 }
@@ -148,7 +156,7 @@ For UIKit apps, handle it manually in your SceneDelegate:
 // SceneDelegate.swift
 func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
     guard let url = userActivity.webpageURL else { return }
-    ZeroSettleIAP.shared.handleUniversalLink(url)
+    ZeroSettle.shared.handleUniversalLink(url)
 }
 ```
 
@@ -157,26 +165,26 @@ func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
 Use the delegate to respond to checkout events:
 
 ```swift
-class PurchaseManager: ZeroSettleIAPDelegate {
+class PurchaseManager: ZeroSettleDelegate {
     init() {
-        ZeroSettleIAP.shared.delegate = self
+        ZeroSettle.shared.delegate = self
     }
 
-    func zeroSettleIAPCheckoutDidComplete(transaction: ZSTransaction) {
+    func zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
         // Unlock content
         unlockProduct(transaction.productId)
     }
 
-    func zeroSettleIAPCheckoutDidCancel(productId: String) {
+    func zeroSettleCheckoutDidCancel(productId: String) {
         // User cancelled checkout
     }
 
-    func zeroSettleIAPCheckoutDidFail(productId: String, error: Error) {
+    func zeroSettleCheckoutDidFail(productId: String, error: Error) {
         // Handle error
         showError(error)
     }
 
-    func zeroSettleIAPEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
+    func zeroSettleEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
         // Entitlements changed
         updateUI(entitlements)
     }
@@ -188,7 +196,7 @@ class PurchaseManager: ZeroSettleIAPDelegate {
 Restore and check entitlements on app launch:
 
 ```swift
-let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+let entitlements = try await ZeroSettle.shared.restoreEntitlements(
     userId: currentUser.id
 )
 
@@ -201,26 +209,28 @@ let hasPremium = entitlements.contains {
 
 ```swift
 import SwiftUI
-import ZeroSettleIAP
+import ZeroSettleKit
 
 @main
 struct MyApp: App {
-    init() {
-        ZeroSettleIAP.shared.configure(.init(
-            publishableKey: "your_live_key"
-        ))
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .zeroSettleIAPHandler()
+                .task {
+                    // Single async call: configures SDK, fetches products,
+                    // warms up PaymentIntent, and restores entitlements
+                    await ZeroSettle.shared.configure(.init(
+                        publishableKey: "your_live_key",
+                        userId: Auth.currentUser.id
+                    ))
+                }
+                .zeroSettleHandler()
         }
     }
 }
 
 struct ContentView: View {
-    @ObservedObject var iap = ZeroSettleIAP.shared
+    @ObservedObject var iap = ZeroSettle.shared
     @State private var selectedProduct: ZSProduct?
 
     var body: some View {
@@ -229,20 +239,6 @@ struct ContentView: View {
                 Button("\(product.displayName) — \(product.webPrice.formatted)") {
                     selectedProduct = product
                 }
-            }
-        }
-        .task {
-            let catalog = try? await iap.fetchProducts(userId: Auth.currentUser.id)
-
-            // Warm up the PaymentIntent cache for faster first open
-            if let first = catalog?.products.first {
-                await ZSPaymentSheet.warmUp(productId: first.id, userId: Auth.currentUser.id)
-            }
-
-            if let entitlements = try? await iap.restoreEntitlements(
-                userId: Auth.currentUser.id
-            ) {
-                // Update UI based on entitlements
             }
         }
         .zsPaymentSheet(

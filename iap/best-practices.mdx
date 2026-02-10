@@ -10,22 +10,21 @@ Follow these recommendations to build a robust in-app purchase experience with Z
 
 ### Configure Early
 
-Initialize the SDK as early as possible in your app's lifecycle:
+Initialize the SDK as early as possible in your app's lifecycle. `configure()` is async — call it from a `.task {}` modifier. When you provide a `userId`, it automatically fetches products, warms up the first product's `PaymentIntent`, and restores entitlements:
 
 ```swift
 @main
 struct YourApp: App {
-    init() {
-        // Configure before any views load
-        ZeroSettleIAP.shared.configure(.init(
-            publishableKey: "your_live_key"
-        ))
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .zeroSettleIAPHandler()
+                .task {
+                    await ZeroSettle.shared.configure(.init(
+                        publishableKey: "your_live_key",
+                        userId: Auth.currentUser.id
+                    ))
+                }
+                .zeroSettleHandler()
         }
     }
 }
@@ -42,7 +41,7 @@ let publishableKey = "your_test_key"  // Sandbox - no real charges
 let publishableKey = "your_live_key"  // Live - real payments
 #endif
 
-ZeroSettleIAP.shared.configure(.init(publishableKey: publishableKey))
+ZeroSettle.shared.configure(.init(publishableKey: publishableKey))
 ```
 
 ## Entitlement Management
@@ -65,7 +64,7 @@ struct ContentView: View {
             }
         }
         .task {
-            entitlements = (try? await ZeroSettleIAP.shared.restoreEntitlements(
+            entitlements = (try? await ZeroSettle.shared.restoreEntitlements(
                 userId: Auth.currentUser.id
             )) ?? []
             isLoading = false
@@ -100,7 +99,7 @@ class EntitlementCache {
 let cached = entitlementCache.load()
 updateUI(cached)
 
-let fresh = try await ZeroSettleIAP.shared.restoreEntitlements(userId: userId)
+let fresh = try await ZeroSettle.shared.restoreEntitlements(userId: userId)
 entitlementCache.save(fresh)
 updateUI(fresh)
 ```
@@ -171,7 +170,7 @@ For the fastest first open, call `warmUp()` right after fetching products:
 
 ```swift
 .task {
-    let catalog = try await ZeroSettleIAP.shared.fetchProducts()
+    let catalog = try await ZeroSettle.shared.fetchProducts()
 
     // Pre-cache the PaymentIntent while the user browses
     if let first = catalog.products.first {
@@ -197,7 +196,7 @@ For Safari-based checkout, show feedback immediately since it opens an external 
 
 ```swift
 struct SafariPurchaseButton: View {
-    @ObservedObject var iap = ZeroSettleIAP.shared
+    @ObservedObject var iap = ZeroSettle.shared
     let product: ZSProduct
 
     var body: some View {
@@ -225,13 +224,13 @@ struct SafariPurchaseButton: View {
 Implement all delegate methods to handle every outcome:
 
 ```swift
-class PurchaseManager: ZeroSettleIAPDelegate {
-    func zeroSettleIAPCheckoutDidBegin(productId: String) {
+class PurchaseManager: ZeroSettleDelegate {
+    func zeroSettleCheckoutDidBegin(productId: String) {
         // Optional: log analytics
         Analytics.track("checkout_started", productId: productId)
     }
 
-    func zeroSettleIAPCheckoutDidComplete(transaction: ZSTransaction) {
+    func zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
         // Unlock content immediately
         unlockProduct(transaction.productId)
 
@@ -242,28 +241,28 @@ class PurchaseManager: ZeroSettleIAPDelegate {
         Analytics.track("purchase_completed", transaction: transaction)
     }
 
-    func zeroSettleIAPCheckoutDidCancel(productId: String) {
+    func zeroSettleCheckoutDidCancel(productId: String) {
         // User chose not to buy - don't show an error
         Analytics.track("checkout_cancelled", productId: productId)
     }
 
-    func zeroSettleIAPCheckoutDidFail(productId: String, error: Error) {
+    func zeroSettleCheckoutDidFail(productId: String, error: Error) {
         // Something went wrong
         showError("Purchase failed. Please try again.")
         Analytics.track("checkout_failed", error: error)
     }
 
-    func zeroSettleIAPEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
+    func zeroSettleEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
         // Sync UI with current entitlements
         updatePremiumUI(entitlements)
     }
 
-    func zeroSettleIAPDidSyncStoreKitTransaction(productId: String, transactionId: UInt64) {
+    func zeroSettleDidSyncStoreKitTransaction(productId: String, transactionId: UInt64) {
         // StoreKit transaction synced to ZeroSettle
         Analytics.track("storekit_synced", productId: productId)
     }
 
-    func zeroSettleIAPStoreKitSyncFailed(error: Error) {
+    func zeroSettleStoreKitSyncFailed(error: Error) {
         // StoreKit sync failed — will retry automatically
         print("StoreKit sync failed: \(error)")
     }
@@ -278,7 +277,7 @@ Apple requires a way for users to restore purchases. Add a visible restore optio
 Button("Restore Purchases") {
     Task {
         do {
-            let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+            let entitlements = try await ZeroSettle.shared.restoreEntitlements(
                 userId: Auth.currentUser.id
             )
 
@@ -326,10 +325,10 @@ func purchase(product: ZSProduct) async throws {
         return
 
         // Option 2: Use anonymous purchase (email from checkout)
-        // try await ZeroSettleIAP.shared.purchase(productId: product.id, userId: "")
+        // try await ZeroSettle.shared.purchase(productId: product.id, userId: "")
     }
 
-    try await ZeroSettleIAP.shared.purchase(
+    try await ZeroSettle.shared.purchase(
         productId: product.id,
         userId: user.id
     )
@@ -344,15 +343,15 @@ ZeroSettle uses specific error types for different scenarios:
 
 | Error Type | When It's Thrown |
 |---|---|
-| `ZeroSettleIAPError` | SDK configuration and general errors |
+| `ZSError` | SDK configuration and general errors |
 | `PaymentSheetError` | Payment sheet presentation and payment errors |
 | `StoreKitPurchaseError` | StoreKit purchase errors |
 | `CheckoutError` | Legacy checkout view errors (deprecated) |
 
 ```swift
 do {
-    try await ZeroSettleIAP.shared.purchase(productId: id, userId: userId)
-} catch let error as ZeroSettleIAPError {
+    try await ZeroSettle.shared.purchase(productId: id, userId: userId)
+} catch let error as ZSError {
     switch error {
     case .notConfigured:
         fatalError("SDK not configured")
@@ -394,7 +393,7 @@ struct PaywallView: View {
     func loadProducts() {
         Task {
             do {
-                products = try await ZeroSettleIAP.shared.fetchProducts(
+                products = try await ZeroSettle.shared.fetchProducts(
                     userId: Auth.currentUser.id
                 ).products
                 loadError = nil
@@ -429,32 +428,20 @@ Before releasing, test these scenarios on a physical device:
 Test with sandbox keys before going live:
 
 ```swift
-ZeroSettleIAP.shared.configure(.init(publishableKey: "your_test_key"))
+ZeroSettle.shared.configure(.init(publishableKey: "your_test_key"))
 ```
 
 ## Performance
 
 ### Fetch Products Once
 
-Don't fetch products on every view appearance. Fetch once and cache:
-
-```swift
-class ProductStore: ObservableObject {
-    @Published var products: [ZSProduct] = []
-    private var hasFetched = false
-
-    func fetchIfNeeded(userId: String) async {
-        guard !hasFetched else { return }
-        hasFetched = true
-
-        products = (try? await ZeroSettleIAP.shared.fetchProducts(userId: userId))?.products ?? []
-    }
-}
-```
+When `userId` is provided in `configure()`, products are fetched automatically and cached in `ZeroSettle.shared.products`. There's no need for a separate fetch call or custom caching. Use `fetchProducts()` only for manual refresh (e.g., pull-to-refresh).
 
 ### Prefetch Products & Warm Up
 
-Fetch products before the user reaches the paywall. Combine with `warmUp()` to pre-cache the `PaymentIntent` so the first sheet open is near-instant:
+When you provide `userId` in `configure()`, products are fetched and the first product's `PaymentIntent` is warmed up automatically. No separate calls are needed.
+
+For manual control (e.g., warming up additional products or refreshing later), `fetchProducts()` and `warmUp()` are still available:
 
 ```swift
 struct HomeView: View {
@@ -463,16 +450,11 @@ struct HomeView: View {
             // ...
         }
         .task {
-            // Prefetch products while user is on home screen
-            let catalog = try? await ZeroSettleIAP.shared.fetchProducts(
-                userId: Auth.currentUser.id
-            )
-            let products = catalog?.products ?? []
-
-            // Warm up the most likely purchase
-            if let first = products.first {
+            // Products already fetched by configure() — warm up additional products
+            let products = ZeroSettle.shared.products
+            for product in products.prefix(3) {
                 await ZSPaymentSheet.warmUp(
-                    productId: first.id,
+                    productId: product.id,
                     userId: Auth.currentUser.id
                 )
             }

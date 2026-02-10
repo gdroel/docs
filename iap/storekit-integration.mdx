@@ -21,15 +21,15 @@ This means a user who purchases via StoreKit on one device will have their entit
 StoreKit sync is enabled by default:
 
 ```swift
-import ZeroSettleIAP
+import ZeroSettleKit
 
 // StoreKit sync enabled (default)
-ZeroSettleIAP.shared.configure(.init(
+ZeroSettle.shared.configure(.init(
     publishableKey: "your_key"
 ))
 
 // StoreKit sync disabled (use with RevenueCat)
-ZeroSettleIAP.shared.configure(.init(
+ZeroSettle.shared.configure(.init(
     publishableKey: "your_key",
     syncStoreKitTransactions: false
 ))
@@ -45,7 +45,7 @@ Use `purchaseViaStoreKit()` to trigger a native StoreKit 2 purchase:
 
 ```swift
 do {
-    let transaction = try await ZeroSettleIAP.shared.purchaseViaStoreKit(
+    let transaction = try await ZeroSettle.shared.purchaseViaStoreKit(
         productId: "premium_monthly",
         userId: currentUser.id
     )
@@ -96,7 +96,7 @@ struct ProductView: View {
             if product.storeKitAvailable, let skPrice = product.storeKitPrice {
                 Button("Buy with App Store — \(skPrice.formatted)") {
                     Task {
-                        try? await ZeroSettleIAP.shared.purchaseViaStoreKit(
+                        try? await ZeroSettle.shared.purchaseViaStoreKit(
                             productId: product.id,
                             userId: currentUser.id
                         )
@@ -119,13 +119,13 @@ The `Product` model tells you whether a StoreKit product is available:
 When `syncStoreKitTransactions` is enabled, the SDK automatically syncs StoreKit purchases to your ZeroSettle backend. You can listen for these sync events:
 
 ```swift
-class PurchaseManager: ZeroSettleIAPDelegate {
-    func zeroSettleIAPDidSyncStoreKitTransaction(productId: String, transactionId: UInt64) {
+class PurchaseManager: ZeroSettleDelegate {
+    func zeroSettleDidSyncStoreKitTransaction(productId: String, transactionId: UInt64) {
         // A StoreKit transaction was synced to ZeroSettle
         print("Synced StoreKit transaction \(transactionId) for \(productId)")
     }
 
-    func zeroSettleIAPStoreKitSyncFailed(error: Error) {
+    func zeroSettleStoreKitSyncFailed(error: Error) {
         // StoreKit sync failed — purchase still went through StoreKit
         // The sync will be retried automatically
         print("StoreKit sync failed: \(error)")
@@ -142,7 +142,7 @@ class PurchaseManager: ZeroSettleIAPDelegate {
 Entitlements track where each purchase came from:
 
 ```swift
-let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(userId: currentUser.id)
+let entitlements = try await ZeroSettle.shared.restoreEntitlements(userId: currentUser.id)
 
 for entitlement in entitlements {
     switch entitlement.source {

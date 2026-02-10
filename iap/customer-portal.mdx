@@ -25,14 +25,14 @@ This automatically routes to the right management UI based on where the user's s
 
 ### Programmatic API
 
-For more control, use the methods on `ZeroSettleIAP.shared` directly:
+For more control, use the methods on `ZeroSettle.shared` directly:
 
 ```swift
 // Smart routing — picks the right UI based on entitlement sources
-try await ZeroSettleIAP.shared.showManageSubscription(userId: currentUser.id)
+try await ZeroSettle.shared.showManageSubscription(userId: currentUser.id)
 
 // Always open the Stripe customer portal
-try await ZeroSettleIAP.shared.openCustomerPortal(userId: currentUser.id)
+try await ZeroSettle.shared.openCustomerPortal(userId: currentUser.id)
 ```
 
 ## Dual-Source Handling
@@ -50,11 +50,11 @@ If you always want the Stripe portal regardless of source, call `openCustomerPor
 
 ## Auto-Refresh
 
-Entitlements are automatically refreshed when the management UI is dismissed. Any subscription changes the user makes (cancellation, plan change, re-subscribe) will be reflected in `ZeroSettleIAP.shared.entitlements` and trigger the `zeroSettleIAPEntitlementsDidUpdate(_:)` delegate callback.
+Entitlements are automatically refreshed when the management UI is dismissed. Any subscription changes the user makes (cancellation, plan change, re-subscribe) will be reflected in `ZeroSettle.shared.entitlements` and trigger the `zeroSettleEntitlementsDidUpdate(_:)` delegate callback.
 
 ```swift
 // Entitlements stay in sync automatically after portal dismiss
-let entitlements = ZeroSettleIAP.shared.entitlements
+let entitlements = ZeroSettle.shared.entitlements
 let hasAccess = entitlements.contains { $0.isActive }
 ```
 
@@ -63,16 +63,16 @@ let hasAccess = entitlements.contains { $0.isActive }
 Subscribe to customer portal lifecycle events:
 
 ```swift
-class MyDelegate: ZeroSettleIAPDelegate {
-    func zeroSettleIAPCustomerPortalDidOpen(userId: String) {
+class MyDelegate: ZeroSettleDelegate {
+    func zeroSettleCustomerPortalDidOpen(userId: String) {
         // Portal opened — e.g., log analytics
     }
 
-    func zeroSettleIAPCustomerPortalDidClose(userId: String) {
+    func zeroSettleCustomerPortalDidClose(userId: String) {
         // Portal dismissed — entitlements already refreshed
     }
 
-    func zeroSettleIAPCustomerPortalDidFail(userId: String, error: Error) {
+    func zeroSettleCustomerPortalDidFail(userId: String, error: Error) {
         // Failed to open — e.g., show error alert
     }
 }

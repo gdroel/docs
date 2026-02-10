@@ -8,7 +8,7 @@ After a user completes (or cancels) checkout in Safari, ZeroSettle redirects the
 
 ## How It Works
 
-1. User initiates purchase with `ZeroSettleIAP.shared.purchase()`
+1. User initiates purchase with `ZeroSettle.shared.purchase()`
 2. SDK opens Stripe checkout in Safari
 3. User completes payment (or cancels)
 4. Stripe redirects to `https://api.zerosettle.io/checkout/callback?...`
@@ -73,7 +73,7 @@ We'll add your app to our `apple-app-site-association` file hosted at `https://a
 
 ### SwiftUI
 
-Use the `.zeroSettleIAPHandler()` view modifier on your root view:
+Use the `.zeroSettleHandler()` view modifier on your root view:
 
 ```swift
 @main
@@ -81,7 +81,7 @@ struct YourApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .zeroSettleIAPHandler()
+                .zeroSettleHandler()
         }
     }
 }
@@ -98,7 +98,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
               let url = userActivity.webpageURL else {
             return
         }
-        ZeroSettleIAP.shared.handleUniversalLink(url)
+        ZeroSettle.shared.handleUniversalLink(url)
     }
 }
 ```
@@ -116,7 +116,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
               let url = userActivity.webpageURL else {
             return false
         }
-        return ZeroSettleIAP.shared.handleUniversalLink(url)
+        return ZeroSettle.shared.handleUniversalLink(url)
     }
 }
 ```
@@ -126,22 +126,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 Use the delegate to respond to checkout completion:
 
 ```swift
-class PurchaseManager: ZeroSettleIAPDelegate {
+class PurchaseManager: ZeroSettleDelegate {
     init() {
-        ZeroSettleIAP.shared.delegate = self
+        ZeroSettle.shared.delegate = self
     }
 
-    func zeroSettleIAPCheckoutDidComplete(transaction: ZSTransaction) {
+    func zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
         // Purchase successful - unlock content
         unlockProduct(transaction.productId)
         showSuccessMessage()
     }
 
-    func zeroSettleIAPCheckoutDidCancel(productId: String) {
+    func zeroSettleCheckoutDidCancel(productId: String) {
         // User cancelled - no action needed, or show a prompt
     }
 
-    func zeroSettleIAPCheckoutDidFail(productId: String, error: Error) {
+    func zeroSettleCheckoutDidFail(productId: String, error: Error) {
         // Something went wrong
         showError(error.localizedDescription)
     }
@@ -200,7 +200,7 @@ You can test the universal link handler directly:
 ```swift
 // In your app, simulate a callback
 let testURL = URL(string: "https://api.zerosettle.io/checkout/callback?transaction_id=test&product_id=test&status=success")!
-ZeroSettleIAP.shared.handleUniversalLink(testURL)
+ZeroSettle.shared.handleUniversalLink(testURL)
 ```
 
 ## Fallback Handling
@@ -215,7 +215,7 @@ To handle this case, you can also:
 ```swift
 // On app launch, restore entitlements to catch missed callbacks
 Task {
-    let entitlements = try? await ZeroSettleIAP.shared.restoreEntitlements(
+    let entitlements = try? await ZeroSettle.shared.restoreEntitlements(
         userId: currentUser.id
     )
     updateUI(entitlements)
@@ -236,7 +236,7 @@ Task {
     - Verify the path starts with `/checkout/callback`
   </Accordion>
   <Accordion title="Delegate methods not called">
-    - Ensure `ZeroSettleIAP.shared.delegate` is set before the callback
+    - Ensure `ZeroSettle.shared.delegate` is set before the callback
     - Verify the SDK is configured with `configure()`
     - Check that `handleUniversalLink` is being called from `onOpenURL` or scene delegate
   </Accordion>

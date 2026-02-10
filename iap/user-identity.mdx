@@ -25,17 +25,17 @@ ZeroSettle supports three integration patterns for user identity. Choose based o
 If you use RevenueCat for subscription management, pass the same user ID:
 
 ```swift
-import ZeroSettleIAP
+import ZeroSettleKit
 import RevenueCat
 
 // Configure - disable StoreKit sync since RevenueCat handles it
-ZeroSettleIAP.shared.configure(.init(
+ZeroSettle.shared.configure(.init(
     publishableKey: "pk_live_...",
     syncStoreKitTransactions: false
 ))
 
 // Purchase - use your RC user ID
-try await ZeroSettleIAP.shared.purchase(
+try await ZeroSettle.shared.purchase(
     productId: "premium_monthly",
     userId: Purchases.shared.appUserID
 )
@@ -54,19 +54,19 @@ try await ZeroSettleIAP.shared.purchase(
 If you have your own authentication system:
 
 ```swift
-import ZeroSettleIAP
+import ZeroSettleKit
 
 // Configure
-ZeroSettleIAP.shared.configure(.init(publishableKey: "pk_live_..."))
+ZeroSettle.shared.configure(.init(publishableKey: "pk_live_..."))
 
 // Purchase - use your user ID
-try await ZeroSettleIAP.shared.purchase(
+try await ZeroSettle.shared.purchase(
     productId: "premium_monthly",
     userId: Auth.currentUser.id
 )
 
 // Later: restore entitlements
-let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+let entitlements = try await ZeroSettle.shared.restoreEntitlements(
     userId: Auth.currentUser.id
 )
 ```
@@ -80,13 +80,13 @@ let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
 No user system? Users are identified by their email from checkout:
 
 ```swift
-import ZeroSettleIAP
+import ZeroSettleKit
 
 // Configure
-ZeroSettleIAP.shared.configure(.init(publishableKey: "pk_live_..."))
+ZeroSettle.shared.configure(.init(publishableKey: "pk_live_..."))
 
 // Purchase - pass empty string for userId
-try await ZeroSettleIAP.shared.purchase(
+try await ZeroSettle.shared.purchase(
     productId: "premium_lifetime",
     userId: ""
 )
@@ -105,7 +105,7 @@ try await ZeroSettleIAP.shared.purchase(
 After restoring entitlements, check if a user has access:
 
 ```swift
-let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+let entitlements = try await ZeroSettle.shared.restoreEntitlements(
     userId: currentUser.id
 )
 

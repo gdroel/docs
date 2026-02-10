@@ -72,7 +72,7 @@ If you have an optional `ZSProduct?` binding (e.g., a selected product from a li
 
 ```swift
 struct PaywallView: View {
-    @ObservedObject var iap = ZeroSettleIAP.shared
+    @ObservedObject var iap = ZeroSettle.shared
     @State private var selectedProduct: ZSProduct?
 
     var body: some View {
@@ -224,22 +224,22 @@ No code changes are needed to benefit from caching — it works automatically wi
 
 ### Eager Warm-Up
 
-For the fastest possible first open, call `ZSPaymentSheet.warmUp()` as soon as you know which product the user is likely to buy. This pre-creates the `PaymentIntent` in the background and caches the result:
+When you provide `userId` in `configure()`, the first product's `PaymentIntent` is automatically warmed up. For most apps, this is sufficient and no manual warm-up is needed.
+
+For advanced scenarios — such as warming up multiple products or a specific product the user is likely to buy — call `ZSPaymentSheet.warmUp()` manually:
 
 ```swift
 struct StoreView: View {
-    @State private var products: [ZSProduct] = []
+    @ObservedObject var iap = ZeroSettle.shared
     @State private var selectedProduct: ZSProduct?
 
     var body: some View {
-        ProductList(products: products, selection: $selectedProduct)
+        ProductList(products: iap.products, selection: $selectedProduct)
             .task {
-                products = (try? await ZeroSettleIAP.shared.fetchProducts())?.products ?? []
-
-                // Pre-cache the PaymentIntent so the first sheet open is instant
-                if let first = products.first {
+                // Products already fetched by configure() — warm up additional ones
+                for product in iap.products.prefix(3) {
                     await ZSPaymentSheet.warmUp(
-                        productId: first.id,
+                        productId: product.id,
                         userId: currentUser.id
                     )
                 }
@@ -252,21 +252,8 @@ struct StoreView: View {
 ```
 
 <Tip>
-  Call `warmUp()` right after fetching products. The `PaymentIntent` is cached for 5 minutes, so even if the user browses for a while before purchasing, the cache will likely still be warm.
+  `warmUp()` caches the `PaymentIntent` for 5 minutes. If the user reaches the paywall within that window, the sheet opens without any network delay.
 </Tip>
-
-You can warm up multiple products if your UI makes it likely the user will buy any of them:
-
-```swift
-.task {
-    let catalog = try await ZeroSettleIAP.shared.fetchProducts()
-
-    // Warm up the most popular products
-    for product in catalog.products.prefix(3) {
-        await ZSPaymentSheet.warmUp(productId: product.id, userId: currentUser.id)
-    }
-}
-```
 
 ### UX Impact
 

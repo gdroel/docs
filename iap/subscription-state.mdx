@@ -4,7 +4,7 @@ description: 'Determining the subscription status for a user'
 icon: 'arrows-rotate'
 ---
 
-ZeroSettle makes it easy to determine subscription status with the ZeroSettleIAP SDK and REST API.
+ZeroSettle makes it easy to determine subscription status with the ZeroSettleKit SDK and REST API.
 
 ## Getting subscription status via the SDK
 
@@ -12,12 +12,12 @@ The `entitlements` property contains all of the purchase and subscription data a
 
 ```swift
 // Restore and get current entitlements
-let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+let entitlements = try await ZeroSettle.shared.restoreEntitlements(
     userId: currentUser.id
 )
 
 // Or access cached entitlements
-let cached = ZeroSettleIAP.shared.entitlements
+let cached = ZeroSettle.shared.entitlements
 ```
 
 It's safe to call `restoreEntitlements()` frequently throughout your app. The SDK caches entitlements locally and the network request is lightweight.
@@ -58,7 +58,7 @@ It is recommended that all apps have a way for users to trigger restore, even if
 
 ```swift
 do {
-    let entitlements = try await ZeroSettleIAP.shared.restoreEntitlements(
+    let entitlements = try await ZeroSettle.shared.restoreEntitlements(
         userId: currentUser.id
     )
     // Update UI based on entitlements
@@ -81,12 +81,12 @@ Users who unlock entitlements will be able to access them even without an intern
 Entitlements can change from various sources: web checkout completion, StoreKit transaction updates, or subscription renewals/cancellations. Use the delegate to respond to changes:
 
 ```swift
-class PurchaseManager: ZeroSettleIAPDelegate {
+class PurchaseManager: ZeroSettleDelegate {
     init() {
-        ZeroSettleIAP.shared.delegate = self
+        ZeroSettle.shared.delegate = self
     }
 
-    func zeroSettleIAPEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
+    func zeroSettleEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
         // Handle any changes to entitlements
         updatePremiumUI(entitlements)
     }
@@ -97,7 +97,7 @@ You can also observe the `entitlements` published property in SwiftUI:
 
 ```swift
 struct ContentView: View {
-    @ObservedObject var iap = ZeroSettleIAP.shared
+    @ObservedObject var iap = ZeroSettle.shared
 
     var body: some View {
         if iap.entitlements.contains(where: { $0.isActive }) {

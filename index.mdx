@@ -8,13 +8,13 @@ ZeroSettle helps iOS developers keep more of what they earn. Instead of handing 
 We handle everything — payment processing, tax compliance, refunds, and receipts. You stay focused on building your app.
 
 ```swift
-import ZeroSettleIAP
+import ZeroSettleKit
 
 // Configure once
-ZeroSettleIAP.shared.configure(.init(publishableKey: "your_key"))
+ZeroSettle.shared.configure(.init(publishableKey: "your_key"))
 
 // Fetch your product catalog
-let catalog = try await ZeroSettleIAP.shared.fetchProducts(userId: user.id)
+let catalog = try await ZeroSettle.shared.fetchProducts(userId: user.id)
 
 // Show the payment sheet
 .zsPaymentSheet(item: $selectedProduct, userId: user.id) { result in
