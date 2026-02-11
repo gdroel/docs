@@ -34,7 +34,9 @@
             "group": "In-App Purchase",
             "pages": [
               "iap/overview",
+              "iap/installation",
               "iap/quickstart",
+              "iap/quickstart-flutter",
               "iap/dashboard",
               "iap/payment-sheet",
               "iap/switch-and-save",

@@ -1,0 +1,100 @@
+---
+title: 'Installation'
+description: 'Add the ZeroSettle SDK to your project'
+icon: 'download'
+---
+
+## Swift (iOS)
+
+Add ZeroSettleKit via Swift Package Manager in Xcode:
+
+**Xcode UI**: File > Add Package Dependencies, then enter:
+
+```
+https://github.com/zerosettle/ZeroSettleKit
+```
+
+**Or** add it to your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/zerosettle/ZeroSettleKit", from: "1.0.0")
+]
+```
+
+Then add `ZeroSettleKit` as a dependency of your target.
+
+<Note>
+  Requires **iOS 17.0+**, **Swift 5.9+**, and **Xcode 15.0+**. No third-party dependencies.
+</Note>
+
+### Verify Installation
+
+```swift
+import ZeroSettleKit
+
+// If this compiles, you're good
+print(ZeroSettle.shared)
+```
+
+<Tip>
+  Make sure "Embed & Sign" is selected for ZeroSettleKit in your target's **Frameworks, Libraries, and Embedded Content** settings.
+</Tip>
+
+---
+
+## Flutter
+
+Add the ZeroSettle package from [pub.dev](https://pub.dev/packages/zerosettle):
+
+```bash
+flutter pub add zerosettle
+```
+
+**Or** add it to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  zerosettle: ^0.2.0
+```
+
+Then run `flutter pub get`.
+
+<Note>
+  Requires **Flutter 3.3.0+** and **iOS 17.0+**. The Flutter SDK is a thin wrapper around the native ZeroSettleKit — it uses CocoaPods to pull in the iOS framework automatically.
+</Note>
+
+### Verify Installation
+
+```dart
+import 'package:zerosettle/zerosettle.dart';
+
+// If this compiles, you're good
+final zs = ZeroSettle.instance;
+```
+
+### Resources
+
+- [pub.dev/packages/zerosettle](https://pub.dev/packages/zerosettle)
+- [GitHub: ZeroSettle-Flutter](https://github.com/zerosettle/ZeroSettle-Flutter)
+
+---
+
+## React Native
+
+<Info>
+  React Native support is coming soon. Join the waitlist at [zerosettle.io](https://zerosettle.io) to be notified.
+</Info>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart (Swift)" icon="rocket" href="/iap/quickstart">
+    Configure the SDK and make your first purchase
+  </Card>
+  <Card title="Quickstart (Flutter)" icon="rocket" href="/iap/quickstart-flutter">
+    Configure the Flutter SDK and make your first purchase
+  </Card>
+</CardGroup>

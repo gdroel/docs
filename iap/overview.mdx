@@ -6,7 +6,7 @@ icon: 'credit-card'
 
 ZeroSettle In-App Purchase lets your iOS app accept payments via web checkout instead of Apple's StoreKit. You keep **~94%** of every transaction instead of 70%.
 
-We act as the Merchant of Record — we handle payments, tax compliance, refunds, receipts, and liability. You add a few lines of Swift and start earning more.
+We act as the Merchant of Record — we handle payments, tax compliance, refunds, receipts, and liability. You add a few lines of code and start earning more. We support **Swift** and **Flutter**, with React Native coming soon.
 
 ## Why?
 
@@ -87,22 +87,24 @@ Opens the checkout URL in the user's default browser. The result returns to your
 - **Consumables** — Credits, tokens, virtual items
 - **Non-consumables** — Permanent unlocks
 
-## Platform Requirements
+## Platform Support
 
-| Requirement | Version |
-|---|---|
-| iOS | 17.0+ |
-| Swift | 5.9+ |
-| Xcode | 15.0+ |
-| Third-party dependencies | None |
+| Platform | Requirements | Status |
+|---|---|---|
+| Swift (iOS) | iOS 17.0+, Swift 5.9+, Xcode 15.0+ | Available |
+| Flutter | Flutter 3.3.0+, iOS 17.0+ | Available |
+| React Native | — | Coming soon |
 
 ## Get Started
 
-<CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/iap/quickstart">
-    Install the SDK and make your first purchase
+<CardGroup cols={3}>
+  <Card title="Installation" icon="download" href="/iap/installation">
+    Add the SDK to your project
   </Card>
-  <Card title="Payment Sheet" icon="credit-card" href="/iap/payment-sheet">
-    Learn about the embedded checkout UI
+  <Card title="Quickstart (Swift)" icon="rocket" href="/iap/quickstart">
+    SwiftUI and UIKit integration
+  </Card>
+  <Card title="Quickstart (Flutter)" icon="rocket" href="/iap/quickstart-flutter">
+    Flutter integration
   </Card>
 </CardGroup>

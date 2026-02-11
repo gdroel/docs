@@ -1,0 +1,270 @@
+---
+title: 'Quickstart (Flutter)'
+description: 'Get started with ZeroSettle In-App Purchase for Flutter'
+icon: 'rocket'
+---
+
+<Note>
+  Requires **Flutter 3.3.0+** and **iOS 17.0+**. See [Installation](/iap/installation) if you haven't added the package yet.
+</Note>
+
+## Configuration
+
+Configure the SDK early in your app's lifecycle — typically in your `main()` or root widget's `initState`:
+
+```dart
+import 'package:zerosettle/zerosettle.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await ZeroSettle.instance.configure(
+    publishableKey: 'your_live_key',  // From your ZeroSettle dashboard
+  );
+
+  runApp(const MyApp());
+}
+```
+
+### Configuration Options
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `publishableKey` | Required | Your publishable key from the dashboard |
+| `syncStoreKitTransactions` | `true` | Set to `false` if using RevenueCat |
+
+### Sandbox vs Live Mode
+
+Your publishable key prefix determines the mode:
+
+- **Sandbox** (`zs_pk_test_`): Use for development. No real charges.
+- **Live** (`zs_pk_live_`): Real payments processed.
+
+## Fetch Products
+
+Fetch your product catalog from ZeroSettle. This also loads remote configuration (checkout type, jurisdiction settings, migration campaigns).
+
+```dart
+final catalog = await ZeroSettle.instance.fetchProducts(userId: currentUser.id);
+
+for (final product in catalog.products) {
+  print('${product.displayName}: ${product.webPrice.formatted}');
+}
+```
+
+You can also use `bootstrap()` as a convenience — it fetches products, warms up the payment sheet, and restores entitlements in one call:
+
+```dart
+final catalog = await ZeroSettle.instance.bootstrap(userId: currentUser.id);
+```
+
+## Make a Purchase
+
+Present the payment sheet for a product. The user pays with Apple Pay or a card without leaving your app.
+
+```dart
+try {
+  final transaction = await ZeroSettle.instance.presentPaymentSheet(
+    productId: product.id,
+    userId: currentUser.id,
+  );
+  print('Purchased: ${transaction.productId}');
+  // Unlock content
+} on ZSCancelledException {
+  // User cancelled — do nothing
+} on ZSCheckoutFailedException catch (e) {
+  print('Checkout failed: ${e.message}');
+}
+```
+
+### Preloading
+
+For the fastest checkout experience, preload the payment sheet before the user taps "Buy":
+
+```dart
+// Call this when the paywall screen appears
+await ZeroSettle.instance.warmUpPaymentSheet(
+  productId: product.id,
+  userId: currentUser.id,
+);
+
+// Later, when user taps "Buy" — opens instantly
+final transaction = await ZeroSettle.instance.presentPaymentSheet(
+  productId: product.id,
+  userId: currentUser.id,
+);
+```
+
+## Handle Universal Link Callback
+
+For Safari-based checkout modes, the result returns via universal link. Handle it in your app:
+
+```dart
+// In your app's universal link handler
+final handled = await ZeroSettle.instance.handleUniversalLink(url);
+```
+
+## Listen for Events
+
+Subscribe to checkout events and entitlement updates using Dart streams:
+
+```dart
+// Checkout events
+ZeroSettle.instance.checkoutEvents.listen((event) {
+  print('Checkout event: $event');
+});
+
+// Entitlement updates
+ZeroSettle.instance.entitlementUpdates.listen((entitlements) {
+  final hasPremium = entitlements.any(
+    (e) => e.productId == 'premium_monthly' && e.isActive,
+  );
+  setState(() => _isPremium = hasPremium);
+});
+```
+
+## Check Entitlements
+
+Restore and check entitlements on app launch:
+
+```dart
+final entitlements = await ZeroSettle.instance.restoreEntitlements(
+  userId: currentUser.id,
+);
+
+final hasPremium = entitlements.any(
+  (e) => e.productId == 'premium_monthly' && e.isActive,
+);
+```
+
+## Complete Example
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:zerosettle/zerosettle.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await ZeroSettle.instance.configure(
+    publishableKey: 'your_live_key',
+  );
+
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(home: StoreScreen());
+  }
+}
+
+class StoreScreen extends StatefulWidget {
+  const StoreScreen({super.key});
+
+  @override
+  State<StoreScreen> createState() => _StoreScreenState();
+}
+
+class _StoreScreenState extends State<StoreScreen> {
+  List<ZSProduct> _products = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    final catalog = await ZeroSettle.instance.bootstrap(
+      userId: 'current_user_id',
+    );
+    setState(() => _products = catalog.products);
+  }
+
+  Future<void> _purchase(ZSProduct product) async {
+    try {
+      final transaction = await ZeroSettle.instance.presentPaymentSheet(
+        productId: product.id,
+        userId: 'current_user_id',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Purchased ${transaction.productId}')),
+        );
+      }
+    } on ZSCancelledException {
+      // User cancelled
+    } on ZSCheckoutFailedException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.message}')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Store')),
+      body: ListView.builder(
+        itemCount: _products.length,
+        itemBuilder: (context, index) {
+          final product = _products[index];
+          return ListTile(
+            title: Text(product.displayName),
+            subtitle: Text(product.webPrice.formatted),
+            trailing: ElevatedButton(
+              onPressed: () => _purchase(product),
+              child: const Text('Buy'),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## Error Handling
+
+The Flutter SDK uses typed exceptions:
+
+| Exception | When |
+|-----------|------|
+| `ZSNotConfiguredException` | SDK not configured yet |
+| `ZSCancelledException` | User cancelled checkout |
+| `ZSProductNotFoundException` | Product ID not found in catalog |
+| `ZSCheckoutFailedException` | Payment failed |
+| `ZSWebCheckoutDisabledException` | Web checkout disabled for this jurisdiction |
+| `ZSUserIdRequiredException` | Method requires a userId |
+| `ZSApiException` | Network or API error |
+
+## Customer Portal
+
+Let users manage their subscriptions:
+
+```dart
+await ZeroSettle.instance.openCustomerPortal(userId: currentUser.id);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard Setup" icon="gauge" href="/iap/dashboard">
+    Configure products, pricing, and checkout settings
+  </Card>
+  <Card title="User Identity" icon="user" href="/iap/user-identity">
+    Learn about the different ways to identify users
+  </Card>
+  <Card title="Subscription State" icon="rotate" href="/iap/subscription-state">
+    Check subscription status and entitlements
+  </Card>
+  <Card title="Best Practices" icon="star" href="/iap/best-practices">
+    Recommendations for a reliable implementation
+  </Card>
+</CardGroup>
