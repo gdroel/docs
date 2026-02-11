@@ -6,9 +6,13 @@ icon: 'gift'
 
 `ZSMigrateTipView` is a self-contained view that prompts eligible users to switch from Apple billing to direct billing at a discount. It manages its own visibility, checkout flow, and dismissal state. You just add it to your layout.
 
-<Frame>
-  <img src="/images/switchandsavedocs.png" alt="ZSMigrateTipView" />
-</Frame>
+<video
+  controls
+  playsInline
+  className="rounded-xl mx-auto"
+  style={{ maxHeight: '700px' }}
+  src="/videos/switchandsavedemo.mp4"
+></video>
 
 ## Usage
 
@@ -38,12 +42,16 @@ The view decides whether to render itself based on the user's entitlement state.
 
 | Condition | Behavior |
 |-----------|----------|
-| User has an active StoreKit subscription | View appears (user is eligible for migration) |
-| User already has a web checkout entitlement | View is hidden (already migrated) |
-| User has no active subscription | View is hidden (not a migration candidate) |
-| User previously dismissed the view | View is hidden (dismissal persisted via `UserDefaults`) |
+| User has an active StoreKit subscription | ✅ View appears (user is eligible for migration) |
+| User already has a web checkout entitlement | 🚫 View is hidden (already migrated) |
+| User has no active subscription | 🚫 View is hidden (not a migration candidate) |
+| User previously dismissed the view | 🚫 View is hidden (dismissal persisted via `UserDefaults`) |
+| User has not been subscribed long enough | 🚫 View is hidden (e.g., user subscribed less than 90 days ago) |
+| User is not in the rollout cohort | 🚫 View is hidden (phased rollout has not reached this user yet) |
 
-On mount, the view calls `restoreEntitlements` to fetch the latest state. If none of the conditions for showing are met, it renders as an `EmptyView` with no layout impact.
+The minimum subscription age and rollout percentage are configured in the [dashboard migration campaign](/iap/dashboard#migration-campaigns). For example, you can set the minimum to 90 days so only users subscribed for at least 90 days see the view, and roll out to 10% of eligible users first before going to 100%. This lets you target loyal, high-retention users and control exposure as you ramp up.
+
+On mount, the view calls `restoreEntitlements` to fetch the latest state, checks the minimum subscription age, and evaluates the rollout cohort from your dashboard config. If none of the conditions for showing are met, it renders as an `EmptyView` with no layout impact.
 
 ## Placement
 
@@ -89,6 +97,20 @@ ScrollView {
 | `userId` | `String` | The user identifier passed to the checkout backend. |
 
 The button copy, discount amount, and messaging are controlled from the [dashboard migration campaign](/iap/dashboard#migration-campaigns). No code change needed.
+
+## Experimentation
+
+The discount, messaging, and targeting are all controlled from the [dashboard](/iap/dashboard#migration-campaigns), so you can iterate without shipping an app update.
+
+| Setting | What it controls |
+|---------|-----------------|
+| **Discount %** | The percentage off the web price shown in the CTA (e.g., 15% off) |
+| **Title** | The heading displayed in the tip view |
+| **Message** | The body text explaining the offer |
+| **Minimum subscription age** | Minimum subscription age in days before the view appears |
+| **Rollout %** | Percentage of eligible users who see the view |
+
+Adjust these at any time to test different offers. For example, start with a 10% discount at 180 days tenure rolled out to 10% of users, then broaden to 15% off at 90 days for 100% of users and compare conversion rates in your dashboard analytics.
 
 ## Debugging
 
