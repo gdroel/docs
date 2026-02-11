@@ -37,6 +37,7 @@
               "iap/quickstart",
               "iap/dashboard",
               "iap/payment-sheet",
+              "iap/switch-and-save",
               "iap/universal-links",
               "iap/user-identity",
               "iap/subscription-state",

@@ -1,0 +1,112 @@
+---
+title: 'Switch & Save View'
+description: 'A drop-in view that migrates Apple subscribers to direct billing'
+icon: 'gift'
+---
+
+`ZSMigrateTipView` is a self-contained view that prompts eligible users to switch from Apple billing to direct billing at a discount. It manages its own visibility, checkout flow, and dismissal state. You just add it to your layout.
+
+<Frame>
+  <img src="/images/switchandsavedocs.png" alt="ZSMigrateTipView" />
+</Frame>
+
+## Usage
+
+<CodeGroup>
+
+```swift SwiftUI
+ZSMigrateTipView(backgroundColor: .black, userId: currentUser.id)
+```
+
+```tsx React Native
+import { ZSMigrateTipView } from 'react-native-zerosettle-kit';
+
+<ZSMigrateTipView
+  backgroundColorHex="#1E1E1E"
+  userId={currentUser.id}
+  style={{ marginHorizontal: 16 }}
+/>
+```
+
+</CodeGroup>
+
+Both use the same native implementation. No additional setup is required beyond providing a background color and user ID.
+
+## Automatic Visibility
+
+The view decides whether to render itself based on the user's entitlement state. You never need to write conditional logic around it.
+
+| Condition | Behavior |
+|-----------|----------|
+| User has an active StoreKit subscription | View appears (user is eligible for migration) |
+| User already has a web checkout entitlement | View is hidden (already migrated) |
+| User has no active subscription | View is hidden (not a migration candidate) |
+| User previously dismissed the view | View is hidden (dismissal persisted via `UserDefaults`) |
+
+On mount, the view calls `restoreEntitlements` to fetch the latest state. If none of the conditions for showing are met, it renders as an `EmptyView` with no layout impact.
+
+## Placement
+
+The view works anywhere a standard view does. Settings screens and account pages tend to convert best.
+
+<CodeGroup>
+
+```swift Settings Screen
+List {
+    Section("Account") {
+        // your existing rows...
+    }
+
+    ZSMigrateTipView(backgroundColor: .blue, userId: user.id)
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+}
+```
+
+```swift Profile / Home Screen
+VStack(spacing: 16) {
+    // your existing content...
+
+    ZSMigrateTipView(backgroundColor: .indigo, userId: user.id)
+        .padding(.horizontal, 16)
+}
+```
+
+```swift ScrollView
+ScrollView {
+    // ...
+    ZSMigrateTipView(backgroundColor: .black, userId: user.id)
+}
+```
+
+</CodeGroup>
+
+## Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `backgroundColor` | `Color` (SwiftUI) / `string` (React Native) | Background color for the card. Pass a `Color` in SwiftUI or a hex string like `"#1E1E1E"` in React Native. |
+| `userId` | `String` | The user identifier passed to the checkout backend. |
+
+The button copy, discount amount, and messaging are controlled from the [dashboard migration campaign](/iap/dashboard#migration-campaigns). No code change needed.
+
+## Debugging
+
+The view may be hidden during development because it was previously dismissed. Reset the persisted state:
+
+```swift
+ZSMigrateTipView.resetMigrateTipState()
+```
+
+The view logs its visibility decisions to the console with the prefix `[ZSMigrateTipView Business Logic]`, including which condition caused it to show or hide.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard" icon="gauge" href="/iap/dashboard#migration-campaigns">
+    Configure your migration campaign and discount
+  </Card>
+  <Card title="StoreKit Integration" icon="apple" href="/iap/storekit-integration">
+    Run StoreKit and web checkout side by side
+  </Card>
+</CardGroup>
