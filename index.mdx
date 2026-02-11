@@ -7,7 +7,9 @@ ZeroSettle helps iOS developers keep more of what they earn. Instead of handing 
 
 We handle everything — payment processing, tax compliance, refunds, and receipts. You stay focused on building your app.
 
-```swift
+<CodeGroup>
+
+```swift SwiftUI
 import ZeroSettleKit
 
 // Configure once
@@ -21,6 +23,27 @@ let catalog = try await ZeroSettle.shared.fetchProducts(userId: user.id)
     // Done. That's it.
 }
 ```
+
+```tsx React Native
+import { ZSPaymentSheet } from 'react-native-zerosettle-kit';
+
+// Configure once
+ZeroSettle.configure({ publishableKey: 'your_key' });
+
+// Fetch your product catalog
+const catalog = await ZeroSettle.fetchProducts(user.id);
+
+// Show the payment sheet
+<ZSPaymentSheet
+  product={selectedProduct}
+  userId={user.id}
+  onComplete={(result) => {
+    // Done. That's it.
+  }}
+/>
+```
+
+</CodeGroup>
 
 ---
 
