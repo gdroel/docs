@@ -32,9 +32,18 @@ import { ZSMigrateTipView } from 'react-native-zerosettle-kit';
 />
 ```
 
+```dart Flutter
+import 'package:zerosettle/zerosettle.dart';
+
+ZSMigrateTipView(
+  backgroundColorHex: '#1E1E1E',
+  userId: currentUser.id,
+)
+```
+
 </CodeGroup>
 
-Both use the same native implementation. No additional setup is required beyond providing a background color and user ID.
+All three use the same native implementation under the hood. No additional setup is required beyond providing a background color and user ID.
 
 ## Automatic Visibility
 
@@ -87,13 +96,51 @@ ScrollView {
 }
 ```
 
+```tsx React Native Settings
+<ScrollView>
+  {/* your existing content... */}
+  <ZSMigrateTipView
+    backgroundColorHex="#0000FF"
+    userId={user.id}
+    style={{ marginHorizontal: 16 }}
+  />
+</ScrollView>
+```
+
+```dart Flutter Settings
+ListView(
+  children: [
+    // your existing rows...
+    ZSMigrateTipView(
+      backgroundColorHex: '#0000FF',
+      userId: user.id,
+    ),
+  ],
+)
+```
+
+```dart Flutter Profile / Home
+Column(
+  children: [
+    // your existing content...
+    Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16),
+      child: ZSMigrateTipView(
+        backgroundColorHex: '#3F00B5',
+        userId: user.id,
+      ),
+    ),
+  ],
+)
+```
+
 </CodeGroup>
 
 ## Parameters
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `backgroundColor` | `Color` (SwiftUI) / `string` (React Native) | Background color for the card. Pass a `Color` in SwiftUI or a hex string like `"#1E1E1E"` in React Native. |
+| `backgroundColor` | `Color` (SwiftUI) / `string` (React Native, Flutter) | Background color for the card. Pass a `Color` in SwiftUI or a hex string like `"#1E1E1E"` in React Native and Flutter. |
 | `userId` | `String` | The user identifier passed to the checkout backend. |
 
 The button copy, discount amount, and messaging are controlled from the [dashboard migration campaign](/iap/dashboard#migration-campaigns). No code change needed.
@@ -116,9 +163,25 @@ Adjust these at any time to test different offers. For example, start with a 10%
 
 The view may be hidden during development because it was previously dismissed. Reset the persisted state:
 
-```swift
+<CodeGroup>
+
+```swift SwiftUI
 ZSMigrateTipView.resetMigrateTipState()
 ```
+
+```tsx React Native
+import { ZSMigrateTipModule } from 'react-native-zerosettle-kit';
+
+ZSMigrateTipModule.resetMigrateTipState();
+```
+
+```dart Flutter
+import 'package:zerosettle/zerosettle.dart';
+
+ZSMigrateTipView.resetMigrateTipState();
+```
+
+</CodeGroup>
 
 The view logs its visibility decisions to the console with the prefix `[ZSMigrateTipView Business Logic]`, including which condition caused it to show or hide.
 
