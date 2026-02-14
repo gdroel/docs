@@ -34,19 +34,48 @@
             "group": "In-App Purchase",
             "pages": [
               "iap/overview",
-              "iap/installation",
-              "iap/quickstart",
-              "iap/quickstart-flutter",
-              "iap/dashboard",
-              "iap/payment-sheet",
-              "iap/switch-and-save",
-              "iap/universal-links",
-              "iap/user-identity",
-              "iap/subscription-state",
-              "iap/revenuecat-integration",
-              "iap/storekit-integration",
-              "iap/customer-portal",
-              "iap/refunding-payments",
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "iap/installation",
+                  "iap/quickstart",
+                  "iap/quickstart-android",
+                  "iap/quickstart-flutter"
+                ]
+              },
+              {
+                "group": "Dashboard",
+                "pages": [
+                  "iap/dashboard",
+                  "iap/checkout-branding",
+                  "iap/stripe-catalog"
+                ]
+              },
+              {
+                "group": "Checkout",
+                "pages": [
+                  "iap/payment-sheet",
+                  "iap/switch-and-save",
+                  "iap/universal-links"
+                ]
+              },
+              {
+                "group": "Users & Subscriptions",
+                "pages": [
+                  "iap/user-identity",
+                  "iap/subscription-state",
+                  "iap/customer-portal",
+                  "iap/refunding-payments"
+                ]
+              },
+              {
+                "group": "Integrations",
+                "pages": [
+                  "iap/revenuecat-integration",
+                  "iap/storekit-integration",
+                  "iap/play-billing-integration"
+                ]
+              },
               "iap/best-practices"
             ]
           },

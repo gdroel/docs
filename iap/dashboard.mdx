@@ -59,6 +59,10 @@ Web prices are set independently from App Store prices. This lets you pass Apple
 
 Control how the checkout UI is presented — no code change required. The SDK reads this configuration automatically when you call `fetchProducts()`.
 
+<Card title="Checkout Branding" icon="palette" href="/iap/checkout-branding">
+  Customize the look of your checkout — upload your logo, app icon, and set your brand colors.
+</Card>
+
 ### Checkout Type
 
 Choose one of three checkout modes:
@@ -161,11 +165,29 @@ try await ZeroSettle.shared.trackMigrationConversion(userId: user.id)
 
 See [StoreKit Integration](/iap/storekit-integration) for the full migration guide.
 
-## Stripe Onboarding
+## Stripe Integration
 
-ZeroSettle processes payments through your Stripe Express account. The dashboard walks you through connecting Stripe — once connected, payouts go directly to your bank account.
+ZeroSettle supports two payment modes. Choose one during onboarding:
 
-You can check your Stripe connection status and manage your account from the dashboard at any time.
+### Managed (Default)
+
+Connect via Stripe Express. ZeroSettle creates and manages Stripe products and prices for you automatically. Payouts go directly to your bank account.
+
+This is the fastest way to get started — no Stripe product setup required.
+
+### Bring Your Own Stripe (BYOS)
+
+Connect your own standard Stripe account via OAuth. Use your existing Stripe products and prices, and retain full access to your Stripe dashboard for reporting, analytics, and customer management.
+
+In BYOS mode, you must map each ZeroSettle product to its corresponding Stripe product and price using the **Stripe Catalog**. Without a mapping, ZeroSettle won't know which Stripe price to charge at checkout.
+
+<Card title="Stripe Catalog" icon="arrows-left-right" href="/iap/stripe-catalog">
+  Map your Stripe products and prices to their ZeroSettle counterparts (BYOS only).
+</Card>
+
+<Note>
+  You can switch between Managed and BYOS modes at any time from your tenant settings. Existing Stripe Catalog mappings are preserved when switching back.
+</Note>
 
 ## What Requires a Code Change?
 

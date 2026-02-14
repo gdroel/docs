@@ -1,0 +1,55 @@
+---
+title: 'Checkout Branding'
+description: 'Customize your checkout with your logo, icon, and brand colors'
+icon: 'palette'
+---
+
+The Checkout Branding tab in your [ZeroSettle dashboard](https://dashboard.zerosettle.io) lets you customize the look of the payment sheet so it feels like a natural part of your app. Changes apply immediately — no app update required.
+
+## Logo & App Icon
+
+Upload your app's logo and icon from the **Checkout > Branding** tab. These appear in the checkout header above the payment options.
+
+| Asset | Recommended Size | Format | Where It Appears |
+|---|---|---|---|
+| **Logo** | 512×512 px | PNG or JPEG | Checkout header, centered above product info |
+| **App Icon** | 256×256 px | PNG or JPEG | Compact checkout layouts, next to your app name |
+
+<Tip>
+Use a transparent-background PNG for your logo so it looks clean against both light and dark checkout themes.
+</Tip>
+
+## Brand Colors
+
+Set your **primary brand color** using the color picker in the Branding tab. This color is applied to:
+
+- **Pay button** — background fill
+- **Apple Pay button** — tint accent (where supported)
+- **Links and highlights** — interactive elements in the checkout
+
+The color you set here is served to the SDK as part of the checkout configuration. No code change is needed.
+
+## Preview
+
+After saving your branding changes, you can preview the checkout in sandbox mode:
+
+1. Set your app to use your **sandbox** publishable key (`zs_pk_test_...`)
+2. Trigger a purchase — the payment sheet will render with your updated branding
+3. Use Stripe's [test card numbers](https://docs.stripe.com/testing#cards) to complete the flow without a real charge
+
+<Note>
+Branding changes take effect on the next `fetchProducts()` call. If you're testing, restart your app or re-fetch products to pick up updates.
+</Note>
+
+## How It Works
+
+The SDK fetches your branding configuration automatically as part of `fetchProducts()`. The checkout HTML is rendered server-side with your logo, icon, and primary color injected — no client-side setup is needed.
+
+```swift
+// No branding code required — the SDK handles it.
+let catalog = try await ZeroSettle.shared.fetchProducts(userId: user.id)
+
+// When the payment sheet is presented, your branding is already applied.
+```
+
+If no branding is configured, the checkout uses ZeroSettle's default styling.

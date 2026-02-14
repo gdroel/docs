@@ -45,6 +45,10 @@ ZSMigrateTipView(
 
 All three use the same native implementation under the hood. No additional setup is required beyond providing a background color and user ID.
 
+<Note>
+  `ZSMigrateTipView` targets users migrating from **Apple StoreKit** subscriptions to direct billing. On Android, the equivalent migration from Google Play Billing is not yet supported by this component.
+</Note>
+
 ## Automatic Visibility
 
 The view decides whether to render itself based on the user's entitlement state. You never need to write conditional logic around it.

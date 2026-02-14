@@ -1,0 +1,61 @@
+---
+title: 'Stripe Catalog'
+description: 'Link your Stripe products to their StoreKit counterparts'
+icon: 'arrows-left-right'
+---
+
+Stripe Catalog lets you map your existing Stripe products and prices to the matching ZeroSettle products. This is used when your account is in **self-managed** (Bring Your Own Stripe) payment mode, so purchases are routed through your own Stripe account with the correct product and price IDs.
+
+## Who Is This For?
+
+Stripe Catalog is relevant if you use **BYOS (Bring Your Own Stripe)** mode — meaning you've connected your own standard Stripe account instead of using ZeroSettle's managed Stripe Express onboarding.
+
+If you're using ZeroSettle's default Express setup, products and prices are created for you automatically and you can skip this page.
+
+## How It Works
+
+When a customer checks out, ZeroSettle creates a Stripe `PaymentIntent` (or `Subscription`) using the product and price IDs from your mapping. Without a mapping, ZeroSettle wouldn't know which Stripe product corresponds to which StoreKit product in your catalog.
+
+The mapping ensures:
+
+- **Correct line items** — the Stripe charge references the right product in your Stripe dashboard
+- **Subscription sync** — recurring products are linked to the correct Stripe `Price` for billing
+- **Revenue reporting** — Stripe's revenue reports match your ZeroSettle transaction history
+
+## Mapping Products
+
+1. Navigate to **Products** in your ZeroSettle dashboard
+2. Open the **Stripe Catalog** tab
+3. For each ZeroSettle product, select the corresponding Stripe product and price from the dropdown
+4. Click **Save**
+
+Each mapping links a ZeroSettle product (identified by its App Store product ID) to a Stripe `Product` and `Price` pair.
+
+<Tip>
+Make sure your Stripe prices use the same currency and amount as your ZeroSettle web prices. Mismatched prices will cause checkout errors.
+</Tip>
+
+## Requirements
+
+To use Stripe Catalog, your account must meet these conditions:
+
+| Requirement | Details |
+|---|---|
+| **Payment mode** | Set to `self_managed` (BYOS) in your tenant settings |
+| **Stripe account** | A standard Stripe account connected via OAuth (not Express) |
+| **Products in Stripe** | At least one active product with a price in your Stripe dashboard |
+| **Products in ZeroSettle** | At least one product created in the ZeroSettle dashboard |
+
+<Note>
+If you switch from BYOS back to ZeroSettle-managed payments, your Stripe Catalog mappings are preserved but not used — ZeroSettle will create and manage products automatically.
+</Note>
+
+## Auto-Mapping
+
+When you connect your Stripe account, ZeroSettle can automatically suggest mappings between your Stripe products and ZeroSettle products based on name and price similarity. Auto-mapped products are labeled **"AI match"** in the dashboard.
+
+Review auto-mapped products before saving — especially for apps with multiple subscription tiers (e.g., monthly and yearly) that share similar names. You can override any mapping manually.
+
+## SDK Integration
+
+BYOS mode requires no code changes. The same SDK calls (`purchase()`, `fetchProducts()`, `restoreEntitlements()`) work identically whether you're on Managed or BYOS — the backend handles routing to the correct Stripe account and price automatically.

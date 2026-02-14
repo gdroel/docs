@@ -1,0 +1,343 @@
+---
+title: 'Quickstart (Android)'
+description: 'Get started with ZeroSettle In-App Purchase for Android'
+icon: 'rocket'
+---
+
+<Note>
+  Requires **Android API 26+** and **Kotlin 1.9+**. See [Installation](/iap/installation) if you haven't added the dependency yet.
+</Note>
+
+<Tip>
+  Using Swift? See the [Swift Quickstart](/iap/quickstart). Using Flutter? See the [Flutter Quickstart](/iap/quickstart-flutter).
+</Tip>
+
+## Configuration
+
+Configure the SDK early in your app's lifecycle — typically in your `Application.onCreate()` or main `Activity`:
+
+```kotlin
+import com.zerosettle.sdk.ZeroSettle
+
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+
+        ZeroSettle.configure(
+            context = this,
+            config = ZeroSettle.Configuration(
+                publishableKey = "your_live_key"  // From your ZeroSettle dashboard
+            )
+        )
+    }
+}
+```
+
+### Configuration Options
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `publishableKey` | Required | Your publishable key from the dashboard |
+| `syncPlayStoreTransactions` | `true` | Set to `false` if using RevenueCat |
+
+### Sandbox vs Live Mode
+
+Your publishable key prefix determines the mode:
+
+- **Sandbox** (`zs_pk_test_`): Use for development. No real charges.
+- **Live** (`zs_pk_live_`): Real payments processed.
+
+## Fetch Products
+
+Fetch your product catalog from ZeroSettle. This also loads remote configuration (checkout type, jurisdiction settings, migration campaigns).
+
+```kotlin
+val catalog = ZeroSettle.fetchProducts(userId = currentUser.id)
+
+for (product in catalog.products) {
+    println("${product.displayName}: ${product.webPrice.formatted}")
+}
+```
+
+You can also use `bootstrap()` as a convenience — it fetches products and restores entitlements in one call:
+
+```kotlin
+val catalog = ZeroSettle.bootstrap(userId = currentUser.id)
+```
+
+<Note>
+  `fetchProducts()` and `bootstrap()` are `suspend` functions — call them from a coroutine scope.
+</Note>
+
+## Make a Purchase
+
+Present the payment sheet for a product. The user pays with a card via an embedded WebView or Custom Tab.
+
+```kotlin
+import com.zerosettle.sdk.ZeroSettle
+import com.zerosettle.sdk.error.ZSError
+
+try {
+    val transaction = ZeroSettle.purchase(
+        activity = this,
+        productId = product.id,
+        userId = currentUser.id,
+    )
+    println("Purchased: ${transaction.productId}")
+    // Unlock content
+} catch (e: ZSError.Cancelled) {
+    // User cancelled — do nothing
+} catch (e: ZSError.CheckoutFailed) {
+    println("Checkout failed: ${e.message}")
+}
+```
+
+The checkout mode (WebView, Custom Tab, or external browser) is controlled by your remote config on the ZeroSettle dashboard.
+
+### Jetpack Compose
+
+```kotlin
+@Composable
+fun PurchaseButton(product: ZSProduct) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    Button(onClick = {
+        scope.launch {
+            try {
+                val transaction = ZeroSettle.purchase(
+                    activity = context as Activity,
+                    productId = product.id,
+                    userId = currentUser.id,
+                )
+                // Handle success
+            } catch (e: ZSError.Cancelled) {
+                // User cancelled
+            } catch (e: ZSError) {
+                // Handle error
+            }
+        }
+    }) {
+        Text("Buy ${product.displayName} — ${product.webPrice.formatted}")
+    }
+}
+```
+
+## Handle Deep Link Callback
+
+For Custom Tab or browser-based checkout, the result returns via deep link. Handle it in your Activity:
+
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.data?.let { uri ->
+            ZeroSettle.handleDeepLink(uri)
+        }
+    }
+}
+```
+
+### AndroidManifest.xml
+
+Register the deep link intent filter:
+
+```xml
+<activity android:name=".MainActivity">
+    <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+            android:scheme="https"
+            android:host="api.zerosettle.io"
+            android:pathPrefix="/checkout/callback" />
+    </intent-filter>
+</activity>
+```
+
+<Note>
+  Deep link handling is only needed for Custom Tab and external browser checkout modes. The WebView mode (default) handles callbacks internally.
+</Note>
+
+## Listen for Events
+
+Use the delegate to respond to checkout events:
+
+```kotlin
+class PurchaseManager : ZeroSettleDelegate {
+    init {
+        ZeroSettle.delegate = this
+    }
+
+    override fun zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
+        // Unlock content
+        unlockProduct(transaction.productId)
+    }
+
+    override fun zeroSettleCheckoutDidCancel(productId: String) {
+        // User cancelled checkout
+    }
+
+    override fun zeroSettleCheckoutDidFail(productId: String, error: Throwable) {
+        // Handle error
+        showError(error)
+    }
+
+    override fun zeroSettleEntitlementsDidUpdate(entitlements: List<Entitlement>) {
+        // Entitlements changed
+        updateUI(entitlements)
+    }
+}
+```
+
+### Kotlin Flows
+
+You can also observe state reactively using Kotlin `StateFlow`:
+
+```kotlin
+// In a ViewModel or coroutine scope
+ZeroSettle.entitlementUpdates.collect { entitlements ->
+    val hasPremium = entitlements.any {
+        it.productId == "premium_monthly" && it.isActive
+    }
+    _uiState.value = _uiState.value.copy(isPremium = hasPremium)
+}
+```
+
+## Check Entitlements
+
+Restore and check entitlements on app launch:
+
+```kotlin
+val entitlements = ZeroSettle.restoreEntitlements(userId = currentUser.id)
+
+val hasPremium = entitlements.any {
+    it.productId == "premium_monthly" && it.isActive
+}
+```
+
+## Complete Example
+
+```kotlin
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.zerosettle.sdk.ZeroSettle
+import com.zerosettle.sdk.error.ZSError
+import com.zerosettle.sdk.model.ZSProduct
+import kotlinx.coroutines.launch
+
+class StoreActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        ZeroSettle.configure(
+            context = this,
+            config = ZeroSettle.Configuration(
+                publishableKey = "your_live_key"
+            )
+        )
+
+        setContent { StoreScreen(activity = this) }
+    }
+}
+
+@Composable
+fun StoreScreen(activity: ComponentActivity) {
+    var products by remember { mutableStateOf<List<ZSProduct>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        val catalog = ZeroSettle.bootstrap(userId = "current_user_id")
+        products = catalog.products
+    }
+
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Store") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { padding ->
+        LazyColumn(modifier = Modifier.padding(padding)) {
+            items(products) { product ->
+                ListItem(
+                    headlineContent = { Text(product.displayName) },
+                    supportingContent = { Text(product.webPrice.formatted) },
+                    trailingContent = {
+                        Button(onClick = {
+                            scope.launch {
+                                try {
+                                    val txn = ZeroSettle.purchase(
+                                        activity = activity,
+                                        productId = product.id,
+                                        userId = "current_user_id",
+                                    )
+                                    snackbarHostState.showSnackbar(
+                                        "Purchased ${txn.productId}"
+                                    )
+                                } catch (e: ZSError.Cancelled) {
+                                    // User cancelled
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar(
+                                        "Error: ${e.message}"
+                                    )
+                                }
+                            }
+                        }) {
+                            Text("Buy")
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+```
+
+## Error Handling
+
+The Android SDK uses sealed error types:
+
+| Exception | When |
+|-----------|------|
+| `ZSError.NotConfigured` | SDK not configured yet |
+| `ZSError.Cancelled` | User cancelled checkout |
+| `ZSError.ProductNotFound` | Product ID not found in catalog |
+| `ZSError.CheckoutFailed` | Payment failed |
+| `ZSError.UserIdRequired` | Method requires a userId |
+| `ZSError.WebCheckoutDisabledForJurisdiction` | Web checkout disabled for this region |
+| `ZSError.ApiError` | Network or API error |
+
+## Customer Portal
+
+Let users manage their subscriptions:
+
+```kotlin
+ZeroSettle.showManageSubscription(activity = this, userId = currentUser.id)
+```
+
+This automatically routes to the Stripe customer portal or Google Play subscription management based on the user's entitlement sources.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard Setup" icon="gauge" href="/iap/dashboard">
+    Configure products, pricing, and checkout settings
+  </Card>
+  <Card title="User Identity" icon="user" href="/iap/user-identity">
+    Learn about the different ways to identify users
+  </Card>
+  <Card title="Play Billing Integration" icon="google" href="/iap/play-billing-integration">
+    Use Google Play Billing alongside web checkout
+  </Card>
+  <Card title="Best Practices" icon="star" href="/iap/best-practices">
+    Recommendations for a reliable implementation
+  </Card>
+</CardGroup>

@@ -1,11 +1,13 @@
 ---
 title: "Welcome to ZeroSettle"
-description: "Keep more of your iOS app revenue"
+description: "Keep more of your app revenue"
 ---
 
-ZeroSettle helps iOS developers keep more of what they earn. Instead of handing Apple 30% on every transaction, route eligible purchases through our web checkout and pay just **5% + 50¢**.
+ZeroSettle helps mobile developers keep more of what they earn. Instead of handing Apple or Google 30% on every transaction, route eligible purchases through our web checkout and pay just **5% + 50¢**.
 
 We handle everything — payment processing, tax compliance, refunds, and receipts. You stay focused on building your app.
+
+**Already on Stripe?** Use [Bring Your Own Stripe (BYOS)](/iap/stripe-catalog) to connect your existing Stripe account. Keep your products, prices, reporting, and customer relationships — we add the MoR compliance layer on top.
 
 <CodeGroup>
 
@@ -24,23 +26,34 @@ let catalog = try await ZeroSettle.shared.fetchProducts(userId: user.id)
 }
 ```
 
-```tsx React Native
-import { ZSPaymentSheet } from 'react-native-zerosettle-kit';
+```kotlin Android
+import com.zerosettle.sdk.ZeroSettle
 
 // Configure once
-ZeroSettle.configure({ publishableKey: 'your_key' });
+ZeroSettle.configure(context, ZeroSettle.Configuration(
+    publishableKey = "your_key"
+))
+
+// Fetch your product catalog
+val catalog = ZeroSettle.bootstrap(userId = user.id)
+
+// Show the payment sheet
+val txn = ZeroSettle.purchase(activity, product.id, user.id)
+// Done. That's it.
+```
+
+```tsx React Native
+import { ZeroSettle } from 'react-native-zerosettle-kit';
+
+// Configure once
+await ZeroSettle.configure({ publishableKey: 'your_key' });
 
 // Fetch your product catalog
 const catalog = await ZeroSettle.fetchProducts(user.id);
 
 // Show the payment sheet
-<ZSPaymentSheet
-  product={selectedProduct}
-  userId={user.id}
-  onComplete={(result) => {
-    // Done. That's it.
-  }}
-/>
+const txn = await ZeroSettle.purchase(product.id, user.id);
+// Done. That's it.
 ```
 
 ```dart Flutter
@@ -94,6 +107,19 @@ Replace Apple's 30% cut with our 5% + 50¢ fee. ZeroSettle acts as your Merchant
 <Card title="Get Started with IAP" icon="rocket" href="/iap/installation">
   Add web checkout to your app in under 10 minutes
 </Card>
+
+---
+
+## Two Ways to Integrate
+
+<CardGroup cols={2}>
+  <Card title="Managed" icon="wand-magic-sparkles" href="/iap/dashboard#stripe-integration">
+    **Get started fast.** We create and manage your Stripe products automatically via Express onboarding. Best for apps starting fresh.
+  </Card>
+  <Card title="Bring Your Own Stripe" icon="link" href="/iap/stripe-catalog">
+    **Already on Stripe?** Connect your existing account, keep your products and prices, and retain full control of your Stripe dashboard. Same 5% + 50¢ fee — revenue goes directly to your account.
+  </Card>
+</CardGroup>
 
 ---
 

@@ -300,6 +300,24 @@ let preloaded = await ZSPaymentSheet.preload(
   Manual preloading is only needed when using `ZSPaymentSheet` as a standalone view or via UIKit's `present` method. The `.zsPaymentSheet()` modifier handles this automatically.
 </Tip>
 
+## Android
+
+On Android, the payment sheet is presented as a `ZSPaymentSheetActivity` — a full-screen Activity with an embedded WebView. The SDK handles creating and launching this Activity automatically when you call `purchase()`.
+
+```kotlin
+val transaction = ZeroSettle.purchase(
+    activity = this,
+    productId = product.id,
+    userId = currentUser.id,
+)
+```
+
+The checkout mode is controlled by your remote config. When set to `WEBVIEW` (the default), `purchase()` launches the embedded payment sheet. For `CUSTOM_TAB` or `EXTERNAL_BROWSER` modes, it opens a Chrome Custom Tab or the default browser instead.
+
+<Note>
+  The iOS-specific APIs (`zsPaymentSheet` modifier, `warmUp()`, `preload()`) are not available on Android. On Android, use `ZeroSettle.purchase()` directly.
+</Note>
+
 ## How It Works
 
 Under the hood, `ZSPaymentSheet`:

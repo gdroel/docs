@@ -24,7 +24,9 @@ ZeroSettle supports three integration patterns for user identity. Choose based o
 
 If you use RevenueCat for subscription management, pass the same user ID:
 
-```swift
+<CodeGroup>
+
+```swift Swift
 import ZeroSettleKit
 import RevenueCat
 
@@ -41,6 +43,25 @@ try await ZeroSettle.shared.purchase(
 )
 ```
 
+```kotlin Kotlin
+import com.zerosettle.sdk.ZeroSettle
+
+// Configure - disable Play Store sync since RevenueCat handles it
+ZeroSettle.configure(context, ZeroSettle.Configuration(
+    publishableKey = "pk_live_...",
+    syncPlayStoreTransactions = false,
+))
+
+// Purchase - use your RC user ID
+val transaction = ZeroSettle.purchase(
+    activity = this,
+    productId = "premium_monthly",
+    userId = Purchases.sharedInstance.appUserID,
+)
+```
+
+</CodeGroup>
+
 **How it works**: ZeroSettle processes the web payment and pushes it to RevenueCat via webhook. RevenueCat manages entitlements—you query RC as usual.
 
 **Restoration**: RevenueCat handles it. Call `Purchases.shared.restorePurchases()`.
@@ -53,7 +74,9 @@ try await ZeroSettle.shared.purchase(
 
 If you have your own authentication system:
 
-```swift
+<CodeGroup>
+
+```swift Swift
 import ZeroSettleKit
 
 // Configure
@@ -70,6 +93,29 @@ let entitlements = try await ZeroSettle.shared.restoreEntitlements(
     userId: Auth.currentUser.id
 )
 ```
+
+```kotlin Kotlin
+import com.zerosettle.sdk.ZeroSettle
+
+// Configure
+ZeroSettle.configure(context, ZeroSettle.Configuration(
+    publishableKey = "pk_live_..."
+))
+
+// Purchase - use your user ID
+val transaction = ZeroSettle.purchase(
+    activity = this,
+    productId = "premium_monthly",
+    userId = auth.currentUser.id,
+)
+
+// Later: restore entitlements
+val entitlements = ZeroSettle.restoreEntitlements(
+    userId = auth.currentUser.id
+)
+```
+
+</CodeGroup>
 
 **How it works**: ZeroSettle links purchases to your user ID and tracks entitlements. The `restoreEntitlements(userId:)` method fetches all active entitlements from both web checkout and StoreKit sources.
 
@@ -104,7 +150,9 @@ try await ZeroSettle.shared.purchase(
 
 After restoring entitlements, check if a user has access:
 
-```swift
+<CodeGroup>
+
+```swift Swift
 let entitlements = try await ZeroSettle.shared.restoreEntitlements(
     userId: currentUser.id
 )
@@ -117,6 +165,20 @@ let hasPremium = entitlements.contains {
 // Or check if any entitlement is active
 let hasAnyAccess = entitlements.contains { $0.isActive }
 ```
+
+```kotlin Kotlin
+val entitlements = ZeroSettle.restoreEntitlements(userId = currentUser.id)
+
+// Check for a specific product
+val hasPremium = entitlements.any {
+    it.productId == "premium_monthly" && it.isActive
+}
+
+// Or check if any entitlement is active
+val hasAnyAccess = entitlements.any { it.isActive }
+```
+
+</CodeGroup>
 
 Each `Entitlement` includes:
 
@@ -131,12 +193,13 @@ Each `Entitlement` includes:
 
 ## Entitlement Sources
 
-Entitlements can come from two sources:
+Entitlements can come from three sources:
 
 - **`.webCheckout`**: Purchases made through ZeroSettle's Stripe checkout
 - **`.storeKit`**: Purchases made through Apple's native StoreKit (if `syncStoreKitTransactions: true`)
+- **`.playStore`**: Purchases made through Google Play Billing (if `syncPlayStoreTransactions: true`)
 
-The SDK merges entitlements from both sources when you call `restoreEntitlements()`.
+The SDK merges entitlements from all sources when you call `restoreEntitlements()`.
 
 ## Best Practices
 

@@ -1,10 +1,10 @@
 ---
-title: 'Universal Links Setup'
-description: 'Configure your app to receive checkout callbacks via universal links'
+title: 'Universal Links & Deep Links'
+description: 'Configure your app to receive checkout callbacks'
 icon: 'link'
 ---
 
-After a user completes (or cancels) checkout in Safari, ZeroSettle redirects them back to your app via a universal link. This guide covers the setup required to receive these callbacks.
+After a user completes (or cancels) checkout in a browser, ZeroSettle redirects them back to your app via a universal link (iOS) or deep link (Android). This guide covers the setup required to receive these callbacks.
 
 ## How It Works
 
@@ -221,6 +221,66 @@ Task {
     updateUI(entitlements)
 }
 ```
+
+---
+
+## Android Deep Links
+
+On Android, checkout callbacks arrive via Android App Links (verified deep links). This section covers the equivalent setup for Android apps.
+
+<Note>
+  Deep link handling is only needed for Custom Tab and external browser checkout modes. The WebView mode (default) handles callbacks internally — no deep link setup required.
+</Note>
+
+### Step 1: Add Intent Filter
+
+In your `AndroidManifest.xml`, add a deep link intent filter to your main Activity:
+
+```xml
+<activity android:name=".MainActivity">
+    <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+            android:scheme="https"
+            android:host="api.zerosettle.io"
+            android:pathPrefix="/checkout/callback" />
+    </intent-filter>
+</activity>
+```
+
+The `android:autoVerify="true"` attribute tells Android to verify the domain via a Digital Asset Links file hosted on `api.zerosettle.io`.
+
+### Step 2: Handle the Callback
+
+In your Activity, handle the deep link in `onNewIntent`:
+
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.data?.let { uri ->
+            ZeroSettle.handleDeepLink(uri)
+        }
+    }
+}
+```
+
+### Step 3: Call onResume
+
+On Android, Custom Tabs have no dismiss callback, so the SDK detects the user's return via `onResume`. Call `ZeroSettle.onResume()` from your Activity:
+
+```kotlin
+override fun onResume() {
+    super.onResume()
+    ZeroSettle.onResume()
+}
+```
+
+This allows the SDK to poll for transaction status when the user returns from the browser.
+
+---
 
 ## Troubleshooting
 

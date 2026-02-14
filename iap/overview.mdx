@@ -1,24 +1,51 @@
 ---
 title: 'Overview'
-description: 'Web checkout for iOS apps — keep ~94% of your revenue'
+description: 'Web checkout for mobile apps — keep ~94% of your revenue'
 icon: 'credit-card'
 ---
 
-ZeroSettle In-App Purchase lets your iOS app accept payments via web checkout instead of Apple's StoreKit. You keep **~94%** of every transaction instead of 70%.
+ZeroSettle In-App Purchase lets your mobile app accept payments via web checkout instead of Apple's StoreKit or Google Play Billing. You keep **~94%** of every transaction instead of 70%.
 
-We act as the Merchant of Record — we handle payments, tax compliance, refunds, receipts, and liability. You add a few lines of code and start earning more. We support **Swift** and **Flutter**, with React Native coming soon.
+We act as the Merchant of Record — we handle payments, tax compliance, refunds, receipts, and liability. You add a few lines of code and start earning more. We support **Swift**, **Kotlin**, and **Flutter**, with React Native coming soon.
 
 ## Why?
 
 The math is simple:
 
-| | Apple IAP | ZeroSettle IAP |
+| | Apple/Google IAP | ZeroSettle IAP |
 | --- | --- | --- |
 | **Fee** | 30% (15% for small business) | 5% + 50¢ |
 | **You keep on a $9.99 sale** | $6.99 | ~$8.99 |
-| **Tax handling** | Apple handles | We handle |
+| **Tax handling** | Apple/Google handles | We handle |
 | **Compliance** | Your responsibility | Our responsibility |
 | **Payouts** | 45+ days | [Instant via Stripe](https://connect.stripe.com/express_login) |
+| **Your Stripe account** | N/A | Use your own (BYOS) or ours (Managed) |
+
+Already on Stripe? With **Bring Your Own Stripe (BYOS)**, you connect your existing Stripe account and keep your products, prices, customers, and reporting. Charges go directly to your account — we add the Merchant of Record layer on top. Same 5% + 50¢ fee either way.
+
+## Payment Modes
+
+Choose the integration that fits your business:
+
+| | Managed (Default) | BYOS (Bring Your Own Stripe) |
+|---|---|---|
+| **Stripe account** | We create one for you (Express) | You connect your own (Standard) |
+| **Products & prices** | Auto-created by ZeroSettle | Your existing Stripe catalog |
+| **Revenue reporting** | Via ZeroSettle dashboard | Your Stripe dashboard + ZeroSettle |
+| **Customer data** | Managed by ZeroSettle | In your Stripe account |
+| **Setup time** | ~2 minutes | ~10 minutes (connect + map products) |
+| **Fee** | 5% + 50¢ | 5% + 50¢ |
+
+Both modes share the same SDK integration — no code differences. The only setup difference is on the dashboard.
+
+<CardGroup cols={2}>
+  <Card title="Managed Setup" icon="wand-magic-sparkles" href="/iap/dashboard#stripe-integration">
+    One-click Stripe Express onboarding
+  </Card>
+  <Card title="BYOS Setup" icon="link" href="/iap/stripe-catalog">
+    Connect your Stripe account and map your products
+  </Card>
+</CardGroup>
 
 ## How It Works
 
@@ -92,19 +119,23 @@ Opens the checkout URL in the user's default browser. The result returns to your
 | Platform | Requirements | Status |
 |---|---|---|
 | Swift (iOS) | iOS 17.0+, Swift 5.9+, Xcode 15.0+ | Available |
-| Flutter | Flutter 3.3.0+, iOS 17.0+ | Available |
+| Kotlin (Android) | Android API 26+, Kotlin 1.9+ | Available |
+| Flutter | Flutter 3.3.0+, iOS 17.0+ / Android API 26+ | Available |
 | React Native | — | Coming soon |
 
 ## Get Started
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card title="Installation" icon="download" href="/iap/installation">
     Add the SDK to your project
   </Card>
   <Card title="Quickstart (Swift)" icon="rocket" href="/iap/quickstart">
     SwiftUI and UIKit integration
   </Card>
+  <Card title="Quickstart (Android)" icon="rocket" href="/iap/quickstart-android">
+    Kotlin and Jetpack Compose integration
+  </Card>
   <Card title="Quickstart (Flutter)" icon="rocket" href="/iap/quickstart-flutter">
-    Flutter integration
+    Cross-platform Flutter integration
   </Card>
 </CardGroup>

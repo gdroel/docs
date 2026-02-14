@@ -25,15 +25,27 @@ This automatically routes to the right management UI based on where the user's s
 
 ### Programmatic API
 
-For more control, use the methods on `ZeroSettle.shared` directly:
+For more control, use the methods directly:
 
-```swift
+<CodeGroup>
+
+```swift Swift
 // Smart routing — picks the right UI based on entitlement sources
 try await ZeroSettle.shared.showManageSubscription(userId: currentUser.id)
 
 // Always open the Stripe customer portal
 try await ZeroSettle.shared.openCustomerPortal(userId: currentUser.id)
 ```
+
+```kotlin Kotlin
+// Smart routing — picks the right UI based on entitlement sources
+ZeroSettle.showManageSubscription(activity = this, userId = currentUser.id)
+
+// Always open the Stripe customer portal
+ZeroSettle.openCustomerPortal(activity = this, userId = currentUser.id)
+```
+
+</CodeGroup>
 
 ## Dual-Source Handling
 
@@ -42,8 +54,9 @@ try await ZeroSettle.shared.openCustomerPortal(userId: currentUser.id)
 | Entitlement Sources | Management UI |
 |---|---|
 | Web checkout only | Stripe customer portal |
-| StoreKit only | Apple's native subscription management |
-| Both web + StoreKit | Stripe customer portal |
+| StoreKit only (iOS) | Apple's native subscription management |
+| Play Store only (Android) | Google Play subscription management |
+| Both web + native store | Stripe customer portal |
 | No entitlements | Stripe customer portal |
 
 If you always want the Stripe portal regardless of source, call `openCustomerPortal(userId:)` directly.

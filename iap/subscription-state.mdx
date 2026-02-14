@@ -10,7 +10,9 @@ ZeroSettle makes it easy to determine subscription status with the ZeroSettleKit
 
 The `entitlements` property contains all of the purchase and subscription data available about a user. This is updated whenever a purchase completes or when you call `restoreEntitlements()`.
 
-```swift
+<CodeGroup>
+
+```swift Swift
 // Restore and get current entitlements
 let entitlements = try await ZeroSettle.shared.restoreEntitlements(
     userId: currentUser.id
@@ -20,6 +22,16 @@ let entitlements = try await ZeroSettle.shared.restoreEntitlements(
 let cached = ZeroSettle.shared.entitlements
 ```
 
+```kotlin Kotlin
+// Restore and get current entitlements
+val entitlements = ZeroSettle.restoreEntitlements(userId = currentUser.id)
+
+// Or access cached entitlements
+val cached = ZeroSettle.entitlements.value
+```
+
+</CodeGroup>
+
 It's safe to call `restoreEntitlements()` frequently throughout your app. The SDK caches entitlements locally and the network request is lightweight.
 
 ## Checking If A User Is Subscribed
@@ -28,7 +40,9 @@ The subscription status for a user can be determined using the `Entitlement` obj
 
 For most apps with a single premium tier, check for a specific product:
 
-```swift
+<CodeGroup>
+
+```swift Swift
 let hasPremium = entitlements.contains {
     $0.productId == "premium_monthly" && $0.isActive
 }
@@ -38,13 +52,35 @@ if hasPremium {
 }
 ```
 
+```kotlin Kotlin
+val hasPremium = entitlements.any {
+    it.productId == "premium_monthly" && it.isActive
+}
+
+if (hasPremium) {
+    // user has access to premium features
+}
+```
+
+</CodeGroup>
+
 If your app has multiple entitlements, check if any are active:
 
-```swift
+<CodeGroup>
+
+```swift Swift
 if entitlements.contains(where: { $0.isActive }) {
     // user has access to some entitlement
 }
 ```
+
+```kotlin Kotlin
+if (entitlements.any { it.isActive }) {
+    // user has access to some entitlement
+}
+```
+
+</CodeGroup>
 
 <Note>
   Entitlements will be empty if no purchases have been made. Always handle the empty case in your UI.
@@ -78,9 +114,11 @@ Users who unlock entitlements will be able to access them even without an intern
 
 ## Listening For Entitlement Updates
 
-Entitlements can change from various sources: web checkout completion, StoreKit transaction updates, or subscription renewals/cancellations. Use the delegate to respond to changes:
+Entitlements can change from various sources: web checkout completion, StoreKit/Play Store transaction updates, or subscription renewals/cancellations. Use the delegate to respond to changes:
 
-```swift
+<CodeGroup>
+
+```swift Swift
 class PurchaseManager: ZeroSettleDelegate {
     init() {
         ZeroSettle.shared.delegate = self
@@ -93,9 +131,26 @@ class PurchaseManager: ZeroSettleDelegate {
 }
 ```
 
-You can also observe the `entitlements` published property in SwiftUI:
+```kotlin Kotlin
+class PurchaseManager : ZeroSettleDelegate {
+    init {
+        ZeroSettle.delegate = this
+    }
 
-```swift
+    override fun zeroSettleEntitlementsDidUpdate(entitlements: List<Entitlement>) {
+        // Handle any changes to entitlements
+        updatePremiumUI(entitlements)
+    }
+}
+```
+
+</CodeGroup>
+
+You can also observe state reactively in your UI framework:
+
+<CodeGroup>
+
+```swift SwiftUI
 struct ContentView: View {
     @ObservedObject var iap = ZeroSettle.shared
 
@@ -108,6 +163,21 @@ struct ContentView: View {
     }
 }
 ```
+
+```kotlin Jetpack Compose
+@Composable
+fun ContentScreen() {
+    val entitlements by ZeroSettle.entitlements.collectAsState()
+
+    if (entitlements.any { it.isActive }) {
+        PremiumContent()
+    } else {
+        UpgradePrompt()
+    }
+}
+```
+
+</CodeGroup>
 
 <Note>
   Entitlement updates are triggered by SDK operations (purchases, restores). They are not pushed from the backend in real-time.

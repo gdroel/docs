@@ -43,6 +43,57 @@ print(ZeroSettle.shared)
 
 ---
 
+## Kotlin (Android)
+
+Add the ZeroSettle SDK from [Maven Central](https://central.sonatype.com/artifact/io.zerosettle/zerosettle-android):
+
+```kotlin
+// build.gradle.kts (app module)
+dependencies {
+    implementation("io.zerosettle:zerosettle-android:0.9.0")
+}
+```
+
+**Or** using the Gradle version catalog:
+
+```toml
+# gradle/libs.versions.toml
+[versions]
+zerosettle = "0.9.0"
+
+[libraries]
+zerosettle = { module = "io.zerosettle:zerosettle-android", version.ref = "zerosettle" }
+```
+
+```kotlin
+// build.gradle.kts (app module)
+dependencies {
+    implementation(libs.zerosettle)
+}
+```
+
+Then sync Gradle.
+
+<Note>
+  Requires **Android API 26+** (Android 8.0) and **Kotlin 1.9+**. The SDK uses Kotlin coroutines and `kotlinx.serialization` internally.
+</Note>
+
+### Verify Installation
+
+```kotlin
+import com.zerosettle.sdk.ZeroSettle
+
+// If this compiles, you're good
+println(ZeroSettle.isConfigured.value)
+```
+
+### Resources
+
+- [Maven Central: io.zerosettle:zerosettle-android](https://central.sonatype.com/artifact/io.zerosettle/zerosettle-android)
+- [GitHub: ZeroSettle-Android](https://github.com/zerosettle/ZeroSettle-Android)
+
+---
+
 ## Flutter
 
 Add the ZeroSettle package from [pub.dev](https://pub.dev/packages/zerosettle):
@@ -61,7 +112,7 @@ dependencies:
 Then run `flutter pub get`.
 
 <Note>
-  Requires **Flutter 3.3.0+** and **iOS 17.0+**. The Flutter SDK is a thin wrapper around the native ZeroSettleKit — it uses CocoaPods to pull in the iOS framework automatically.
+  Requires **Flutter 3.3.0+**, **iOS 17.0+**, and/or **Android API 26+**. The Flutter SDK wraps the native ZeroSettleKit (iOS) and zerosettle-android (Android) SDKs — it uses CocoaPods and Maven Central to pull in the native frameworks automatically.
 </Note>
 
 ### Verify Installation
@@ -88,11 +139,27 @@ final zs = ZeroSettle.instance;
 
 ---
 
+## Stripe Setup
+
+Before integrating the SDK, connect your Stripe account on the [dashboard](https://dashboard.zerosettle.io):
+
+| Mode | Description | Setup |
+|------|-------------|-------|
+| **Managed** (default) | ZeroSettle creates Stripe products for you via Express | One-click onboarding on the dashboard |
+| **BYOS** (Bring Your Own Stripe) | Use your own Stripe account and existing products | Connect via OAuth, then map products in [Stripe Catalog](/iap/stripe-catalog) |
+
+Both modes use the same SDK integration — no code differences. The mode only affects how payments are processed on the backend.
+
+---
+
 ## Next Steps
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="Quickstart (Swift)" icon="rocket" href="/iap/quickstart">
     Configure the SDK and make your first purchase
+  </Card>
+  <Card title="Quickstart (Android)" icon="rocket" href="/iap/quickstart-android">
+    Configure the Android SDK and make your first purchase
   </Card>
   <Card title="Quickstart (Flutter)" icon="rocket" href="/iap/quickstart-flutter">
     Configure the Flutter SDK and make your first purchase
