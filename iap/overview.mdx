@@ -57,7 +57,9 @@ There are three checkout modes, controlled server-side via remote config:
 
 `ZSPaymentSheet` presents a native-feeling bottom sheet inside your app. It loads a WKWebView with Apple Pay and card entry. The user never leaves your app.
 
-```swift
+<CodeGroup>
+
+```swift Swift
 .zsPaymentSheet(isPresented: $showCheckout, product: product, userId: user.id) { result in
     switch result {
     case .success(let transaction):
@@ -67,6 +69,30 @@ There are three checkout modes, controlled server-side via remote config:
     }
 }
 ```
+
+```kotlin Kotlin
+val transaction = ZeroSettle.purchase(
+    activity = this,
+    productId = product.id,
+    userId = user.id,
+)
+println("Purchased: ${transaction.productId}")
+```
+
+```tsx React Native
+const transaction = await ZeroSettle.purchase(product.id, user.id);
+console.log(`Purchased: ${transaction.productId}`);
+```
+
+```dart Flutter
+final transaction = await ZeroSettle.instance.presentPaymentSheet(
+  productId: product.id,
+  userId: user.id,
+);
+print('Purchased: ${transaction.productId}');
+```
+
+</CodeGroup>
 
 This is the recommended approach for the best conversion rates.
 

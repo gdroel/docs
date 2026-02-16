@@ -30,6 +30,24 @@ val entitlements = ZeroSettle.restoreEntitlements(userId = currentUser.id)
 val cached = ZeroSettle.entitlements.value
 ```
 
+```tsx React Native
+// Restore and get current entitlements
+const entitlements = await ZeroSettle.restoreEntitlements(currentUser.id);
+
+// Or access cached
+const cached = ZeroSettle.getEntitlements();
+```
+
+```dart Flutter
+// Restore and get current entitlements
+final entitlements = await ZeroSettle.instance.restoreEntitlements(
+  userId: currentUser.id,
+);
+
+// Or access cached entitlements
+final cached = ZeroSettle.instance.entitlements;
+```
+
 </CodeGroup>
 
 It's safe to call `restoreEntitlements()` frequently throughout your app. The SDK caches entitlements locally and the network request is lightweight.
@@ -62,6 +80,26 @@ if (hasPremium) {
 }
 ```
 
+```tsx React Native
+const hasPremium = entitlements.some(
+  e => e.productId === 'premium_monthly' && e.isActive
+);
+
+if (hasPremium) {
+  // user has access to premium features
+}
+```
+
+```dart Flutter
+final hasPremium = entitlements.any(
+  (e) => e.productId == 'premium_monthly' && e.isActive,
+);
+
+if (hasPremium) {
+  // user has access to premium features
+}
+```
+
 </CodeGroup>
 
 If your app has multiple entitlements, check if any are active:
@@ -80,6 +118,18 @@ if (entitlements.any { it.isActive }) {
 }
 ```
 
+```tsx React Native
+if (entitlements.some(e => e.isActive)) {
+  // user has access to some entitlement
+}
+```
+
+```dart Flutter
+if (entitlements.any((e) => e.isActive)) {
+  // user has access to some entitlement
+}
+```
+
 </CodeGroup>
 
 <Note>
@@ -92,7 +142,9 @@ Restoring purchases allows users to recover their in-app purchases on a new devi
 
 It is recommended that all apps have a way for users to trigger restore, even if you require accounts.
 
-```swift
+<CodeGroup>
+
+```swift Swift
 do {
     let entitlements = try await ZeroSettle.shared.restoreEntitlements(
         userId: currentUser.id
@@ -104,7 +156,41 @@ do {
 }
 ```
 
-This fetches entitlements from both ZeroSettle's web checkout system and StoreKit (if `syncStoreKitTransactions` is enabled).
+```kotlin Kotlin
+try {
+    val entitlements = ZeroSettle.restoreEntitlements(userId = currentUser.id)
+    // Update UI based on entitlements
+    updatePremiumAccess(entitlements)
+} catch (e: Exception) {
+    // handle error
+}
+```
+
+```tsx React Native
+try {
+  const entitlements = await ZeroSettle.restoreEntitlements(currentUser.id);
+  // Update UI based on entitlements
+  updatePremiumAccess(entitlements);
+} catch (error) {
+  // handle error
+}
+```
+
+```dart Flutter
+try {
+  final entitlements = await ZeroSettle.instance.restoreEntitlements(
+    userId: currentUser.id,
+  );
+  // Update UI based on entitlements
+  updatePremiumAccess(entitlements);
+} catch (e) {
+  // handle error
+}
+```
+
+</CodeGroup>
+
+This fetches entitlements from both ZeroSettle's web checkout system and StoreKit/Play Store (if native transaction syncing is enabled).
 
 ## Cache
 
@@ -144,6 +230,18 @@ class PurchaseManager : ZeroSettleDelegate {
 }
 ```
 
+```tsx React Native
+ZeroSettle.onEntitlementUpdate((entitlements) => {
+  updatePremiumUI(entitlements);
+});
+```
+
+```dart Flutter
+ZeroSettle.instance.entitlementUpdates.listen((entitlements) {
+  updatePremiumUI(entitlements);
+});
+```
+
 </CodeGroup>
 
 You can also observe state reactively in your UI framework:
@@ -175,6 +273,27 @@ fun ContentScreen() {
         UpgradePrompt()
     }
 }
+```
+
+```tsx React Native
+import { useEntitlements } from 'react-native-zerosettle-kit';
+
+function ContentScreen() {
+  const entitlements = useEntitlements();
+  const hasAccess = entitlements.some(e => e.isActive);
+
+  return hasAccess ? <PremiumContent /> : <UpgradePrompt />;
+}
+```
+
+```dart Flutter
+StreamBuilder<List<Entitlement>>(
+  stream: ZeroSettle.instance.entitlementUpdates,
+  builder: (context, snapshot) {
+    final hasAccess = snapshot.data?.any((e) => e.isActive) ?? false;
+    return hasAccess ? PremiumContent() : UpgradePrompt();
+  },
+)
 ```
 
 </CodeGroup>

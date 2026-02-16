@@ -60,6 +60,38 @@ val transaction = ZeroSettle.purchase(
 )
 ```
 
+```tsx React Native
+import { ZeroSettle } from 'react-native-zerosettle-kit';
+
+// Configure with StoreKit sync disabled
+await ZeroSettle.configure({
+  publishableKey: 'pk_live_...',
+  syncStoreKitTransactions: false,
+});
+
+// Purchase using RC user ID
+const transaction = await ZeroSettle.purchase(
+  'premium_monthly',
+  Purchases.getAppUserID(),
+);
+```
+
+```dart Flutter
+import 'package:zerosettle/zerosettle.dart';
+
+// Configure with StoreKit sync disabled
+await ZeroSettle.instance.configure(
+  publishableKey: 'pk_live_...',
+  syncStoreKitTransactions: false,
+);
+
+// Purchase using RC user ID
+final transaction = await ZeroSettle.instance.presentPaymentSheet(
+  productId: 'premium_monthly',
+  userId: Purchases.appUserID,
+);
+```
+
 </CodeGroup>
 
 **How it works**: ZeroSettle processes the web payment and pushes it to RevenueCat via webhook. RevenueCat manages entitlements—you query RC as usual.
@@ -115,6 +147,30 @@ val entitlements = ZeroSettle.restoreEntitlements(
 )
 ```
 
+```tsx React Native
+await ZeroSettle.configure({ publishableKey: 'pk_live_...' });
+
+const transaction = await ZeroSettle.purchase(
+  'premium_monthly',
+  auth.currentUser.id,
+);
+
+const entitlements = await ZeroSettle.restoreEntitlements(auth.currentUser.id);
+```
+
+```dart Flutter
+await ZeroSettle.instance.configure(publishableKey: 'pk_live_...');
+
+final transaction = await ZeroSettle.instance.presentPaymentSheet(
+  productId: 'premium_monthly',
+  userId: auth.currentUser.id,
+);
+
+final entitlements = await ZeroSettle.instance.restoreEntitlements(
+  userId: auth.currentUser.id,
+);
+```
+
 </CodeGroup>
 
 **How it works**: ZeroSettle links purchases to your user ID and tracks entitlements. The `restoreEntitlements(userId:)` method fetches all active entitlements from both web checkout and StoreKit sources.
@@ -125,7 +181,9 @@ val entitlements = ZeroSettle.restoreEntitlements(
 
 No user system? Users are identified by their email from checkout:
 
-```swift
+<CodeGroup>
+
+```swift Swift
 import ZeroSettleKit
 
 // Configure
@@ -137,6 +195,37 @@ try await ZeroSettle.shared.purchase(
     userId: ""
 )
 ```
+
+```kotlin Kotlin
+import com.zerosettle.sdk.ZeroSettle
+
+// Configure
+ZeroSettle.configure(context, ZeroSettle.Configuration(publishableKey = "pk_live_..."))
+
+// Purchase — pass empty string for userId
+val transaction = ZeroSettle.purchase(
+    activity = this,
+    productId = "premium_lifetime",
+    userId = "",
+)
+```
+
+```tsx React Native
+await ZeroSettle.configure({ publishableKey: 'pk_live_...' });
+
+const transaction = await ZeroSettle.purchase('premium_lifetime', '');
+```
+
+```dart Flutter
+await ZeroSettle.instance.configure(publishableKey: 'pk_live_...');
+
+final transaction = await ZeroSettle.instance.presentPaymentSheet(
+  productId: 'premium_lifetime',
+  userId: '',
+);
+```
+
+</CodeGroup>
 
 **How it works**: When `userId` is empty, the user enters their email during Stripe checkout. ZeroSettle links the purchase to that email address.
 
@@ -176,6 +265,28 @@ val hasPremium = entitlements.any {
 
 // Or check if any entitlement is active
 val hasAnyAccess = entitlements.any { it.isActive }
+```
+
+```tsx React Native
+const entitlements = await ZeroSettle.restoreEntitlements(currentUser.id);
+
+const hasPremium = entitlements.some(
+  e => e.productId === 'premium_monthly' && e.isActive
+);
+
+const hasAnyAccess = entitlements.some(e => e.isActive);
+```
+
+```dart Flutter
+final entitlements = await ZeroSettle.instance.restoreEntitlements(
+  userId: currentUser.id,
+);
+
+final hasPremium = entitlements.any(
+  (e) => e.productId == 'premium_monthly' && e.isActive,
+);
+
+final hasAnyAccess = entitlements.any((e) => e.isActive);
 ```
 
 </CodeGroup>

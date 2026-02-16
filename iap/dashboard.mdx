@@ -17,11 +17,31 @@ Your dashboard provides two publishable keys:
 
 Pass your key to the SDK at launch:
 
-```swift
+<CodeGroup>
+```swift Swift
 ZeroSettle.shared.configure(.init(
     publishableKey: "zs_pk_live_..."
 ))
 ```
+
+```kotlin Kotlin
+ZeroSettle.configure(context, ZeroSettle.Configuration(
+    publishableKey = "zs_pk_live_..."
+))
+```
+
+```tsx React Native
+await ZeroSettle.configure({
+    publishableKey: 'zs_pk_live_...',
+});
+```
+
+```dart Flutter
+await ZeroSettle.instance.configure(
+    publishableKey: 'zs_pk_live_...',
+);
+```
+</CodeGroup>
 
 The key prefix determines sandbox vs live mode — there is no separate environment setting.
 
@@ -40,7 +60,8 @@ Create and manage your product catalog from the dashboard. Each product has:
 
 Products are fetched by the SDK via `fetchProducts()` and returned as a `ProductCatalog`:
 
-```swift
+<CodeGroup>
+```swift Swift
 let catalog = try await ZeroSettle.shared.fetchProducts(userId: user.id)
 
 for product in catalog.products {
@@ -48,12 +69,38 @@ for product in catalog.products {
 }
 ```
 
+```kotlin Kotlin
+val catalog = ZeroSettle.fetchProducts(userId = user.id)
+
+for (product in catalog.products) {
+    println("${product.displayName}: ${product.webPrice?.formatted}")
+}
+```
+
+```tsx React Native
+const catalog = await ZeroSettle.fetchProducts(user.id);
+
+for (const product of catalog.products) {
+    console.log(`${product.displayName}: ${product.webPrice.formatted}`);
+}
+```
+
+```dart Flutter
+final catalog = await ZeroSettle.instance.fetchProducts(userId: user.id);
+
+for (final product in catalog.products) {
+    print('${product.displayName}: ${product.webPrice.formatted}');
+}
+```
+</CodeGroup>
+
 ### Dual Pricing
 
-Web prices are set independently from App Store prices. This lets you pass Apple's fee savings on to customers (or keep the margin). The SDK provides both prices so you can show a comparison in your paywall:
+Web prices are set independently from store prices. This lets you pass platform fee savings on to customers (or keep the margin). The SDK provides both prices so you can show a comparison in your paywall:
 
 - `product.webPrice` — the web checkout price you set on the dashboard
-- `product.storeKitPrice` — the App Store price (fetched from StoreKit on-device)
+- `product.storeKitPrice` — the App Store price, fetched from StoreKit on-device (iOS)
+- `product.playStorePrice` — the Google Play price (Android)
 
 ## Checkout Configuration
 
@@ -87,7 +134,8 @@ The SDK automatically detects the user's jurisdiction via StoreKit's `Storefront
 
 For example, you might use `webview` globally but disable web checkout in the EU:
 
-```swift
+<CodeGroup>
+```swift Swift
 // The SDK handles this automatically — no code needed.
 // Just configure it on the dashboard.
 
@@ -98,6 +146,43 @@ if ZeroSettle.shared.isWebCheckoutEnabled {
     // Fall back to StoreKit
 }
 ```
+
+```kotlin Kotlin
+// The SDK handles this automatically — no code needed.
+// Just configure it on the dashboard.
+
+// In your app, check before showing web checkout UI:
+if (ZeroSettle.isWebCheckoutEnabled) {
+    // Show web checkout button
+} else {
+    // Fall back to Play Store
+}
+```
+
+```tsx React Native
+// The SDK handles this automatically — no code needed.
+// Just configure it on the dashboard.
+
+// In your app, check before showing web checkout UI:
+if (ZeroSettle.isWebCheckoutEnabled) {
+    // Show web checkout button
+} else {
+    // Fall back to native store
+}
+```
+
+```dart Flutter
+// The SDK handles this automatically — no code needed.
+// Just configure it on the dashboard.
+
+// In your app, check before showing web checkout UI:
+if (ZeroSettle.instance.isWebCheckoutEnabled) {
+    // Show web checkout button
+} else {
+    // Fall back to native store
+}
+```
+</CodeGroup>
 
 ### Enable / Disable
 
@@ -118,11 +203,33 @@ Each promotion has:
 
 Access promotions via the product:
 
-```swift
+<CodeGroup>
+```swift Swift
 if let promo = product.promotion {
     print("\(promo.displayName): \(promo.promotionalPrice.formatted)")
 }
 ```
+
+```kotlin Kotlin
+product.promotion?.let { promo ->
+    println("${promo.displayName}: ${promo.promotionalPrice?.formatted}")
+}
+```
+
+```tsx React Native
+if (product.promotion) {
+    const promo = product.promotion;
+    console.log(`${promo.displayName}: ${promo.promotionalPrice.formatted}`);
+}
+```
+
+```dart Flutter
+final promo = product.promotion;
+if (promo != null) {
+    print('${promo.displayName}: ${promo.promotionalPrice.formatted}');
+}
+```
+</CodeGroup>
 
 ## Migration Campaigns
 
@@ -148,7 +255,8 @@ If your app currently uses StoreKit subscriptions and you want to migrate users 
 
 The SDK provides a built-in `ZSMigrateTipView` widget, or you can build your own UI:
 
-```swift
+<CodeGroup>
+```swift Swift
 let catalog = try await ZeroSettle.shared.fetchProducts(userId: user.id)
 
 if let migration = catalog.config?.migration {
@@ -157,11 +265,55 @@ if let migration = catalog.config?.migration {
 }
 ```
 
+```kotlin Kotlin
+val catalog = ZeroSettle.fetchProducts(userId = user.id)
+
+catalog.config?.migration?.let { migration ->
+    // Show migration prompt to eligible users
+    println("${migration.title}: ${migration.discountPercent}% off")
+}
+```
+
+```tsx React Native
+const catalog = await ZeroSettle.fetchProducts(user.id);
+
+if (catalog.config?.migration) {
+    const migration = catalog.config.migration;
+    // Show migration prompt to eligible users
+    console.log(`${migration.title}: ${migration.discountPercent}% off`);
+}
+```
+
+```dart Flutter
+final catalog = await ZeroSettle.instance.fetchProducts(userId: user.id);
+
+final migration = catalog.config?.migration;
+if (migration != null) {
+    // Show migration prompt to eligible users
+    print('${migration.title}: ${migration.discountPercent}% off');
+}
+```
+</CodeGroup>
+
 After a successful migration purchase, track the conversion:
 
-```swift
+<CodeGroup>
+```swift Swift
 try await ZeroSettle.shared.trackMigrationConversion(userId: user.id)
 ```
+
+```kotlin Kotlin
+ZeroSettle.trackMigrationConversion(userId = user.id)
+```
+
+```tsx React Native
+await ZeroSettle.trackMigrationConversion(user.id);
+```
+
+```dart Flutter
+await ZeroSettle.instance.trackMigrationConversion(userId: user.id);
+```
+</CodeGroup>
 
 See [StoreKit Integration](/iap/storekit-integration) for the full migration guide.
 

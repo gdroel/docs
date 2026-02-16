@@ -4,7 +4,7 @@ description: 'Use ZeroSettle alongside RevenueCat for web checkout'
 icon: 'puzzle-piece'
 ---
 
-ZeroSettle works alongside RevenueCat. You can use RevenueCat for StoreKit subscription management while routing eligible purchases through ZeroSettle's web checkout for lower fees.
+ZeroSettle works alongside RevenueCat. You can use RevenueCat for StoreKit and Play Billing subscription management while routing eligible purchases through ZeroSettle's web checkout for lower fees.
 
 There are two integration approaches:
 
@@ -14,9 +14,10 @@ Use the ZeroSettleKit SDK alongside RevenueCat in your app. This gives you full 
 
 ### Configuration
 
-When using RevenueCat, disable ZeroSettle's StoreKit listener to avoid conflicts:
+When using RevenueCat, disable ZeroSettle's StoreKit/Play Billing listener to avoid conflicts:
 
-```swift
+<CodeGroup>
+```swift Swift
 import ZeroSettleKit
 import RevenueCat
 
@@ -42,15 +43,68 @@ struct YourApp: App {
 }
 ```
 
+```kotlin Kotlin
+import com.zerosettle.sdk.ZeroSettle
+import com.revenuecat.purchases.Purchases
+import com.revenuecat.purchases.PurchasesConfiguration
+
+class MyApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+
+        // Configure RevenueCat first
+        Purchases.configure(
+            PurchasesConfiguration.Builder(this, "your_revenuecat_key").build()
+        )
+
+        // Configure ZeroSettle with Play Store sync disabled
+        ZeroSettle.configure(this, ZeroSettle.Configuration(
+            publishableKey = "your_zerosettle_key",
+            syncPlayStoreTransactions = false,  // RevenueCat manages Play Billing
+        ))
+    }
+}
+```
+
+```tsx React Native
+import { ZeroSettle } from 'react-native-zerosettle-kit';
+import Purchases from 'react-native-purchases';
+
+// Configure RevenueCat first
+Purchases.configure({ apiKey: 'your_revenuecat_key' });
+
+// Configure ZeroSettle with StoreKit sync disabled
+await ZeroSettle.configure({
+  publishableKey: 'your_zerosettle_key',
+  syncStoreKitTransactions: false,
+});
+```
+
+```dart Flutter
+import 'package:zerosettle/zerosettle.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+
+// Configure RevenueCat first
+await Purchases.configure(PurchasesConfiguration('your_revenuecat_key'));
+
+// Configure ZeroSettle with StoreKit sync disabled
+await ZeroSettle.instance.configure(
+  publishableKey: 'your_zerosettle_key',
+  syncStoreKitTransactions: false,
+);
+```
+</CodeGroup>
+
 <Warning>
-  Always set `syncStoreKitTransactions: false` when using RevenueCat. Both SDKs listening for StoreKit transactions will cause conflicts.
+  Always set `syncStoreKitTransactions: false` (iOS) or `syncPlayStoreTransactions: false` (Android) when using RevenueCat. Both SDKs listening for store transactions will cause conflicts.
 </Warning>
 
 ### User Identity
 
 Pass RevenueCat's `appUserID` as the `userId` when making ZeroSettle purchases. This links web checkout purchases to the correct RevenueCat customer:
 
-```swift
+<CodeGroup>
+```swift Swift
 let rcUserId = Purchases.shared.appUserID
 
 // Fetch ZeroSettle product catalog
@@ -63,11 +117,46 @@ try await ZeroSettle.shared.purchase(
 )
 ```
 
+```kotlin Kotlin
+val rcUserId = Purchases.sharedInstance.appUserID
+
+// Fetch ZeroSettle product catalog
+val catalog = ZeroSettle.fetchProducts(userId = rcUserId)
+
+// Purchase via web checkout
+val transaction = ZeroSettle.purchase(
+    activity = this,
+    productId = product.id,
+    userId = rcUserId,
+)
+```
+
+```tsx React Native
+const rcUserId = await Purchases.getAppUserID();
+
+const catalog = await ZeroSettle.fetchProducts(rcUserId);
+
+const transaction = await ZeroSettle.purchase(product.id, rcUserId);
+```
+
+```dart Flutter
+final rcUserId = await Purchases.appUserID;
+
+final catalog = await ZeroSettle.instance.fetchProducts(userId: rcUserId);
+
+final transaction = await ZeroSettle.instance.presentPaymentSheet(
+  productId: product.id,
+  userId: rcUserId,
+);
+```
+</CodeGroup>
+
 ### Hybrid Paywall
 
-Show both ZeroSettle (web checkout) and RevenueCat (StoreKit) purchase options:
+Show both ZeroSettle (web checkout) and RevenueCat (StoreKit/Play Billing) purchase options:
 
-```swift
+<CodeGroup>
+```swift Swift
 struct PaywallView: View {
     @State private var showPaymentSheet = false
     let zsProduct: ZSProduct      // From ZeroSettleKit
@@ -102,6 +191,83 @@ struct PaywallView: View {
 }
 ```
 
+```kotlin Kotlin
+@Composable
+fun PaywallScreen(zsProduct: ZSProduct, rcPackage: Package) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Web checkout — lower fees
+        Button(onClick = {
+            scope.launch {
+                try {
+                    ZeroSettle.purchase(
+                        activity = context as Activity,
+                        productId = zsProduct.id,
+                        userId = Purchases.sharedInstance.appUserID,
+                    )
+                    // Refresh RC customer info to pick up the webhook
+                    Purchases.sharedInstance.getCustomerInfo(
+                        object : ReceiveCustomerInfoCallback { /* ... */ }
+                    )
+                } catch (_: ZSError.Cancelled) { }
+            }
+        }) {
+            Text("Subscribe — ${zsProduct.webPrice?.formatted}")
+        }
+
+        // Play Store fallback via RevenueCat
+        TextButton(onClick = {
+            scope.launch {
+                Purchases.sharedInstance.purchase(
+                    PurchaseParams.Builder(context as Activity, rcPackage).build(),
+                    object : PurchaseCallback { /* ... */ }
+                )
+            }
+        }) {
+            Text("Subscribe via Play Store — ${rcPackage.product.price.formatted}")
+        }
+    }
+}
+```
+
+```tsx React Native
+// Web checkout — lower fees
+const handleWebPurchase = async () => {
+  try {
+    await ZeroSettle.purchase(zsProduct.id, Purchases.getAppUserID());
+    // Refresh RC customer info
+    await Purchases.getCustomerInfo();
+  } catch (e) {
+    if (e.code !== 'cancelled') showError(e.message);
+  }
+};
+
+// StoreKit/Play Store fallback via RevenueCat
+const handleStorePurchase = async () => {
+  await Purchases.purchasePackage(rcPackage);
+};
+```
+
+```dart Flutter
+// Web checkout — lower fees
+try {
+  final transaction = await ZeroSettle.instance.presentPaymentSheet(
+    productId: zsProduct.id,
+    userId: await Purchases.appUserID,
+  );
+  // Refresh RC customer info
+  await Purchases.getCustomerInfo();
+} on ZSCancelledException {
+  // User cancelled
+}
+
+// StoreKit/Play Store fallback via RevenueCat
+await Purchases.purchasePackage(rcPackage);
+```
+</CodeGroup>
+
 ### Webhook Sync
 
 When a user purchases via ZeroSettle web checkout, you need to sync the entitlement to RevenueCat. Configure a webhook in your ZeroSettle dashboard that posts to RevenueCat's REST API:
@@ -122,7 +288,8 @@ If you use RevenueCat's paywall builder, you can add a custom checkout button th
 
 ### Handle the Callback
 
-```swift
+<CodeGroup>
+```swift Swift
 @main
 struct YourApp: App {
     var body: some Scene {
@@ -148,6 +315,53 @@ struct YourApp: App {
     }
 }
 ```
+
+```kotlin Kotlin
+// In your Activity that handles the deep link
+override fun onNewIntent(intent: Intent?) {
+    super.onNewIntent(intent)
+    intent?.data?.let { uri ->
+        if (uri.scheme == "yourapp") {
+            when (uri.lastPathSegment) {
+                "success" -> {
+                    // Refresh RevenueCat customer info
+                    Purchases.sharedInstance.getCustomerInfo(
+                        object : ReceiveCustomerInfoCallback {
+                            override fun onReceived(customerInfo: CustomerInfo) {
+                                updateUI(customerInfo)
+                            }
+                            override fun onError(error: PurchasesError) { }
+                        }
+                    )
+                }
+                "cancelled" -> { /* no-op */ }
+            }
+        }
+    }
+}
+```
+
+```tsx React Native
+import { Linking } from 'react-native';
+import Purchases from 'react-native-purchases';
+
+Linking.addEventListener('url', async ({ url }) => {
+  const parsed = new URL(url);
+  if (parsed.pathname.endsWith('success')) {
+    await Purchases.getCustomerInfo();
+  }
+});
+```
+
+```dart Flutter
+// Handle deep link callback
+void handleDeepLink(Uri uri) async {
+  if (uri.pathSegments.last == 'success') {
+    await Purchases.getCustomerInfo();
+  }
+}
+```
+</CodeGroup>
 
 <Note>
   The SDK integration (Option 1) provides a better user experience since the payment sheet stays inside your app. The custom button approach is useful if you want to use RevenueCat's paywall builder without writing custom UI code.

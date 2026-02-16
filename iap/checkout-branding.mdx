@@ -45,11 +45,36 @@ Branding changes take effect on the next `fetchProducts()` call. If you're testi
 
 The SDK fetches your branding configuration automatically as part of `fetchProducts()`. The checkout HTML is rendered server-side with your logo, icon, and primary color injected — no client-side setup is needed.
 
-```swift
+<CodeGroup>
+
+```swift Swift
 // No branding code required — the SDK handles it.
 let catalog = try await ZeroSettle.shared.fetchProducts(userId: user.id)
 
 // When the payment sheet is presented, your branding is already applied.
 ```
+
+```kotlin Kotlin
+// No branding code required — the SDK handles it.
+val catalog = ZeroSettle.fetchProducts(userId = user.id)
+
+// When the payment sheet is presented, your branding is already applied.
+```
+
+```tsx React Native
+// No branding code required — the SDK handles it.
+const catalog = await ZeroSettle.fetchProducts(user.id);
+
+// When the payment sheet is presented, your branding is already applied.
+```
+
+```dart Flutter
+// No branding code required — the SDK handles it.
+final catalog = await ZeroSettle.instance.fetchProducts(userId: user.id);
+
+// When the payment sheet is presented, your branding is already applied.
+```
+
+</CodeGroup>
 
 If no branding is configured, the checkout uses ZeroSettle's default styling.

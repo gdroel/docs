@@ -12,7 +12,9 @@ ZeroSettle provides a customer portal powered by Stripe where your customers can
 
 The simplest way to add subscription management is the `.zsManageSubscription()` modifier:
 
-```swift
+<CodeGroup>
+
+```swift Swift
 @State private var showManageSubscription = false
 
 Button("Manage Subscription") {
@@ -20,6 +22,28 @@ Button("Manage Subscription") {
 }
 .zsManageSubscription(isPresented: $showManageSubscription, userId: currentUser.id)
 ```
+
+```kotlin Kotlin
+// Launch from a button click or Composable
+scope.launch {
+    ZeroSettle.showManageSubscription(
+        activity = context as Activity,
+        userId = currentUser.id,
+    )
+}
+```
+
+```tsx React Native
+// Open subscription management
+await ZeroSettle.showManageSubscription(currentUser.id);
+```
+
+```dart Flutter
+// Open subscription management
+await ZeroSettle.instance.openCustomerPortal(userId: currentUser.id);
+```
+
+</CodeGroup>
 
 This automatically routes to the right management UI based on where the user's subscriptions came from.
 
@@ -45,6 +69,22 @@ ZeroSettle.showManageSubscription(activity = this, userId = currentUser.id)
 ZeroSettle.openCustomerPortal(activity = this, userId = currentUser.id)
 ```
 
+```tsx React Native
+// Smart routing
+await ZeroSettle.showManageSubscription(currentUser.id);
+
+// Always open Stripe portal
+await ZeroSettle.openCustomerPortal(currentUser.id);
+```
+
+```dart Flutter
+// Smart routing
+await ZeroSettle.instance.showManageSubscription(userId: currentUser.id);
+
+// Always open Stripe portal
+await ZeroSettle.instance.openCustomerPortal(userId: currentUser.id);
+```
+
 </CodeGroup>
 
 ## Dual-Source Handling
@@ -65,17 +105,39 @@ If you always want the Stripe portal regardless of source, call `openCustomerPor
 
 Entitlements are automatically refreshed when the management UI is dismissed. Any subscription changes the user makes (cancellation, plan change, re-subscribe) will be reflected in `ZeroSettle.shared.entitlements` and trigger the `zeroSettleEntitlementsDidUpdate(_:)` delegate callback.
 
-```swift
+<CodeGroup>
+
+```swift Swift
 // Entitlements stay in sync automatically after portal dismiss
 let entitlements = ZeroSettle.shared.entitlements
 let hasAccess = entitlements.contains { $0.isActive }
 ```
 
+```kotlin Kotlin
+// Entitlements stay in sync automatically after portal dismiss
+val entitlements by ZeroSettle.entitlements.collectAsState()
+val hasAccess = entitlements.any { it.isActive }
+```
+
+```tsx React Native
+const entitlements = ZeroSettle.getEntitlements();
+const hasAccess = entitlements.some(e => e.isActive);
+```
+
+```dart Flutter
+final entitlements = ZeroSettle.instance.entitlements;
+final hasAccess = entitlements.any((e) => e.isActive);
+```
+
+</CodeGroup>
+
 ## Delegate Callbacks
 
 Subscribe to customer portal lifecycle events:
 
-```swift
+<CodeGroup>
+
+```swift Swift
 class MyDelegate: ZeroSettleDelegate {
     func zeroSettleCustomerPortalDidOpen(userId: String) {
         // Portal opened — e.g., log analytics
@@ -90,6 +152,33 @@ class MyDelegate: ZeroSettleDelegate {
     }
 }
 ```
+
+```kotlin Kotlin
+// On Android, the customer portal opens in a Custom Tab.
+// Use the general entitlement delegate to detect changes:
+class MyDelegate : ZeroSettleDelegate {
+    override fun zeroSettleEntitlementsDidUpdate(entitlements: List<Entitlement>) {
+        // Entitlements refreshed after portal interaction
+        updatePremiumUI(entitlements)
+    }
+}
+```
+
+```tsx React Native
+// Listen for entitlement changes after portal interaction
+ZeroSettle.onEntitlementUpdate((entitlements) => {
+  updatePremiumUI(entitlements);
+});
+```
+
+```dart Flutter
+// Listen for entitlement changes after portal interaction
+ZeroSettle.instance.entitlementUpdates.listen((entitlements) {
+  updatePremiumUI(entitlements);
+});
+```
+
+</CodeGroup>
 
 ## What Customers Can Do
 

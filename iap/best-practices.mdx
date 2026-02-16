@@ -10,9 +10,10 @@ Follow these recommendations to build a robust in-app purchase experience with Z
 
 ### Configure Early
 
-Initialize the SDK as early as possible in your app's lifecycle. `configure()` is async — call it from a `.task {}` modifier. When you provide a `userId`, it automatically fetches products, warms up the first product's `PaymentIntent`, and restores entitlements:
+Initialize the SDK as early as possible in your app's lifecycle. On iOS, `configure()` is async — call it from a `.task {}` modifier. When you provide a `userId`, it automatically fetches products, warms up the first product's `PaymentIntent`, and restores entitlements. On Android, `configure()` is synchronous and should be called in `Application.onCreate()`, then call `bootstrap()` to fetch products and restore entitlements:
 
-```swift
+<CodeGroup>
+```swift Swift
 @main
 struct YourApp: App {
     var body: some Scene {
@@ -30,11 +31,56 @@ struct YourApp: App {
 }
 ```
 
+```kotlin Kotlin
+class MyApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        ZeroSettle.configure(this, ZeroSettle.Configuration(
+            publishableKey = "your_live_key"
+        ))
+    }
+}
+
+// Then in your main Activity or Composable:
+LaunchedEffect(Unit) {
+    ZeroSettle.bootstrap(userId = auth.currentUser.id)
+}
+```
+
+```tsx React Native
+import { ZeroSettle } from 'react-native-zerosettle-kit';
+
+// Configure as early as possible (e.g., in App.tsx)
+await ZeroSettle.configure({
+  publishableKey: 'your_live_key',
+});
+
+// Then fetch products and entitlements
+const catalog = await ZeroSettle.fetchProducts(auth.currentUser.id);
+```
+
+```dart Flutter
+import 'package:zerosettle/zerosettle.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await ZeroSettle.instance.configure(publishableKey: 'your_live_key');
+
+  runApp(const MyApp());
+}
+
+// Then in your home screen:
+final catalog = await ZeroSettle.instance.bootstrap(userId: auth.currentUser.id);
+```
+</CodeGroup>
+
 ### Use Sandbox Keys for Development
 
 Keep sandbox and live keys separate:
 
-```swift
+<CodeGroup>
+```swift Swift
 #if DEBUG
 let publishableKey = "your_test_key"  // Sandbox - no real charges
 #else
@@ -44,13 +90,41 @@ let publishableKey = "your_live_key"  // Live - real payments
 ZeroSettle.shared.configure(.init(publishableKey: publishableKey))
 ```
 
+```kotlin Kotlin
+val publishableKey = if (BuildConfig.DEBUG) {
+    "your_test_key"  // Sandbox
+} else {
+    "your_live_key"  // Live
+}
+
+ZeroSettle.configure(context, ZeroSettle.Configuration(publishableKey = publishableKey))
+```
+
+```tsx React Native
+const publishableKey = __DEV__
+  ? 'your_test_key'   // Sandbox
+  : 'your_live_key';  // Live
+
+await ZeroSettle.configure({ publishableKey });
+```
+
+```dart Flutter
+final publishableKey = kDebugMode
+  ? 'your_test_key'   // Sandbox
+  : 'your_live_key';  // Live
+
+await ZeroSettle.instance.configure(publishableKey: publishableKey);
+```
+</CodeGroup>
+
 ## Entitlement Management
 
 ### Restore on Every Launch
 
 Always restore entitlements when your app launches to catch purchases made on other devices or missed callbacks:
 
-```swift
+<CodeGroup>
+```swift Swift
 struct ContentView: View {
     @State private var isLoading = true
     @State private var entitlements: [Entitlement] = []
@@ -73,11 +147,88 @@ struct ContentView: View {
 }
 ```
 
+```kotlin Kotlin
+@Composable
+fun ContentScreen() {
+    var isLoading by remember { mutableStateOf(true) }
+    var entitlements by remember { mutableStateOf<List<Entitlement>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        entitlements = try {
+            ZeroSettle.restoreEntitlements(userId = auth.currentUser.id)
+        } catch (_: Exception) { emptyList() }
+        isLoading = false
+    }
+
+    if (isLoading) {
+        CircularProgressIndicator()
+    } else {
+        MainContent(entitlements)
+    }
+}
+```
+
+```tsx React Native
+function ContentScreen() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [entitlements, setEntitlements] = useState([]);
+
+  useEffect(() => {
+    ZeroSettle.restoreEntitlements(auth.currentUser.id)
+      .then(setEntitlements)
+      .catch(() => setEntitlements([]))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  if (isLoading) return <ActivityIndicator />;
+  return <MainContent entitlements={entitlements} />;
+}
+```
+
+```dart Flutter
+class ContentScreen extends StatefulWidget {
+  const ContentScreen({super.key});
+
+  @override
+  State<ContentScreen> createState() => _ContentScreenState();
+}
+
+class _ContentScreenState extends State<ContentScreen> {
+  bool isLoading = true;
+  List<Entitlement> entitlements = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    try {
+      entitlements = await ZeroSettle.instance.restoreEntitlements(
+        userId: auth.currentUser.id,
+      );
+    } catch (_) {
+      entitlements = [];
+    }
+    setState(() => isLoading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) return const CircularProgressIndicator();
+    return MainContent(entitlements: entitlements);
+  }
+}
+```
+</CodeGroup>
+
 ### Cache Entitlements Locally
 
-For offline access, cache entitlements to UserDefaults or Keychain:
+For offline access, cache entitlements to UserDefaults (iOS) or SharedPreferences (Android):
 
-```swift
+<CodeGroup>
+```swift Swift
 class EntitlementCache {
     private let key = "cached_entitlements"
 
@@ -104,11 +255,96 @@ entitlementCache.save(fresh)
 updateUI(fresh)
 ```
 
+```kotlin Kotlin
+class EntitlementCache(context: Context) {
+    private val prefs = context.getSharedPreferences("zs_cache", Context.MODE_PRIVATE)
+    private val json = Json { ignoreUnknownKeys = true }
+
+    fun save(entitlements: List<Entitlement>) {
+        val data = json.encodeToString(entitlements)
+        prefs.edit().putString("cached_entitlements", data).apply()
+    }
+
+    fun load(): List<Entitlement> {
+        val data = prefs.getString("cached_entitlements", null) ?: return emptyList()
+        return try { json.decodeFromString(data) } catch (_: Exception) { emptyList() }
+    }
+}
+
+// Use cached while fetching fresh
+val cached = entitlementCache.load()
+updateUI(cached)
+
+val fresh = ZeroSettle.restoreEntitlements(userId = userId)
+entitlementCache.save(fresh)
+updateUI(fresh)
+```
+
+```tsx React Native
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const CACHE_KEY = 'zs_cached_entitlements';
+
+async function saveEntitlements(entitlements) {
+  await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(entitlements));
+}
+
+async function loadEntitlements() {
+  const data = await AsyncStorage.getItem(CACHE_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
+// Use cached while fetching fresh
+const cached = await loadEntitlements();
+updateUI(cached);
+
+const fresh = await ZeroSettle.restoreEntitlements(userId);
+await saveEntitlements(fresh);
+updateUI(fresh);
+```
+
+```dart Flutter
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class EntitlementCache {
+  static const _key = 'cached_entitlements';
+
+  Future<void> save(List<Entitlement> entitlements) async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = jsonEncode(entitlements.map((e) => e.toJson()).toList());
+    await prefs.setString(_key, data);
+  }
+
+  Future<List<Entitlement>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_key);
+    if (data == null) return [];
+    try {
+      final list = jsonDecode(data) as List;
+      return list.map((e) => Entitlement.fromJson(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+}
+
+// Use cached while fetching fresh
+final cached = await entitlementCache.load();
+updateUI(cached);
+
+final fresh = await ZeroSettle.instance.restoreEntitlements(userId: userId);
+await entitlementCache.save(fresh);
+updateUI(fresh);
+```
+</CodeGroup>
+
 ### Check Expiration for Subscriptions
 
 Subscriptions have an `expiresAt` date. Check it when validating access:
 
-```swift
+<CodeGroup>
+```swift Swift
 func hasActiveSubscription(_ entitlements: [Entitlement]) -> Bool {
     entitlements.contains { entitlement in
         guard entitlement.isActive else { return false }
@@ -124,13 +360,64 @@ func hasActiveSubscription(_ entitlements: [Entitlement]) -> Bool {
 }
 ```
 
+```kotlin Kotlin
+fun hasActiveSubscription(entitlements: List<Entitlement>): Boolean {
+    return entitlements.any { entitlement ->
+        if (!entitlement.isActive) return@any false
+
+        // For subscriptions, also check expiration
+        val expiresAt = entitlement.expiresAt
+        if (expiresAt != null) {
+            return@any Instant.parse(expiresAt) > Clock.System.now()
+        }
+
+        // Lifetime purchases have no expiration
+        true
+    }
+}
+```
+
+```tsx React Native
+function hasActiveSubscription(entitlements) {
+  return entitlements.some((entitlement) => {
+    if (!entitlement.isActive) return false;
+
+    // For subscriptions, also check expiration
+    if (entitlement.expiresAt) {
+      return new Date(entitlement.expiresAt) > new Date();
+    }
+
+    // Lifetime purchases have no expiration
+    return true;
+  });
+}
+```
+
+```dart Flutter
+bool hasActiveSubscription(List<Entitlement> entitlements) {
+  return entitlements.any((entitlement) {
+    if (!entitlement.isActive) return false;
+
+    // For subscriptions, also check expiration
+    if (entitlement.expiresAt != null) {
+      return entitlement.expiresAt!.isAfter(DateTime.now());
+    }
+
+    // Lifetime purchases have no expiration
+    return true;
+  });
+}
+```
+</CodeGroup>
+
 ## Purchase Flow
 
 ### Use the Payment Sheet
 
-`ZSPaymentSheet` provides the best conversion rates because the user stays in your app:
+On iOS, `ZSPaymentSheet` provides the best conversion rates because the user stays in your app. On Android, use `ZeroSettle.purchase()` which opens a Custom Tab for the web checkout:
 
-```swift
+<CodeGroup>
+```swift Swift
 struct PurchaseButton: View {
     @State private var showCheckout = false
     let product: ZSProduct
@@ -160,7 +447,82 @@ struct PurchaseButton: View {
 }
 ```
 
+```kotlin Kotlin
+@Composable
+fun PurchaseButton(product: ZSProduct) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    Button(onClick = {
+        scope.launch {
+            try {
+                val transaction = ZeroSettle.purchase(
+                    activity = context as Activity,
+                    productId = product.id,
+                    userId = auth.currentUser.id,
+                )
+                unlockProduct(transaction.productId)
+            } catch (e: ZSError.Cancelled) {
+                // User dismissed — don't show error
+            } catch (e: Exception) {
+                showError(e)
+            }
+        }
+    }) {
+        Text("Buy ${product.displayName} — ${product.webPrice?.formatted}")
+    }
+}
+```
+
+```tsx React Native
+function PurchaseButton({ product }) {
+  const handlePurchase = async () => {
+    try {
+      const transaction = await ZeroSettle.purchase(
+        product.id,
+        auth.currentUser.id,
+      );
+      unlockProduct(transaction.productId);
+    } catch (e) {
+      if (e.code === 'cancelled') return;
+      showError(e.message);
+    }
+  };
+
+  return (
+    <Button
+      title={`Buy ${product.displayName} — ${product.webPrice?.formatted}`}
+      onPress={handlePurchase}
+    />
+  );
+}
+```
+
+```dart Flutter
+ElevatedButton(
+  onPressed: () async {
+    try {
+      final transaction = await ZeroSettle.instance.presentPaymentSheet(
+        productId: product.id,
+        userId: auth.currentUser.id,
+      );
+      unlockProduct(transaction.productId);
+    } on ZSCancelledException {
+      // User dismissed — don't show error
+    } on ZSCheckoutFailedException catch (e) {
+      showError(e.message);
+    }
+  },
+  child: Text('Buy ${product.displayName} — ${product.webPrice?.formatted}'),
+)
+```
+</CodeGroup>
+
 ### Preloading & Caching
+
+<Note>
+  Preloading and `warmUp()` are iOS-specific APIs. On Android, products are cached in the `ZeroSettle.products` StateFlow after calling `bootstrap()` or `fetchProducts()`. No additional preloading step is needed.
+</Note>
 
 The `.zsPaymentSheet()` modifier automatically preloads the `PaymentIntent` and `WKWebView` before presenting the sheet, so the checkout is fully rendered the moment it slides up.
 
@@ -168,7 +530,8 @@ The `.zsPaymentSheet()` modifier automatically preloads the `PaymentIntent` and 
 
 For the fastest first open, call `warmUp()` right after fetching products:
 
-```swift
+<CodeGroup>
+```swift Swift
 .task {
     let catalog = try await ZeroSettle.shared.fetchProducts()
 
@@ -179,9 +542,33 @@ For the fastest first open, call `warmUp()` right after fetching products:
 }
 ```
 
+```kotlin Kotlin
+// On Android, products are cached automatically after bootstrap() or
+// fetchProducts(). No additional warm-up step is needed.
+```
+
+```tsx React Native
+// Preloading is not available in React Native.
+// purchase() handles the full flow automatically.
+```
+
+```dart Flutter
+// Preload the payment sheet while the user browses
+final catalog = await ZeroSettle.instance.fetchProducts(userId: currentUser.id);
+
+if (catalog.products.isNotEmpty) {
+  await ZeroSettle.instance.warmUpPaymentSheet(
+    productId: catalog.products.first.id,
+    userId: currentUser.id,
+  );
+}
+```
+</CodeGroup>
+
 For the standalone `ZSPaymentSheet` init or UIKit's `present` method, you can preload manually:
 
-```swift
+<CodeGroup>
+```swift Swift
 .task {
     preloaded = await ZSPaymentSheet.preload(
         productId: product.id,
@@ -190,11 +577,31 @@ For the standalone `ZSPaymentSheet` init or UIKit's `present` method, you can pr
 }
 ```
 
+```kotlin Kotlin
+// On Android, preloading is not needed. Products and checkout state
+// are managed automatically by the SDK after bootstrap().
+```
+
+```tsx React Native
+// Preloading is not available in React Native.
+// purchase() handles the full flow automatically.
+```
+
+```dart Flutter
+// Warm up the payment sheet ahead of time
+await ZeroSettle.instance.warmUpPaymentSheet(
+  productId: product.id,
+  userId: currentUser.id,
+);
+```
+</CodeGroup>
+
 ### Show Loading State
 
-For Safari-based checkout, show feedback immediately since it opens an external browser:
+Show feedback immediately when a checkout is in progress:
 
-```swift
+<CodeGroup>
+```swift Swift
 struct SafariPurchaseButton: View {
     @ObservedObject var iap = ZeroSettle.shared
     let product: ZSProduct
@@ -219,11 +626,99 @@ struct SafariPurchaseButton: View {
 }
 ```
 
+```kotlin Kotlin
+@Composable
+fun PurchaseButton(product: ZSProduct) {
+    val pendingCheckout by ZeroSettle.pendingCheckout.collectAsState()
+
+    Button(
+        onClick = { /* launch purchase */ },
+        enabled = !pendingCheckout,
+    ) {
+        if (pendingCheckout) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp))
+        } else {
+            Text("Buy ${product.displayName}")
+        }
+    }
+}
+```
+
+```tsx React Native
+function PurchaseButton({ product }) {
+  const [isPending, setIsPending] = useState(false);
+
+  const handlePurchase = async () => {
+    setIsPending(true);
+    try {
+      await ZeroSettle.purchase(product.id, auth.currentUser.id);
+    } catch (e) {
+      if (e.code !== 'cancelled') showError(e.message);
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  return (
+    <Button
+      title={isPending ? 'Loading...' : `Buy ${product.displayName}`}
+      onPress={handlePurchase}
+      disabled={isPending}
+    />
+  );
+}
+```
+
+```dart Flutter
+class PurchaseButton extends StatefulWidget {
+  final ZSProduct product;
+  const PurchaseButton({super.key, required this.product});
+
+  @override
+  State<PurchaseButton> createState() => _PurchaseButtonState();
+}
+
+class _PurchaseButtonState extends State<PurchaseButton> {
+  bool _isPending = false;
+
+  Future<void> _purchase() async {
+    setState(() => _isPending = true);
+    try {
+      await ZeroSettle.instance.presentPaymentSheet(
+        productId: widget.product.id,
+        userId: auth.currentUser.id,
+      );
+    } on ZSCancelledException {
+      // User dismissed
+    } catch (e) {
+      showError(e.toString());
+    } finally {
+      setState(() => _isPending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: _isPending ? null : _purchase,
+      child: _isPending
+          ? const SizedBox(
+              width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text('Buy ${widget.product.displayName}'),
+    );
+  }
+}
+```
+</CodeGroup>
+
 ### Handle All Delegate Callbacks
 
 Implement all delegate methods to handle every outcome:
 
-```swift
+<CodeGroup>
+```swift Swift
 class PurchaseManager: ZeroSettleDelegate {
     func zeroSettleCheckoutDidBegin(productId: String) {
         // Optional: log analytics
@@ -269,11 +764,104 @@ class PurchaseManager: ZeroSettleDelegate {
 }
 ```
 
+```kotlin Kotlin
+class PurchaseManager : ZeroSettleDelegate {
+    override fun zeroSettleCheckoutDidBegin(productId: String) {
+        Analytics.track("checkout_started", productId)
+    }
+
+    override fun zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
+        unlockProduct(transaction.productId)
+        showToast("Purchase complete!")
+        Analytics.track("purchase_completed", transaction)
+    }
+
+    override fun zeroSettleCheckoutDidCancel(productId: String) {
+        Analytics.track("checkout_cancelled", productId)
+    }
+
+    override fun zeroSettleCheckoutDidFail(productId: String, error: Throwable) {
+        showError("Purchase failed. Please try again.")
+        Analytics.track("checkout_failed", error)
+    }
+
+    override fun zeroSettleEntitlementsDidUpdate(entitlements: List<Entitlement>) {
+        updatePremiumUI(entitlements)
+    }
+
+    override fun zeroSettleDidSyncPlayStoreTransaction(productId: String, purchaseToken: String) {
+        Analytics.track("play_store_synced", productId)
+    }
+
+    override fun zeroSettlePlayStoreSyncFailed(error: Throwable) {
+        println("Play Store sync failed: $error")
+    }
+}
+```
+
+```tsx React Native
+// Listen for checkout events
+ZeroSettle.onCheckoutEvent((event) => {
+  switch (event.type) {
+    case 'began':
+      Analytics.track('checkout_started', { productId: event.productId });
+      break;
+    case 'completed':
+      unlockProduct(event.transaction.productId);
+      showToast('Purchase complete!');
+      Analytics.track('purchase_completed', { transaction: event.transaction });
+      break;
+    case 'cancelled':
+      Analytics.track('checkout_cancelled', { productId: event.productId });
+      break;
+    case 'failed':
+      showError('Purchase failed. Please try again.');
+      Analytics.track('checkout_failed', { error: event.error });
+      break;
+  }
+});
+
+// Listen for entitlement updates
+ZeroSettle.onEntitlementUpdate((entitlements) => {
+  updatePremiumUI(entitlements);
+});
+```
+
+```dart Flutter
+// Listen for checkout events
+ZeroSettle.instance.checkoutEvents.listen((event) {
+  switch (event.type) {
+    case CheckoutEventType.began:
+      Analytics.track('checkout_started', productId: event.productId);
+      break;
+    case CheckoutEventType.completed:
+      unlockProduct(event.transaction!.productId);
+      showToast('Purchase complete!');
+      Analytics.track('purchase_completed', transaction: event.transaction);
+      break;
+    case CheckoutEventType.cancelled:
+      Analytics.track('checkout_cancelled', productId: event.productId);
+      break;
+    case CheckoutEventType.failed:
+      showError('Purchase failed. Please try again.');
+      Analytics.track('checkout_failed', error: event.error);
+      break;
+  }
+});
+
+// Listen for entitlement updates
+ZeroSettle.instance.entitlementUpdates.listen((entitlements) {
+  updatePremiumUI(entitlements);
+});
+```
+</CodeGroup>
+
 ### Provide a Restore Button
 
-Apple requires a way for users to restore purchases. Add a visible restore option:
+Apple and Google require a way for users to restore purchases. Add a visible restore option:
 
-```swift
+<CodeGroup>
+```swift Swift
 Button("Restore Purchases") {
     Task {
         do {
@@ -293,13 +881,77 @@ Button("Restore Purchases") {
 }
 ```
 
+```kotlin Kotlin
+Button(onClick = {
+    scope.launch {
+        try {
+            val entitlements = ZeroSettle.restoreEntitlements(
+                userId = auth.currentUser.id
+            )
+            if (entitlements.isEmpty()) {
+                showMessage("No purchases found")
+            } else {
+                showMessage("Purchases restored!")
+            }
+        } catch (e: Exception) {
+            showError("Restore failed: ${e.message}")
+        }
+    }
+}) {
+    Text("Restore Purchases")
+}
+```
+
+```tsx React Native
+const handleRestore = async () => {
+  try {
+    const entitlements = await ZeroSettle.restoreEntitlements(
+      auth.currentUser.id,
+    );
+
+    if (entitlements.length === 0) {
+      showMessage('No purchases found');
+    } else {
+      showMessage('Purchases restored!');
+    }
+  } catch (e) {
+    showError(`Restore failed: ${e.message}`);
+  }
+};
+
+<Button title="Restore Purchases" onPress={handleRestore} />;
+```
+
+```dart Flutter
+ElevatedButton(
+  onPressed: () async {
+    try {
+      final entitlements = await ZeroSettle.instance.restoreEntitlements(
+        userId: auth.currentUser.id,
+      );
+
+      if (entitlements.isEmpty) {
+        showMessage('No purchases found');
+      } else {
+        showMessage('Purchases restored!');
+      }
+    } catch (e) {
+      showError('Restore failed: $e');
+    }
+  },
+  child: const Text('Restore Purchases'),
+)
+```
+</CodeGroup>
+
 ## User Identity
 
 ### Use Stable Identifiers
 
 Choose a user ID that won't change:
 
-```swift
+<CodeGroup>
+```swift Swift
 // Good: Backend-generated UUID
 userId: user.id  // "usr_abc123"
 
@@ -313,11 +965,55 @@ userId: user.email
 userId: UIDevice.current.identifierForVendor?.uuidString ?? ""
 ```
 
+```kotlin Kotlin
+// Good: Backend-generated UUID
+userId = user.id  // "usr_abc123"
+
+// Good: Firebase UID
+userId = Firebase.auth.currentUser?.uid ?: ""
+
+// Bad: Email (users can change it)
+userId = user.email
+
+// Bad: Device identifier (changes on reinstall)
+userId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+```
+
+```tsx React Native
+// Good: Backend-generated UUID
+const userId = user.id; // "usr_abc123"
+
+// Good: Firebase UID
+const userId = auth().currentUser?.uid ?? '';
+
+// Bad: Email (users can change it)
+const userId = user.email;
+
+// Bad: Device identifier (changes on reinstall)
+// DeviceInfo.getUniqueId() — avoid this
+```
+
+```dart Flutter
+// Good: Backend-generated UUID
+final userId = user.id; // "usr_abc123"
+
+// Good: Firebase UID
+final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+// Bad: Email (users can change it)
+final userId = user.email;
+
+// Bad: Device identifier (changes on reinstall)
+// platform.localHostname — avoid this
+```
+</CodeGroup>
+
 ### Handle Logged-Out State
 
 If your app supports logged-out usage, decide how to handle purchases:
 
-```swift
+<CodeGroup>
+```swift Swift
 func purchase(product: ZSProduct) async throws {
     guard let user = Auth.currentUser else {
         // Option 1: Require login first
@@ -335,11 +1031,60 @@ func purchase(product: ZSProduct) async throws {
 }
 ```
 
+```kotlin Kotlin
+suspend fun purchase(product: ZSProduct) {
+    val user = auth.currentUser
+    if (user == null) {
+        // Option 1: Require login first
+        showLoginPrompt()
+        return
+    }
+
+    ZeroSettle.purchase(
+        activity = activity,
+        productId = product.id,
+        userId = user.id,
+    )
+}
+```
+
+```tsx React Native
+async function purchase(product) {
+  const user = auth.currentUser;
+  if (!user) {
+    // Option 1: Require login first
+    showLoginPrompt();
+    return;
+  }
+
+  await ZeroSettle.purchase(product.id, user.id);
+}
+```
+
+```dart Flutter
+Future<void> purchase(ZSProduct product) async {
+  final user = auth.currentUser;
+  if (user == null) {
+    // Option 1: Require login first
+    showLoginPrompt();
+    return;
+  }
+
+  await ZeroSettle.instance.presentPaymentSheet(
+    productId: product.id,
+    userId: user.id,
+  );
+}
+```
+</CodeGroup>
+
 ## Error Handling
 
 ### Handle Each Error Type
 
 ZeroSettle uses specific error types for different scenarios:
+
+**iOS:**
 
 | Error Type | When It's Thrown |
 |---|---|
@@ -348,7 +1093,17 @@ ZeroSettle uses specific error types for different scenarios:
 | `StoreKitPurchaseError` | StoreKit purchase errors |
 | `CheckoutError` | Legacy checkout view errors (deprecated) |
 
-```swift
+**Android:**
+
+| Error Type | When It's Thrown |
+|---|---|
+| `ZSError.NotConfigured` | SDK not configured before use |
+| `ZSError.ProductNotFound` | Product ID not found in catalog |
+| `ZSError.Cancelled` | User dismissed the checkout |
+| `ZSError.CheckoutFailed` | Payment failed (with `CheckoutFailure` reason) |
+
+<CodeGroup>
+```swift Swift
 do {
     try await ZeroSettle.shared.purchase(productId: id, userId: userId)
 } catch let error as ZSError {
@@ -365,11 +1120,66 @@ do {
 }
 ```
 
+```kotlin Kotlin
+try {
+    ZeroSettle.purchase(activity, productId, userId)
+} catch (e: ZSError) {
+    when (e) {
+        is ZSError.NotConfigured -> error("SDK not configured")
+        is ZSError.ProductNotFound -> println("Product ${e.productId} not found")
+        is ZSError.CheckoutFailed -> {
+            when (e.reason) {
+                is CheckoutFailure.NetworkUnavailable ->
+                    showRetry("Network error")
+                else -> showError(e.message)
+            }
+        }
+        else -> showError(e.message)
+    }
+}
+```
+
+```tsx React Native
+try {
+  await ZeroSettle.purchase(productId, userId);
+} catch (e) {
+  switch (e.code) {
+    case 'not_configured':
+      console.error('SDK not configured');
+      break;
+    case 'product_not_found':
+      console.log(`Product ${productId} not found`);
+      break;
+    case 'network_error':
+      showRetry('Network error');
+      break;
+    default:
+      showError(e.message);
+  }
+}
+```
+
+```dart Flutter
+try {
+  await ZeroSettle.instance.presentPaymentSheet(
+    productId: productId, userId: userId,
+  );
+} on ZSNotConfiguredException {
+  // SDK not configured
+} on ZSProductNotFoundException catch (e) {
+  print('Product ${e.productId} not found');
+} on ZSCheckoutFailedException catch (e) {
+  showError(e.message);
+}
+```
+</CodeGroup>
+
 ### Graceful Degradation
 
 If the SDK fails to initialize or fetch products, fall back gracefully:
 
-```swift
+<CodeGroup>
+```swift Swift
 struct PaywallView: View {
     @State private var products: [ZSProduct] = []
     @State private var loadError: Error?
@@ -405,45 +1215,201 @@ struct PaywallView: View {
 }
 ```
 
+```kotlin Kotlin
+@Composable
+fun PaywallScreen() {
+    var products by remember { mutableStateOf<List<ZSProduct>>(emptyList()) }
+    var loadError by remember { mutableStateOf<Exception?>(null) }
+
+    LaunchedEffect(Unit) { loadProducts() }
+
+    when {
+        loadError != null -> {
+            Column {
+                Text("Unable to load products")
+                Button(onClick = { loadProducts() }) { Text("Retry") }
+            }
+        }
+        products.isEmpty() -> CircularProgressIndicator()
+        else -> ProductList(products)
+    }
+}
+```
+
+```tsx React Native
+function PaywallScreen() {
+  const [products, setProducts] = useState([]);
+  const [loadError, setLoadError] = useState(null);
+
+  const loadProducts = async () => {
+    try {
+      const catalog = await ZeroSettle.fetchProducts(auth.currentUser.id);
+      setProducts(catalog.products);
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e);
+    }
+  };
+
+  useEffect(() => { loadProducts(); }, []);
+
+  if (loadError) {
+    return (
+      <View>
+        <Text>Unable to load products</Text>
+        <Button title="Retry" onPress={loadProducts} />
+      </View>
+    );
+  }
+
+  if (products.length === 0) return <ActivityIndicator />;
+  return <ProductList products={products} />;
+}
+```
+
+```dart Flutter
+class PaywallScreen extends StatefulWidget {
+  const PaywallScreen({super.key});
+
+  @override
+  State<PaywallScreen> createState() => _PaywallScreenState();
+}
+
+class _PaywallScreenState extends State<PaywallScreen> {
+  List<ZSProduct> products = [];
+  Object? loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final catalog = await ZeroSettle.instance.fetchProducts(
+        userId: auth.currentUser.id,
+      );
+      setState(() {
+        products = catalog.products;
+        loadError = null;
+      });
+    } catch (e) {
+      setState(() => loadError = e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loadError != null) {
+      return Column(
+        children: [
+          const Text('Unable to load products'),
+          ElevatedButton(
+            onPressed: _loadProducts,
+            child: const Text('Retry'),
+          ),
+        ],
+      );
+    }
+
+    if (products.isEmpty) return const CircularProgressIndicator();
+    return ProductList(products: products);
+  }
+}
+```
+</CodeGroup>
+
 ## Testing
 
 ### Test the Full Flow
 
 Before releasing, test these scenarios on a physical device:
 
-| Scenario | Expected Behavior |
-|----------|-------------------|
-| Complete purchase (payment sheet) | Transaction returned, entitlements update |
-| Complete purchase (Safari) | Universal link callback, entitlements update |
-| Cancel payment sheet | `.cancelled` error, no entitlement change |
-| Cancel Safari checkout | No entitlement change, no error shown |
-| Restore purchases | All previous purchases recovered |
-| App killed during checkout | Entitlements sync on next launch |
-| Network offline | Cached entitlements still work |
-| Different device, same account | Entitlements sync via restore |
-| StoreKit purchase (hybrid flow) | Transaction synced to ZeroSettle |
+| Scenario | Platform | Expected Behavior |
+|----------|----------|-------------------|
+| Complete purchase (payment sheet) | iOS | Transaction returned, entitlements update |
+| Complete purchase (Safari) | iOS | Universal link callback, entitlements update |
+| Complete purchase (Custom Tab) | Android | Transaction returned, entitlements update |
+| Cancel payment sheet | iOS | `.cancelled` error, no entitlement change |
+| Cancel Safari checkout | iOS | No entitlement change, no error shown |
+| Cancel Custom Tab checkout | Android | `ZSError.Cancelled`, no entitlement change |
+| Restore purchases | Both | All previous purchases recovered |
+| App killed during checkout | Both | Entitlements sync on next launch |
+| Network offline | Both | Cached entitlements still work |
+| Different device, same account | Both | Entitlements sync via restore |
+| StoreKit purchase (hybrid flow) | iOS | Transaction synced to ZeroSettle |
+| Play Store purchase (hybrid flow) | Android | Transaction synced to ZeroSettle |
 
 ### Use Sandbox Keys
 
 Test with sandbox keys before going live:
 
-```swift
+<CodeGroup>
+```swift Swift
 ZeroSettle.shared.configure(.init(publishableKey: "your_test_key"))
 ```
+
+```kotlin Kotlin
+ZeroSettle.configure(context, ZeroSettle.Configuration(publishableKey = "your_test_key"))
+```
+
+```tsx React Native
+await ZeroSettle.configure({ publishableKey: 'your_test_key' });
+```
+
+```dart Flutter
+await ZeroSettle.instance.configure(publishableKey: 'your_test_key');
+```
+</CodeGroup>
 
 ## Performance
 
 ### Fetch Products Once
 
-When `userId` is provided in `configure()`, products are fetched automatically and cached in `ZeroSettle.shared.products`. There's no need for a separate fetch call or custom caching. Use `fetchProducts()` only for manual refresh (e.g., pull-to-refresh).
+On iOS, when `userId` is provided in `configure()`, products are fetched automatically and cached in `ZeroSettle.shared.products`. On Android, call `bootstrap()` after `configure()` to fetch and cache products in the `ZeroSettle.products` StateFlow. There's no need for a separate fetch call or custom caching on either platform. Use `fetchProducts()` only for manual refresh (e.g., pull-to-refresh).
+
+<CodeGroup>
+```swift Swift
+// Products already fetched by configure() — just use them
+let products = ZeroSettle.shared.products
+```
+
+```kotlin Kotlin
+@Composable
+fun HomeScreen() {
+    val products by ZeroSettle.products.collectAsState()
+
+    // Products already fetched by bootstrap() — just use them
+    ProductList(products)
+}
+```
+
+```tsx React Native
+// Products already fetched by fetchProducts() — store and reuse them
+const catalog = await ZeroSettle.fetchProducts(auth.currentUser.id);
+const products = catalog.products;
+```
+
+```dart Flutter
+// Products already fetched by bootstrap() — just use them
+final catalog = await ZeroSettle.instance.bootstrap(userId: auth.currentUser.id);
+final products = catalog.products;
+```
+</CodeGroup>
 
 ### Prefetch Products & Warm Up
+
+<Note>
+  `warmUp()` and `PaymentIntent` preloading are iOS-specific APIs. On Android, products are cached in the `ZeroSettle.products` StateFlow after `bootstrap()` or `fetchProducts()` -- no additional warm-up step is needed.
+</Note>
 
 When you provide `userId` in `configure()`, products are fetched and the first product's `PaymentIntent` is warmed up automatically. No separate calls are needed.
 
 For manual control (e.g., warming up additional products or refreshing later), `fetchProducts()` and `warmUp()` are still available:
 
-```swift
+<CodeGroup>
+```swift Swift
 struct HomeView: View {
     var body: some View {
         TabView {
@@ -463,6 +1429,30 @@ struct HomeView: View {
 }
 ```
 
+```kotlin Kotlin
+// On Android, products are cached in the ZeroSettle.products StateFlow
+// after bootstrap() or fetchProducts(). No additional warm-up step is
+// needed — the SDK handles caching automatically.
+```
+
+```tsx React Native
+// Preloading is not available in React Native.
+// purchase() handles the full flow automatically.
+// Products are cached after the initial fetchProducts() call.
+```
+
+```dart Flutter
+// Products already fetched by bootstrap() — warm up additional products
+final products = catalog.products;
+for (final product in products.take(3)) {
+  await ZeroSettle.instance.warmUpPaymentSheet(
+    productId: product.id,
+    userId: auth.currentUser.id,
+  );
+}
+```
+</CodeGroup>
+
 <Tip>
   `warmUp()` caches the `PaymentIntent` for 5 minutes. If the user reaches the paywall within that window, the sheet opens without any network delay.
 </Tip>
@@ -473,14 +1463,16 @@ struct HomeView: View {
 
 For critical features, verify entitlements server-side:
 
-```swift
-// Client: User claims to have premium
-// Server: Verify with ZeroSettle API before granting access
+<CodeGroup>
+```bash REST API
+# Client: User claims to have premium
+# Server: Verify with ZeroSettle API before granting access
 
-// Your backend calls ZeroSettle
-GET https://api.zerosettle.io/v1/iap/entitlements?user_id=<user_id>
-X-ZeroSettle-Key: <secret_key>
+# Your backend calls ZeroSettle
+curl -X GET "https://api.zerosettle.io/v1/iap/entitlements?user_id=<user_id>" \
+  -H "X-ZeroSettle-Key: <secret_key>"
 ```
+</CodeGroup>
 
 ### Keep Secret Keys Server-Side
 

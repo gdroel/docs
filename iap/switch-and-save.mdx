@@ -41,6 +41,11 @@ ZSMigrateTipView(
 )
 ```
 
+```kotlin Kotlin
+// ZSMigrateTipView is currently iOS-only (StoreKit → web checkout migration).
+// Android migration from Play Billing is not yet supported by this component.
+```
+
 </CodeGroup>
 
 All three use the same native implementation under the hood. No additional setup is required beyond providing a background color and user ID.
@@ -138,6 +143,11 @@ Column(
 )
 ```
 
+```kotlin Kotlin
+// ZSMigrateTipView is currently iOS-only (StoreKit → web checkout migration).
+// Android migration from Play Billing is not yet supported by this component.
+```
+
 </CodeGroup>
 
 ## Parameters
@@ -183,6 +193,10 @@ ZSMigrateTipModule.resetMigrateTipState();
 import 'package:zerosettle/zerosettle.dart';
 
 ZSMigrateTipView.resetMigrateTipState();
+```
+
+```kotlin Kotlin
+// Not available on Android — ZSMigrateTipView is iOS-only.
 ```
 
 </CodeGroup>
