@@ -45,7 +45,7 @@ final entitlements = await ZeroSettle.instance.restoreEntitlements(
 );
 
 // Or access cached entitlements
-final cached = ZeroSettle.instance.entitlements;
+final cached = await ZeroSettle.instance.getEntitlements();
 ```
 
 </CodeGroup>

@@ -297,7 +297,7 @@ Each `Entitlement` includes:
 |----------|------|-------------|
 | `id` | `String` | Unique entitlement identifier |
 | `productId` | `String` | The product ID this entitlement grants |
-| `source` | `EntitlementSource` | `.storeKit` or `.webCheckout` |
+| `source` | `EntitlementSource` | `.webCheckout`, `.storeKit` (iOS), or `.playStore` (Android) |
 | `isActive` | `Bool` | Whether currently valid |
 | `expiresAt` | `Date?` | Expiration date for subscriptions |
 | `purchasedAt` | `Date` | When the purchase was made |

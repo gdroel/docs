@@ -40,7 +40,7 @@ await ZeroSettle.showManageSubscription(currentUser.id);
 
 ```dart Flutter
 // Open subscription management
-await ZeroSettle.instance.openCustomerPortal(userId: currentUser.id);
+await ZeroSettle.instance.showManageSubscription(userId: currentUser.id);
 ```
 
 </CodeGroup>
@@ -125,37 +125,28 @@ const hasAccess = entitlements.some(e => e.isActive);
 ```
 
 ```dart Flutter
-final entitlements = ZeroSettle.instance.entitlements;
+final entitlements = await ZeroSettle.instance.getEntitlements();
 final hasAccess = entitlements.any((e) => e.isActive);
 ```
 
 </CodeGroup>
 
-## Delegate Callbacks
+## Observing Changes
 
-Subscribe to customer portal lifecycle events:
+There are no portal-specific delegate callbacks. Instead, use the entitlement update delegate to react when a user modifies their subscription through the portal:
 
 <CodeGroup>
 
 ```swift Swift
 class MyDelegate: ZeroSettleDelegate {
-    func zeroSettleCustomerPortalDidOpen(userId: String) {
-        // Portal opened — e.g., log analytics
-    }
-
-    func zeroSettleCustomerPortalDidClose(userId: String) {
-        // Portal dismissed — entitlements already refreshed
-    }
-
-    func zeroSettleCustomerPortalDidFail(userId: String, error: Error) {
-        // Failed to open — e.g., show error alert
+    func zeroSettleEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
+        // Entitlements refreshed after portal interaction
+        updatePremiumUI(entitlements)
     }
 }
 ```
 
 ```kotlin Kotlin
-// On Android, the customer portal opens in a Custom Tab.
-// Use the general entitlement delegate to detect changes:
 class MyDelegate : ZeroSettleDelegate {
     override fun zeroSettleEntitlementsDidUpdate(entitlements: List<Entitlement>) {
         // Entitlements refreshed after portal interaction
@@ -179,6 +170,116 @@ ZeroSettle.instance.entitlementUpdates.listen((entitlements) {
 ```
 
 </CodeGroup>
+
+## Cancel Flow
+
+Present a cancellation questionnaire before a user cancels their subscription. The flow collects feedback, optionally shows a retention offer, and returns the outcome.
+
+The questionnaire and retention offer are configured on the [ZeroSettle dashboard](/iap/dashboard) — no code changes needed to update questions or offers.
+
+### SwiftUI Modifier
+
+<CodeGroup>
+
+```swift Swift
+@State private var showCancelFlow = false
+
+Button("Cancel Subscription") {
+    showCancelFlow = true
+}
+.zsCancelFlow(
+    isPresented: $showCancelFlow,
+    productId: "premium_monthly",
+    userId: currentUser.id
+) { result in
+    switch result {
+    case .cancelled:
+        // User completed cancellation
+        showConfirmation("Your subscription has been cancelled.")
+    case .retained:
+        // User accepted the save offer
+        showConfirmation("Thanks for staying!")
+    case .dismissed:
+        // User dismissed without completing
+        break
+    }
+}
+```
+
+```kotlin Kotlin
+scope.launch {
+    val result = ZeroSettle.presentCancelFlow(
+        activity = context as Activity,
+        productId = "premium_monthly",
+        userId = currentUser.id,
+    )
+    when (result) {
+        CancelFlowResult.CANCELLED -> showConfirmation("Subscription cancelled.")
+        CancelFlowResult.RETAINED -> showConfirmation("Thanks for staying!")
+        CancelFlowResult.DISMISSED -> { /* No action */ }
+    }
+}
+```
+
+```dart Flutter
+final result = await ZeroSettle.instance.presentCancelFlow(
+  productId: 'premium_monthly',
+  userId: currentUser.id,
+);
+switch (result) {
+  case CancelFlowResult.cancelled:
+    showConfirmation('Subscription cancelled.');
+  case CancelFlowResult.retained:
+    showConfirmation('Thanks for staying!');
+  case CancelFlowResult.dismissed:
+    break;
+}
+```
+
+</CodeGroup>
+
+### Programmatic API
+
+<CodeGroup>
+
+```swift Swift
+let result = await ZeroSettle.shared.presentCancelFlow(
+    productId: "premium_monthly",
+    userId: currentUser.id
+)
+// result is CancelFlow.Result: .cancelled, .retained, or .dismissed
+```
+
+```kotlin Kotlin
+val result = ZeroSettle.presentCancelFlow(
+    activity = this,
+    productId = "premium_monthly",
+    userId = currentUser.id,
+)
+// result is CancelFlowResult: CANCELLED, RETAINED, or DISMISSED
+```
+
+```dart Flutter
+final result = await ZeroSettle.instance.presentCancelFlow(
+  productId: 'premium_monthly',
+  userId: currentUser.id,
+);
+// result is CancelFlowResult: cancelled, retained, or dismissed
+```
+
+</CodeGroup>
+
+### Cancel Flow Results
+
+| Result | Description |
+|--------|-------------|
+| `cancelled` / `CANCELLED` | User completed the flow and cancelled their subscription |
+| `retained` / `RETAINED` | User accepted the retention offer and kept their subscription |
+| `dismissed` / `DISMISSED` | User dismissed the flow without completing it |
+
+<Tip>
+  Configure the cancellation questionnaire and retention offers from the ZeroSettle dashboard. You can update questions and offers without an app update.
+</Tip>
 
 ## What Customers Can Do
 

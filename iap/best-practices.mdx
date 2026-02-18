@@ -10,7 +10,7 @@ Follow these recommendations to build a robust in-app purchase experience with Z
 
 ### Configure Early
 
-Initialize the SDK as early as possible in your app's lifecycle. On iOS, `configure()` is async — call it from a `.task {}` modifier. When you provide a `userId`, it automatically fetches products, warms up the first product's `PaymentIntent`, and restores entitlements. On Android, `configure()` is synchronous and should be called in `Application.onCreate()`, then call `bootstrap()` to fetch products and restore entitlements:
+Initialize the SDK as early as possible in your app's lifecycle. On iOS, call `configure()` early, then `bootstrap()` to fetch products and restore entitlements. On Android, `configure()` is synchronous and should be called in `Application.onCreate()`, then call `bootstrap()` to fetch products and restore entitlements:
 
 <CodeGroup>
 ```swift Swift
@@ -20,10 +20,10 @@ struct YourApp: App {
         WindowGroup {
             ContentView()
                 .task {
-                    await ZeroSettle.shared.configure(.init(
-                        publishableKey: "your_live_key",
-                        userId: Auth.currentUser.id
+                    ZeroSettle.shared.configure(.init(
+                        publishableKey: "your_live_key"
                     ))
+                    try? await ZeroSettle.shared.bootstrap(userId: Auth.currentUser.id)
                 }
                 .zeroSettleHandler()
         }
@@ -1367,11 +1367,11 @@ await ZeroSettle.instance.configure(publishableKey: 'your_test_key');
 
 ### Fetch Products Once
 
-On iOS, when `userId` is provided in `configure()`, products are fetched automatically and cached in `ZeroSettle.shared.products`. On Android, call `bootstrap()` after `configure()` to fetch and cache products in the `ZeroSettle.products` StateFlow. There's no need for a separate fetch call or custom caching on either platform. Use `fetchProducts()` only for manual refresh (e.g., pull-to-refresh).
+On iOS, call `bootstrap()` after `configure()` to fetch products and cache them in `ZeroSettle.shared.products`. On Android, call `bootstrap()` after `configure()` to fetch and cache products in the `ZeroSettle.products` StateFlow. There's no need for a separate fetch call or custom caching on either platform. Use `fetchProducts()` only for manual refresh (e.g., pull-to-refresh).
 
 <CodeGroup>
 ```swift Swift
-// Products already fetched by configure() — just use them
+// Products already fetched by bootstrap() — just use them
 let products = ZeroSettle.shared.products
 ```
 
@@ -1404,7 +1404,7 @@ final products = catalog.products;
   `warmUp()` and `PaymentIntent` preloading are iOS-specific APIs. On Android, products are cached in the `ZeroSettle.products` StateFlow after `bootstrap()` or `fetchProducts()` -- no additional warm-up step is needed.
 </Note>
 
-When you provide `userId` in `configure()`, products are fetched and the first product's `PaymentIntent` is warmed up automatically. No separate calls are needed.
+When you call `bootstrap()`, products are fetched and the first product's `PaymentIntent` is warmed up automatically. No separate calls are needed.
 
 For manual control (e.g., warming up additional products or refreshing later), `fetchProducts()` and `warmUp()` are still available:
 
@@ -1416,7 +1416,7 @@ struct HomeView: View {
             // ...
         }
         .task {
-            // Products already fetched by configure() — warm up additional products
+            // Products already fetched by bootstrap() — warm up additional products
             let products = ZeroSettle.shared.products
             for product in products.prefix(3) {
                 await ZSPaymentSheet.warmUp(

@@ -211,9 +211,9 @@ final transaction = await ZeroSettle.instance.presentPaymentSheet(
 
 </CodeGroup>
 
-### Non-Dismissable Sheet
+### Non-Dismissible Sheet
 
-Pass `dismissable: false` to prevent the user from swiping to dismiss the sheet. This hides the close button and disables interactive dismiss:
+Pass `dismissible: false` to prevent the user from swiping to dismiss the sheet. This hides the close button and disables interactive dismiss:
 
 <CodeGroup>
 
@@ -222,14 +222,14 @@ Pass `dismissable: false` to prevent the user from swiping to dismiss the sheet.
     isPresented: $showCheckout,
     product: product,
     userId: currentUser.id,
-    dismissable: false
+    dismissible: false
 ) { result in
     handleResult(result)
 }
 ```
 
 ```kotlin Kotlin
-// Non-dismissable sheets are not available on Android.
+// Non-dismissible sheets are not available on Android.
 // The payment sheet UI is handled by ZSPaymentSheetActivity.
 // See the Android section below for the purchase API.
 val transaction = ZeroSettle.purchase(
@@ -240,13 +240,13 @@ val transaction = ZeroSettle.purchase(
 ```
 
 ```tsx React Native
-// Non-dismissable sheets are not available in React Native.
+// Non-dismissible sheets are not available in React Native.
 // Use ZeroSettle.purchase() for the standard checkout flow.
 const transaction = await ZeroSettle.purchase(product.id, currentUser.id);
 ```
 
 ```dart Flutter
-// Non-dismissable sheets are iOS-only (SwiftUI).
+// Non-dismissible sheets are iOS-only (SwiftUI).
 // Use presentPaymentSheet() for the standard checkout flow.
 final transaction = await ZeroSettle.instance.presentPaymentSheet(
   productId: product.id,
@@ -352,7 +352,7 @@ final transaction = await ZeroSettle.instance.presentPaymentSheet(
 </CodeGroup>
 
 <Info>
-  The SwiftUI-specific APIs above (`isPresented:`, `item:`, custom headers, `dismissable:`) are iOS-only. On Android, use `ZeroSettle.purchase()` which handles all presentation automatically. See the [Android section](#android) below.
+  The SwiftUI-specific APIs above (`isPresented:`, `item:`, custom headers, `dismissible:`) are iOS-only. On Android, use `ZeroSettle.purchase()` which handles all presentation automatically. See the [Android section](#android) below.
 </Info>
 
 ## UIKit
@@ -401,7 +401,7 @@ final transaction = await ZeroSettle.instance.presentPaymentSheet(
 
 </CodeGroup>
 
-You can also pass `dismissable: false`, or provide a preloaded `checkoutURL` and `transactionId` for instant presentation:
+You can also pass `dismissible: false`, or provide a preloaded `checkoutURL` and `transactionId` for instant presentation:
 
 <CodeGroup>
 
@@ -410,7 +410,7 @@ ZSPaymentSheet.present(
     from: self,
     product: product,
     userId: currentUser.id,
-    dismissable: false,
+    dismissible: false,
     checkoutURL: preloadedURL,
     transactionId: preloadedTransactionId
 ) { result in
@@ -420,7 +420,7 @@ ZSPaymentSheet.present(
 
 ```kotlin Kotlin
 // UIKit is iOS-only. On Android, use ZeroSettle.purchase().
-// Preloading and dismissable options are not available on Android.
+// Preloading and dismissible options are not available on Android.
 val transaction = ZeroSettle.purchase(
     activity = this,
     productId = product.id,
@@ -744,6 +744,42 @@ await ZeroSettle.instance.preloadPaymentSheet(
   Manual preloading is only needed when using `ZSPaymentSheet` as a standalone view or via UIKit's `present` method. The `.zsPaymentSheet()` modifier handles this automatically.
 </Tip>
 
+### Declarative Preloading (Swift)
+
+For the `.zsPaymentSheet()` modifier, you can pass a `preload:` parameter to automatically preload payment intents:
+
+```swift Swift
+// Preload all products
+.zsPaymentSheet(
+    isPresented: $showCheckout,
+    product: product,
+    userId: currentUser.id,
+    preload: .all
+) { result in
+    handleResult(result)
+}
+
+// Preload specific products
+.zsPaymentSheet(
+    isPresented: $showCheckout,
+    product: product,
+    userId: currentUser.id,
+    preload: .specified(iap.products.prefix(3).map { $0 })
+) { result in
+    handleResult(result)
+}
+```
+
+| Strategy | Behavior |
+|----------|----------|
+| `.all` | Preloads PaymentIntents for all fetched products |
+| `.specified([ZSProduct])` | Preloads only the specified products |
+| `nil` (default) | Preloads only the bound product |
+
+<Note>
+  This is an iOS-only SwiftUI feature. On Android, `ZeroSettle.purchase()` creates the `PaymentIntent` at call time.
+</Note>
+
 ## Android
 
 On Android, the payment sheet is presented as a `ZSPaymentSheetActivity` — a full-screen Activity with an embedded WebView. The SDK handles creating and launching this Activity automatically when you call `purchase()`.
@@ -997,15 +1033,20 @@ The completion handler receives a `Result<ZSTransaction, Error>`. Payment-specif
             case .notConfigured:
                 // SDK not configured — call configure() first
                 break
-            case .presentationFailed:
-                // Could not present the sheet
-                break
-            case .invalidCard:
-                // Card was declined or invalid
-                showError("Please check your card details.")
-            case .paymentFailed(let message):
+            case .paymentFailed(let detail):
                 // Payment processing failed
-                showError(message)
+                switch detail.kind {
+                case .cardDeclined:
+                    showError("Please check your card details.")
+                default:
+                    showError(detail.message)
+                }
+            case .verificationFailed(let detail):
+                showError("Verification failed: \(detail)")
+            case .preloadFailed:
+                showError("Could not load checkout.")
+            case .userIdRequired:
+                showError("Please sign in to purchase.")
             }
         }
     }
@@ -1073,11 +1114,22 @@ try {
 
 | Error | Description |
 |-------|-------------|
-| `PaymentSheetError.cancelled` | User dismissed the payment sheet |
-| `PaymentSheetError.notConfigured` | SDK hasn't been configured yet |
-| `PaymentSheetError.presentationFailed` | Sheet couldn't be presented (e.g., no root view controller) |
-| `PaymentSheetError.invalidCard` | Card was declined or invalid |
-| `PaymentSheetError.paymentFailed(String)` | Payment failed with a message from Stripe |
+| `.cancelled` | User dismissed the payment sheet |
+| `.notConfigured` | SDK hasn't been configured yet |
+| `.paymentFailed(PaymentFailureDetail)` | Payment failed — inspect `.kind` and `.message` for details |
+| `.verificationFailed(String)` | Transaction completed but server verification failed |
+| `.preloadFailed(APIErrorDetail)` | PaymentIntent creation failed before sheet could open |
+| `.userIdRequired` | A `userId` is required for subscriptions and non-consumable products |
+
+##### `PaymentFailureDetail.Kind`
+
+| Kind | Description |
+|------|-------------|
+| `.cardDeclined` | Payment method was declined |
+| `.networkError` | Network connectivity issue |
+| `.serverError` | Server returned an error |
+| `.checkoutError` | Checkout flow error |
+| `.unknown` | Unclassified failure |
 
 #### Android (`ZSError`)
 
@@ -1142,6 +1194,42 @@ Promotion types include:
 - **Percent off** — e.g., 50% off
 - **Fixed amount** — e.g., $5 off
 - **Free trial** — e.g., 7 days free
+
+### Free Trials
+
+Pass `freeTrialDays` to offer a trial period before the first charge:
+
+<CodeGroup>
+
+```swift Swift
+.zsPaymentSheet(
+    isPresented: $showCheckout,
+    product: product,
+    userId: currentUser.id,
+    freeTrialDays: 7
+) { result in
+    handleResult(result)
+}
+```
+
+```kotlin Kotlin
+// Free trial days are configured server-side for Android.
+// The payment sheet displays the trial automatically.
+```
+
+```dart Flutter
+final transaction = await ZeroSettle.instance.presentPaymentSheet(
+  productId: product.id,
+  userId: currentUser.id,
+  freeTrialDays: 7,
+);
+```
+
+</CodeGroup>
+
+<Note>
+  The `freeTrialDays` parameter defaults to `0` (no trial). When set, the payment sheet displays the trial period and the user is not charged until the trial expires.
+</Note>
 
 ## Next Steps
 

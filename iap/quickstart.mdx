@@ -14,7 +14,7 @@ icon: 'rocket'
 
 ## Configuration
 
-Configure the SDK early in your app's lifecycle. `configure()` is async — call it from a `.task {}` modifier:
+Configure the SDK early in your app's lifecycle. `configure()` is synchronous. Then call `bootstrap()` to fetch products and restore entitlements:
 
 ```swift
 import ZeroSettleKit
@@ -25,10 +25,10 @@ struct YourApp: App {
         WindowGroup {
             ContentView()
                 .task {
-                    await ZeroSettle.shared.configure(.init(
-                        publishableKey: "your_live_key",  // From your ZeroSettle dashboard
-                        userId: Auth.currentUser.id       // Auto-fetches products & entitlements
+                    ZeroSettle.shared.configure(.init(
+                        publishableKey: "your_live_key"  // From your ZeroSettle dashboard
                     ))
+                    try? await ZeroSettle.shared.bootstrap(userId: Auth.currentUser.id)
                 }
                 .zeroSettleHandler()  // Handles universal link callbacks
         }
@@ -36,7 +36,7 @@ struct YourApp: App {
 }
 ```
 
-When `userId` is provided, `configure()` automatically:
+After configuring, call `bootstrap()` to automatically:
 1. Fetches your product catalog
 2. Warms up the first product's `PaymentIntent` for instant sheet opens
 3. Restores entitlements
@@ -49,7 +49,6 @@ All automatic steps are non-fatal — failures are logged but won't prevent the 
 |-----------|---------|-------------|
 | `publishableKey` | Required | Your publishable key from the dashboard |
 | `syncStoreKitTransactions` | `true` | Set to `false` if using RevenueCat |
-| `userId` | `nil` | When provided, auto-fetches products, warms up, and restores entitlements |
 
 ### Sandbox vs Live Mode
 
@@ -60,7 +59,7 @@ Your publishable key prefix determines the mode:
 
 ### Manual Product Fetch
 
-If you don't provide `userId` in the configuration, or need to refresh products later, you can fetch them manually:
+If you need to refresh products later, you can fetch them manually:
 
 ```swift
 let catalog = try await ZeroSettle.shared.fetchProducts(userId: currentUser.id)
@@ -203,12 +202,12 @@ struct MyApp: App {
         WindowGroup {
             ContentView()
                 .task {
-                    // Single async call: configures SDK, fetches products,
-                    // warms up PaymentIntent, and restores entitlements
-                    await ZeroSettle.shared.configure(.init(
-                        publishableKey: "your_live_key",
-                        userId: Auth.currentUser.id
+                    // Configure SDK, then fetch products,
+                    // warm up PaymentIntent, and restore entitlements
+                    ZeroSettle.shared.configure(.init(
+                        publishableKey: "your_live_key"
                     ))
+                    try? await ZeroSettle.shared.bootstrap(userId: Auth.currentUser.id)
                 }
                 .zeroSettleHandler()
         }

@@ -36,7 +36,7 @@ import { ZSMigrateTipView } from 'react-native-zerosettle-kit';
 import 'package:zerosettle/zerosettle.dart';
 
 ZSMigrateTipView(
-  backgroundColorHex: '#1E1E1E',
+  backgroundColor: Color(0xFF1E1E1E),
   userId: currentUser.id,
 )
 ```
@@ -121,7 +121,7 @@ ListView(
   children: [
     // your existing rows...
     ZSMigrateTipView(
-      backgroundColorHex: '#0000FF',
+      backgroundColor: Color(0xFF0000FF),
       userId: user.id,
     ),
   ],
@@ -135,7 +135,7 @@ Column(
     Padding(
       padding: EdgeInsets.symmetric(horizontal: 16),
       child: ZSMigrateTipView(
-        backgroundColorHex: '#3F00B5',
+        backgroundColor: Color(0xFF3F00B5),
         userId: user.id,
       ),
     ),
@@ -154,7 +154,7 @@ Column(
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `backgroundColor` | `Color` (SwiftUI) / `string` (React Native, Flutter) | Background color for the card. Pass a `Color` in SwiftUI or a hex string like `"#1E1E1E"` in React Native and Flutter. |
+| `backgroundColor` | `Color` (SwiftUI, Flutter) / `string` (React Native) | Background color for the card. Pass a `Color` in SwiftUI and Flutter, or a hex string like `"#1E1E1E"` in React Native. |
 | `userId` | `String` | The user identifier passed to the checkout backend. |
 
 The button copy, discount amount, and messaging are controlled from the [dashboard migration campaign](/iap/dashboard#migration-campaigns). No code change needed.
@@ -184,15 +184,11 @@ ZSMigrateTipView.resetMigrateTipState()
 ```
 
 ```tsx React Native
-import { ZSMigrateTipModule } from 'react-native-zerosettle-kit';
-
-ZSMigrateTipModule.resetMigrateTipState();
+// Not available in React Native — use the native iOS debug tools.
 ```
 
 ```dart Flutter
-import 'package:zerosettle/zerosettle.dart';
-
-ZSMigrateTipView.resetMigrateTipState();
+// Not available in Flutter — use the native iOS debug tools.
 ```
 
 ```kotlin Kotlin
