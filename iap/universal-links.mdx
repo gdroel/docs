@@ -111,14 +111,14 @@ During development, add `?mode=developer` to bypass Apple's AASA caching:
 
 ## Step 2: Register Your App ID
 
-Contact ZeroSettle support to register your app's bundle ID and team ID for universal link handling. We need:
+Contact ZeroSettle support to register your app's bundle ID and team ID for universal link handling. You'll need to provide:
 
 | Field | Example | Where to Find |
 |-------|---------|---------------|
 | Team ID | `YUM5K9J52M` | Apple Developer Portal → Membership |
 | Bundle ID | `com.yourcompany.yourapp` | Xcode → Target → General |
 
-We'll add your app to our `apple-app-site-association` file hosted at `https://api.zerosettle.io/.well-known/apple-app-site-association`.
+ZeroSettle will add your app to the `apple-app-site-association` file hosted at `https://api.zerosettle.io/.well-known/apple-app-site-association`.
 
 ## Step 3: Handle the Callback
 

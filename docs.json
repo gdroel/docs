@@ -18,7 +18,7 @@
       "light": "#ffffff"
     }
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "navigation": {
     "tabs": [
       {
@@ -96,8 +96,8 @@
     }
   },
   "logo": {
-    "light": "/logo/logo-light.svg",
-    "dark": "/logo/logo.png"
+    "light": "/logo/logo.png",
+    "dark": "/logo/logo-dark.png"
   },
   "navbar": {
     "links": [
