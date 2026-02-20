@@ -19,15 +19,23 @@ icon: 'gift'
 <CodeGroup>
 
 ```swift SwiftUI
-ZSMigrateTipView(backgroundColor: .black, userId: currentUser.id)
+ZSMigrateTipView(
+    userId: currentUser.id,
+    backgroundColor: .black,                        // optional
+    titleFont: .system(size: 20, weight: .bold),    // optional
+    bodyFont: .system(size: 16),                     // optional
+    ctaFont: .system(size: 17, weight: .bold),       // optional
+    borderColor: .white.opacity(0.2),                // optional
+    onDismiss: { print("dismissed") }                // optional
+)
 ```
 
 ```tsx React Native
 import { ZSMigrateTipView } from 'react-native-zerosettle-kit';
 
 <ZSMigrateTipView
-  backgroundColorHex="#1E1E1E"
   userId={currentUser.id}
+  backgroundColorHex="#1E1E1E"
   style={{ marginHorizontal: 16 }}
 />
 ```
@@ -36,8 +44,8 @@ import { ZSMigrateTipView } from 'react-native-zerosettle-kit';
 import 'package:zerosettle/zerosettle.dart';
 
 ZSMigrateTipView(
-  backgroundColor: Color(0xFF1E1E1E),
   userId: currentUser.id,
+  backgroundColor: Color(0xFF1E1E1E),
 )
 ```
 
@@ -48,7 +56,7 @@ ZSMigrateTipView(
 
 </CodeGroup>
 
-All three use the same native implementation under the hood. No additional setup is required beyond providing a background color and user ID.
+All three use the same native implementation under the hood. Only `userId` is required — everything else has sensible defaults.
 
 <Note>
   `ZSMigrateTipView` targets users migrating from **Apple StoreKit** subscriptions to direct billing. On Android, the equivalent migration from Google Play Billing is not yet supported by this component.
@@ -83,7 +91,7 @@ List {
         // your existing rows...
     }
 
-    ZSMigrateTipView(backgroundColor: .blue, userId: user.id)
+    ZSMigrateTipView(userId: user.id, backgroundColor: .blue)
         .listRowInsets(EdgeInsets())
         .listRowBackground(Color.clear)
 }
@@ -93,7 +101,7 @@ List {
 VStack(spacing: 16) {
     // your existing content...
 
-    ZSMigrateTipView(backgroundColor: .indigo, userId: user.id)
+    ZSMigrateTipView(userId: user.id, backgroundColor: .indigo)
         .padding(.horizontal, 16)
 }
 ```
@@ -101,7 +109,7 @@ VStack(spacing: 16) {
 ```swift ScrollView
 ScrollView {
     // ...
-    ZSMigrateTipView(backgroundColor: .black, userId: user.id)
+    ZSMigrateTipView(userId: user.id)
 }
 ```
 
@@ -109,8 +117,8 @@ ScrollView {
 <ScrollView>
   {/* your existing content... */}
   <ZSMigrateTipView
-    backgroundColorHex="#0000FF"
     userId={user.id}
+    backgroundColorHex="#0000FF"
     style={{ marginHorizontal: 16 }}
   />
 </ScrollView>
@@ -121,8 +129,8 @@ ListView(
   children: [
     // your existing rows...
     ZSMigrateTipView(
-      backgroundColor: Color(0xFF0000FF),
       userId: user.id,
+      backgroundColor: Color(0xFF0000FF),
     ),
   ],
 )
@@ -135,8 +143,8 @@ Column(
     Padding(
       padding: EdgeInsets.symmetric(horizontal: 16),
       child: ZSMigrateTipView(
-        backgroundColor: Color(0xFF3F00B5),
         userId: user.id,
+        backgroundColor: Color(0xFF3F00B5),
       ),
     ),
   ],
@@ -154,10 +162,10 @@ Column(
 
 ### All platforms
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `backgroundColor` | `Color` (SwiftUI, Flutter) / `string` (React Native) | Background color for the card. Pass a `Color` in SwiftUI and Flutter, or a hex string like `"#1E1E1E"` in React Native. |
-| `userId` | `String` | The user identifier passed to the checkout backend. |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `userId` | `String` | Required | The user identifier passed to the checkout backend. |
+| `backgroundColor` | `Color` (SwiftUI, Flutter) / `string` (React Native) | `.black` / `"#000000"` | Background color for the card. Pass a `Color` in SwiftUI and Flutter, or a hex string in React Native. |
 
 ### SwiftUI only
 
