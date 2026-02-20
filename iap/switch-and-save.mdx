@@ -69,7 +69,7 @@ The view decides whether to render itself based on the user's entitlement state.
 
 The minimum subscription age and rollout percentage are configured in the [dashboard migration campaign](/iap/dashboard#migration-campaigns). For example, you can set the minimum to 90 days so only users subscribed for at least 90 days see the view, and roll out to 10% of eligible users first before going to 100%. This lets you target loyal, high-retention users and control exposure as you ramp up.
 
-On mount, the view calls `restoreEntitlements` to fetch the latest state, checks the minimum subscription age, and evaluates the rollout cohort from your dashboard config. If none of the conditions for showing are met, it renders as an `EmptyView` with no layout impact.
+On mount, the view checks the minimum subscription age and evaluates the rollout cohort from your dashboard config. If none of the conditions for showing are met, it renders as an `EmptyView` with no layout impact.
 
 ## Placement
 
@@ -220,7 +220,7 @@ The view logs its visibility decisions to the console with the prefix `[ZSMigrat
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Custom Migration UI" icon="wand-magic-sparkles" href="/iap/migration-manager">
+  <Card title="Custom Switch and Save UI" icon="wand-magic-sparkles" href="/iap/migration-manager">
     Build your own migration experience with ZSMigrationManager
   </Card>
   <Card title="Dashboard" icon="gauge" href="/iap/dashboard#migration-campaigns">
