@@ -1,15 +1,15 @@
 ---
 title: 'Custom Switch and Save UI'
-description: 'Build your own migration experience with ZSMigrationManager'
+description: 'Build your own switch and save experience with ZSMigrationManager'
 icon: 'wand-magic-sparkles'
 ---
 
-`ZSMigrationManager` is the state machine behind `ZSMigrateTipView`. If the built-in view doesn't fit your design, use the manager directly to build a fully custom migration experience while reusing all the eligibility logic, checkout orchestration, and state tracking.
+`ZSMigrationManager` is the state machine behind `ZSMigrateTipView`. If the built-in view doesn't fit your design, use the manager directly to build a fully custom switch and save experience while reusing all the eligibility logic, checkout orchestration, and state tracking.
 
 ## Quick Start
 
 ```swift
-struct MigrationBanner: View {
+struct SwitchAndSaveBanner: View {
     @StateObject private var manager = ZSMigrationManager(userId: "user_42")
 
     var body: some View {
@@ -44,7 +44,7 @@ The manager is an `ObservableObject` — SwiftUI re-renders automatically when t
 
 ## State Machine
 
-The migration flow is a linear state machine. Each state represents a step in the user journey.
+The switch and save flow is a linear state machine. Each state represents a step in the user journey.
 
 ```
 loading → ineligible
@@ -57,11 +57,11 @@ loading → eligible → presented → accepted → completed
 | State | Meaning | `offerData` |
 |-------|---------|-------------|
 | `loading` | Waiting for `ZeroSettle.bootstrap()` to finish. | `nil` |
-| `ineligible` | User doesn't qualify (no StoreKit subscription, already migrated, no campaign configured). | `nil` |
+| `ineligible` | User doesn't qualify (no StoreKit subscription, already switched, no campaign configured). | `nil` |
 | `eligible` | User qualifies. Offer data is available — show your UI. | Available |
 | `presented` | Offer is on screen or checkout is in progress. | Available |
 | `accepted` | Web checkout succeeded. Prompt the user to cancel Apple billing. | Available |
-| `completed` | User opened Apple subscription management. Migration flow is done. | Available |
+| `completed` | User opened Apple subscription management. Switch and save flow is done. | Available |
 | `dismissed` | User closed the offer. Persisted in `UserDefaults` across launches. | `nil` |
 
 The manager locks mid-flow states (`presented`, `accepted`, `completed`) so that background re-evaluations (e.g., entitlement refreshes) don't disrupt an active checkout.
@@ -70,7 +70,7 @@ The manager locks mid-flow states (`presented`, `accepted`, `completed`) so that
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `state` | `MigrationOffer.State` | Current state of the migration flow. |
+| `state` | `MigrationOffer.State` | Current state of the switch and save flow. |
 | `offerData` | `MigrationOffer.OfferData?` | Offer details (prompt text, discount, free trial days). Available from `.eligible` onward. |
 | `isLoading` | `Bool` | `true` while `startCheckout()` is creating a payment intent. |
 | `checkoutError` | `Error?` | The last error from `startCheckout()`, if any. |
@@ -92,13 +92,13 @@ When `state` is `.eligible` or later, `offerData` contains everything you need t
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `productId` | `String` | The web product ID to offer for migration. |
+| `productId` | `String` | The web product ID to offer for switch and save. |
 | `discountPercent` | `Int` | The discount percentage (e.g., `15` for 15% off). |
 | `title` | `String` | Heading text for the offer. |
 | `message` | `String` | Body text explaining the offer. |
 | `ctaText` | `String` | Button label (e.g., "Save 15% Forever"). |
 
-All of these are configured in your [dashboard migration campaign](/iap/dashboard#migration-campaigns).
+All of these are configured in your [dashboard switch and save campaign](/iap/dashboard#migration-campaigns).
 
 ## Methods
 
@@ -158,7 +158,7 @@ ZSMigrationManager.resetDismissedState()
 
 ### `demoMode`
 
-Set `ZSMigrationManager.demoMode = true` before bootstrapping to preview the migration UI without an active StoreKit subscription. The manager synthesizes a demo offer so you can test your custom UI in the simulator.
+Set `ZSMigrationManager.demoMode = true` before bootstrapping to preview the switch and save UI without an active StoreKit subscription. The manager synthesizes a demo offer so you can test your custom UI in the simulator.
 
 ```swift
 ZSMigrationManager.demoMode = true
@@ -168,10 +168,10 @@ await ZeroSettle.bootstrap(userId: "demo_user")
 
 ## Full Example
 
-A complete custom migration card with loading, error, checkout, and completion states:
+A complete custom switch and save card with loading, error, checkout, and completion states:
 
 ```swift
-struct CustomMigrationCard: View {
+struct CustomSwitchAndSaveCard: View {
     @StateObject private var manager: ZSMigrationManager
 
     init(userId: String) {
@@ -264,6 +264,6 @@ struct CustomMigrationCard: View {
     Use the built-in drop-in view instead
   </Card>
   <Card title="Dashboard" icon="gauge" href="/iap/dashboard#migration-campaigns">
-    Configure your migration campaign and discount
+    Configure your switch and save campaign and discount
   </Card>
 </CardGroup>

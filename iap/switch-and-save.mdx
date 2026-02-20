@@ -1,6 +1,6 @@
 ---
 title: 'Switch & Save View'
-description: 'A drop-in view that migrates Apple subscribers to direct billing'
+description: 'A drop-in view that switches Apple subscribers to direct billing'
 icon: 'gift'
 ---
 
@@ -50,8 +50,8 @@ ZSMigrateTipView(
 ```
 
 ```kotlin Kotlin
-// ZSMigrateTipView is currently iOS-only (StoreKit → web checkout migration).
-// Android migration from Play Billing is not yet supported by this component.
+// ZSMigrateTipView is currently iOS-only (StoreKit → web checkout switch and save).
+// Android switch and save from Play Billing is not yet supported by this component.
 ```
 
 </CodeGroup>
@@ -59,7 +59,7 @@ ZSMigrateTipView(
 All three use the same native implementation under the hood. Only `userId` is required — everything else has sensible defaults.
 
 <Note>
-  `ZSMigrateTipView` targets users migrating from **Apple StoreKit** subscriptions to direct billing. On Android, the equivalent migration from Google Play Billing is not yet supported by this component.
+  `ZSMigrateTipView` targets users switching from **Apple StoreKit** subscriptions to direct billing. On Android, the equivalent switch and save flow from Google Play Billing is not yet supported by this component.
 </Note>
 
 ## Automatic Visibility
@@ -68,14 +68,14 @@ The view decides whether to render itself based on the user's entitlement state.
 
 | Condition | Behavior |
 |-----------|----------|
-| User has an active StoreKit subscription | ✅ View appears (user is eligible for migration) |
-| User already has a web checkout entitlement | 🚫 View is hidden (already migrated) |
-| User has no active subscription | 🚫 View is hidden (not a migration candidate) |
+| User has a StoreKit subscription that matches the dashboard-configured product | ✅ View appears (user is eligible to switch and save) |
+| User already has a web checkout entitlement | 🚫 View is hidden (already switched) |
+| User has no active subscription | 🚫 View is hidden (not a switch and save candidate) |
 | User previously dismissed the view | 🚫 View is hidden (dismissal persisted via `UserDefaults`) |
 | User has not been subscribed long enough | 🚫 View is hidden (e.g., user subscribed less than 90 days ago) |
 | User is not in the rollout cohort | 🚫 View is hidden (phased rollout has not reached this user yet) |
 
-The minimum subscription age and rollout percentage are configured in the [dashboard migration campaign](/iap/dashboard#migration-campaigns). For example, you can set the minimum to 90 days so only users subscribed for at least 90 days see the view, and roll out to 10% of eligible users first before going to 100%. This lets you target loyal, high-retention users and control exposure as you ramp up.
+The minimum subscription age and rollout percentage are configured in the [dashboard switch and save campaign](/iap/dashboard#migration-campaigns). For example, you can set the minimum to 90 days so only users subscribed for at least 90 days see the view, and roll out to 10% of eligible users first before going to 100%. This lets you target loyal, high-retention users and control exposure as you ramp up.
 
 On mount, the view checks the minimum subscription age and evaluates the rollout cohort from your dashboard config. If none of the conditions for showing are met, it renders as an `EmptyView` with no layout impact.
 
@@ -152,8 +152,8 @@ Column(
 ```
 
 ```kotlin Kotlin
-// ZSMigrateTipView is currently iOS-only (StoreKit → web checkout migration).
-// Android migration from Play Billing is not yet supported by this component.
+// ZSMigrateTipView is currently iOS-only (StoreKit → web checkout switch and save).
+// Android switch and save from Play Billing is not yet supported by this component.
 ```
 
 </CodeGroup>
@@ -179,7 +179,7 @@ These optional parameters are available on the native SwiftUI view. React Native
 | `borderColor` | `Color?` | `nil` (no border) | Border color applied as a rounded rectangle stroke on the card. |
 | `onDismiss` | `(() -> Void)?` | `nil` | Closure invoked when the view is dismissed (close button, auto-dismiss after completion, or state becomes ineligible). |
 
-The button copy, discount amount, and messaging are controlled from the [dashboard migration campaign](/iap/dashboard#migration-campaigns). No code change needed.
+The button copy, discount amount, and messaging are controlled from the [dashboard switch and save campaign](/iap/dashboard#migration-campaigns). No code change needed.
 
 ## Experimentation
 
@@ -229,10 +229,10 @@ The view logs its visibility decisions to the console with the prefix `[ZSMigrat
 
 <CardGroup cols={2}>
   <Card title="Custom Switch and Save UI" icon="wand-magic-sparkles" href="/iap/migration-manager">
-    Build your own migration experience with ZSMigrationManager
+    Build your own switch and save experience with ZSMigrationManager
   </Card>
   <Card title="Dashboard" icon="gauge" href="/iap/dashboard#migration-campaigns">
-    Configure your migration campaign and discount
+    Configure your switch and save campaign and discount
   </Card>
   <Card title="StoreKit Integration" icon="apple" href="/iap/storekit-integration">
     Run StoreKit and web checkout side by side
