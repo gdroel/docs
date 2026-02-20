@@ -152,10 +152,24 @@ Column(
 
 ## Parameters
 
+### All platforms
+
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `backgroundColor` | `Color` (SwiftUI, Flutter) / `string` (React Native) | Background color for the card. Pass a `Color` in SwiftUI and Flutter, or a hex string like `"#1E1E1E"` in React Native. |
 | `userId` | `String` | The user identifier passed to the checkout backend. |
+
+### SwiftUI only
+
+These optional parameters are available on the native SwiftUI view. React Native and Flutter wrappers use the defaults.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `titleFont` | `Font?` | System bold | Custom font for the title text. |
+| `bodyFont` | `Font?` | System default | Custom font for the body/message text. |
+| `ctaFont` | `Font?` | System bold | Custom font for the CTA button text. |
+| `borderColor` | `Color?` | `nil` (no border) | Border color applied as a rounded rectangle stroke on the card. |
+| `onDismiss` | `(() -> Void)?` | `nil` | Closure invoked when the view is dismissed (close button, auto-dismiss after completion, or state becomes ineligible). |
 
 The button copy, discount amount, and messaging are controlled from the [dashboard migration campaign](/iap/dashboard#migration-campaigns). No code change needed.
 
@@ -180,7 +194,7 @@ The view may be hidden during development because it was previously dismissed. R
 <CodeGroup>
 
 ```swift SwiftUI
-ZSMigrateTipView.resetMigrateTipState()
+ZSMigrationManager.resetDismissedState()
 ```
 
 ```tsx React Native
@@ -197,11 +211,18 @@ ZSMigrateTipView.resetMigrateTipState()
 
 </CodeGroup>
 
+<Note>
+  `ZSMigrateTipView.resetMigrateTipState()` still works but is deprecated. Use `ZSMigrationManager.resetDismissedState()` instead.
+</Note>
+
 The view logs its visibility decisions to the console with the prefix `[ZSMigrateTipView Business Logic]`, including which condition caused it to show or hide.
 
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Custom Migration UI" icon="wand-magic-sparkles" href="/iap/migration-manager">
+    Build your own migration experience with ZSMigrationManager
+  </Card>
   <Card title="Dashboard" icon="gauge" href="/iap/dashboard#migration-campaigns">
     Configure your migration campaign and discount
   </Card>
