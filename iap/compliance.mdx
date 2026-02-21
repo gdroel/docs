@@ -4,15 +4,15 @@ description: 'Legal basis for alternative web checkout on iOS and Android'
 icon: 'scale-balanced'
 ---
 
-ZeroSettle's web checkout is built on established legal and regulatory frameworks that allow developers to offer alternative payment methods outside the App Store and Google Play billing systems. This page explains the legal basis, what the courts have said, and how different checkout methods are treated.
+ZeroSettle's web checkout is designed to align with current App Store guidelines and recent court rulings related to alternative payment methods. This page summarizes the relevant rulings, what Apple's published guidelines say, and how different checkout methods are typically treated.
 
 <Note>
   The rulings and guidelines described below apply to the **United States App Store** only. Other regions operate under separate frameworks - for example, the EU Digital Markets Act (DMA) has its own set of rules governing alternative payment methods. Contact [support@zerosettle.io](mailto:support@zerosettle.io) if you have questions about a specific region.
 </Note>
 
-## Apple v. Epic: The Legal Basis
+## Apple v. Epic: Background
 
-The legal foundation for alternative payment links in iOS apps comes from the *Epic Games v. Apple* case and its aftermath.
+The key court rulings and guideline changes relevant to alternative payment links in iOS apps come from the *Epic Games v. Apple* case and its aftermath.
 
 ### The Original Injunction (September 2021)
 
@@ -30,7 +30,7 @@ Following the contempt ruling, Apple revised its App Review Guidelines to reflec
 
 > **Guideline 3.1.3:** *"The prohibition on encouraging users to use a purchasing method other than in-app purchase does not apply on the United States storefront."*
 
-These guidelines confirm that US developers can freely include external payment links in their iOS apps without applying for a special entitlement or facing content restrictions.
+Based on these published guidelines, US developers can include external payment links in their iOS apps without applying for a special entitlement.
 
 ## Checkout Presentation Methods
 
@@ -44,7 +44,7 @@ There are three ways to present a web checkout from an iOS app. Each has differe
 
 ### External Safari Browser
 
-The user taps a button in your app and is taken to Safari (or their default browser) to complete the purchase. After payment, a universal link brings them back to your app. This is the method **explicitly allowed** by Apple's updated guidelines and carries zero App Review friction.
+The user taps a button in your app and is taken to Safari (or their default browser) to complete the purchase. After payment, a universal link brings them back to your app. Based on Apple's updated guidelines, this is the explicitly sanctioned method and typically carries zero App Review friction.
 
 ### In-App Browser (SFSafariViewController)
 
@@ -68,7 +68,7 @@ Google's **User Choice Billing** program allows developers to offer alternative 
 
 ### US Policy Changes (October 2025)
 
-Following regulatory pressure and the *Epic Games v. Google* jury verdict, Google updated its US policies to allow developers to use alternative payment methods with a reduced service fee. Apps distributed on Google Play in the US can direct users to external payment flows without violating Play Store policies.
+Following regulatory pressure and the *Epic Games v. Google* jury verdict, Google updated its US policies to allow developers to use alternative payment methods with a reduced service fee. Based on these changes, apps distributed on Google Play in the US can direct users to external payment flows.
 
 <Note>
   On Android, ZeroSettle opens a Custom Tab (Chrome) for the checkout flow. This is the standard approach for external payment on Android and does not face the same review scrutiny as iOS.
@@ -76,7 +76,7 @@ Following regulatory pressure and the *Epic Games v. Google* jury verdict, Googl
 
 ## ZeroSettle's Approach
 
-ZeroSettle is designed to handle the compliance details so you can focus on your app:
+ZeroSettle is designed to follow Apple's and Google's published guidelines so you can focus on your app:
 
 - **All three iOS checkout methods** (external Safari, SFSafariViewController, WKWebView) are supported and switchable via remote config - no code changes required
 - **US geofencing** is handled automatically, ensuring external checkout is only offered where legally permitted
@@ -84,3 +84,7 @@ ZeroSettle is designed to handle the compliance details so you can focus on your
 - **Android Custom Tabs** are used for checkout on Google Play, following standard platform conventions
 
 See [Overview](/iap/overview) for the full list of what ZeroSettle handles, or jump to [Installation](/iap/installation) to get started.
+
+<Note>
+  **Legal / Compliance Note** - ZeroSettle is not a law firm and does not provide legal advice. Our products are designed to align with Apple's published App Store guidelines and external purchase/link-out requirements, as well as relevant court rulings. We recommend that developers review their specific implementation with their own legal counsel.
+</Note>
