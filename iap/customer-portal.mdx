@@ -175,7 +175,7 @@ ZeroSettle.instance.entitlementUpdates.listen((entitlements) {
 
 Present a cancellation questionnaire before a user cancels their subscription. The flow collects feedback, optionally shows a retention offer, and returns the outcome.
 
-The questionnaire and retention offer are configured on the [ZeroSettle dashboard](/iap/dashboard) — no code changes needed to update questions or offers.
+The questionnaire and retention offer are configured on the [ZeroSettle dashboard](/iap/cancel-flow) — no code changes needed to update questions or offers.
 
 ### SwiftUI Modifier
 
@@ -199,6 +199,9 @@ Button("Cancel Subscription") {
     case .retained:
         // User accepted the save offer
         showConfirmation("Thanks for staying!")
+    case .paused(let resumesAt):
+        // User chose to pause instead of cancelling
+        showConfirmation("Your subscription is paused.")
     case .dismissed:
         // User dismissed without completing
         break
@@ -216,6 +219,7 @@ scope.launch {
     when (result) {
         CancelFlowResult.CANCELLED -> showConfirmation("Subscription cancelled.")
         CancelFlowResult.RETAINED -> showConfirmation("Thanks for staying!")
+        is CancelFlowResult.Paused -> showConfirmation("Subscription paused.")
         CancelFlowResult.DISMISSED -> { /* No action */ }
     }
 }
@@ -231,6 +235,8 @@ switch (result) {
     showConfirmation('Subscription cancelled.');
   case CancelFlowResult.retained:
     showConfirmation('Thanks for staying!');
+  case CancelFlowPaused():
+    showConfirmation('Subscription paused.');
   case CancelFlowResult.dismissed:
     break;
 }
@@ -247,7 +253,7 @@ let result = await ZeroSettle.shared.presentCancelFlow(
     productId: "premium_monthly",
     userId: currentUser.id
 )
-// result is CancelFlow.Result: .cancelled, .retained, or .dismissed
+// result is CancelFlow.Result: .cancelled, .retained, .paused, or .dismissed
 ```
 
 ```kotlin Kotlin
@@ -256,7 +262,7 @@ val result = ZeroSettle.presentCancelFlow(
     productId = "premium_monthly",
     userId = currentUser.id,
 )
-// result is CancelFlowResult: CANCELLED, RETAINED, or DISMISSED
+// result is CancelFlowResult: CANCELLED, RETAINED, PAUSED, or DISMISSED
 ```
 
 ```dart Flutter
@@ -264,7 +270,7 @@ final result = await ZeroSettle.instance.presentCancelFlow(
   productId: 'premium_monthly',
   userId: currentUser.id,
 );
-// result is CancelFlowResult: cancelled, retained, or dismissed
+// result is CancelFlowResult: cancelled, retained, paused, or dismissed
 ```
 
 </CodeGroup>
@@ -275,11 +281,21 @@ final result = await ZeroSettle.instance.presentCancelFlow(
 |--------|-------------|
 | `cancelled` / `CANCELLED` | User completed the flow and cancelled their subscription |
 | `retained` / `RETAINED` | User accepted the retention offer and kept their subscription |
+| `paused` / `Paused` | User chose to pause their subscription instead of cancelling |
 | `dismissed` / `DISMISSED` | User dismissed the flow without completing it |
 
 <Tip>
   Configure the cancellation questionnaire and retention offers from the ZeroSettle dashboard. You can update questions and offers without an app update.
 </Tip>
+
+### Pause Option
+
+Pause lets subscribers temporarily stop their subscription instead of cancelling outright. When enabled, the cancel flow can present a pause page where the user picks a pause duration.
+
+- **Dashboard-configured**: Enable pause and set available durations from the [ZeroSettle dashboard](/iap/cancel-flow). No code changes required.
+- **Answer option trigger**: Individual answer options in the questionnaire can set `triggersPause` to route the user to the pause page instead of the retention offer.
+- **Resume date**: The `paused` result includes an optional `resumesAt` date indicating when the subscription will automatically resume.
+- **Entitlement state**: While paused, the user's entitlement reflects `status == .paused` with a `pauseResumesAt` date. Access is revoked during the pause period and restored automatically when the subscription resumes.
 
 ## What Customers Can Do
 

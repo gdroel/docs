@@ -1,0 +1,238 @@
+---
+title: 'Campaigns & Offers'
+description: 'Migration campaigns, upgrade offers, and promotional pricing'
+icon: 'bullhorn'
+---
+
+ZeroSettle provides three campaign types to grow and retain subscribers. All are configured from the [ZeroSettle dashboard](https://dashboard.zerosettle.io) with built-in analytics — no app update required to change targeting, messaging, or pricing.
+
+## Migration Campaigns (Switch & Save)
+
+Migration campaigns help you move existing StoreKit or Play Store subscribers to web checkout at a discount. This eliminates platform fees on future renewals while giving users a lower price.
+
+### Configuration
+
+Enable migration campaigns on the dashboard and configure:
+
+| Field | Description |
+|---|---|
+| **Product ID** | The web checkout product to offer |
+| **Discount %** | Percentage off the web price (0-100%) |
+| **Min subscription days** | Minimum days subscribed before eligibility (default 30) |
+| **Rollout %** | Percentage of eligible users who see the campaign (0-100%, for gradual rollout) |
+| **Eligible product IDs** | Which store product IDs qualify for migration |
+| **Title** | Campaign heading — supports `{{discount}}` template variable |
+| **Message** | Campaign body text — supports `{{discount}}` template variable |
+| **CTA text** | Button text — supports `{{discount}}` template variable |
+
+### SDK Integration
+
+The SDK returns campaign data in `ProductCatalog.config.migration`. Use the built-in `ZSMigrateTipView` for a drop-in UI, or read the data to build your own:
+
+<CodeGroup>
+```swift Swift
+let catalog = try await ZeroSettle.shared.fetchProducts(userId: user.id)
+
+if let migration = catalog.config?.migration {
+    // Show migration prompt to eligible users
+    print("\(migration.title): \(migration.discountPercent)% off")
+}
+```
+
+```kotlin Kotlin
+val catalog = ZeroSettle.fetchProducts(userId = user.id)
+
+catalog.config?.migration?.let { migration ->
+    // Show migration prompt to eligible users
+    println("${migration.title}: ${migration.discountPercent}% off")
+}
+```
+
+```tsx React Native
+const catalog = await ZeroSettle.fetchProducts(user.id);
+
+if (catalog.config?.migration) {
+    const migration = catalog.config.migration;
+    console.log(`${migration.title}: ${migration.discountPercent}% off`);
+}
+```
+
+```dart Flutter
+final catalog = await ZeroSettle.instance.fetchProducts(userId: user.id);
+
+final migration = catalog.config?.migration;
+if (migration != null) {
+    print('${migration.title}: ${migration.discountPercent}% off');
+}
+```
+</CodeGroup>
+
+After a successful migration purchase, track the conversion:
+
+<CodeGroup>
+```swift Swift
+try await ZeroSettle.shared.trackMigrationConversion(userId: user.id)
+```
+
+```kotlin Kotlin
+ZeroSettle.trackMigrationConversion(userId = user.id)
+```
+
+```tsx React Native
+await ZeroSettle.trackMigrationConversion(user.id);
+```
+
+```dart Flutter
+await ZeroSettle.instance.trackMigrationConversion(userId: user.id);
+```
+</CodeGroup>
+
+### Analytics
+
+The dashboard tracks migration campaign performance:
+
+| Metric | Description |
+|---|---|
+| **Impressions** | Number of times the campaign was shown |
+| **Conversions** | Number of users who completed the migration |
+| **Conversion rate** | Conversions / impressions |
+
+<Card title="SDK Integration" icon="code" href="/iap/switch-and-save">
+  See Switch & Save for the full migration UI integration guide.
+</Card>
+
+## Upgrade Offers
+
+Upgrade offers prompt subscribers to switch from shorter billing cycles (e.g., monthly) to longer ones (e.g., annual) at a savings. The SDK handles proration for web checkout subscribers and shows Apple cancel instructions for StoreKit-to-web migrations.
+
+### Configuration
+
+Enable upgrade offers on the dashboard and configure:
+
+| Field | Description |
+|---|---|
+| **Upgrade paths** | List of `from_product_id` to `to_product_id` mappings |
+| **Eligible product IDs** | Which products qualify for upgrade offers |
+| **Min subscription days** | Minimum days subscribed before eligibility (default 0) |
+| **Title** | Offer heading — supports `{savings_percent}` and `{target_name}` template variables |
+| **Body** | Offer body text — supports `{savings_percent}` and `{target_name}` template variables |
+| **CTA text** | Accept button text |
+| **Dismiss text** | Decline button text |
+| **StoreKit body** | Separate body text for users migrating from Apple billing |
+| **StoreKit cancel instructions** | Instructions shown to Apple subscribers for cancelling their App Store subscription |
+
+### SDK Integration
+
+Present the upgrade offer using a SwiftUI modifier or the programmatic API:
+
+<CodeGroup>
+```swift Swift
+@State private var showUpgradeOffer = false
+
+Button("See Upgrade Options") {
+    showUpgradeOffer = true
+}
+.upgradeOffer(
+    isPresented: $showUpgradeOffer,
+    productId: "premium_monthly",
+    userId: currentUser.id
+) { result in
+    switch result {
+    case .upgraded:
+        showConfirmation("You've been upgraded!")
+    case .declined, .dismissed:
+        break
+    }
+}
+```
+
+```kotlin Kotlin
+scope.launch {
+    val result = ZeroSettle.presentUpgradeOffer(
+        activity = context as Activity,
+        productId = "premium_monthly",
+        userId = currentUser.id,
+    )
+    when (result) {
+        UpgradeOfferResult.Upgraded -> showConfirmation("You've been upgraded!")
+        UpgradeOfferResult.Declined -> { /* No action */ }
+        UpgradeOfferResult.Dismissed -> { /* No action */ }
+    }
+}
+```
+
+```dart Flutter
+final result = await ZeroSettle.instance.presentUpgradeOffer(
+  productId: 'premium_monthly',
+  userId: currentUser.id,
+);
+switch (result) {
+  case UpgradeOfferUpgraded():
+    showConfirmation("You've been upgraded!");
+  case UpgradeOfferDeclined():
+  case UpgradeOfferDismissed():
+    break;
+}
+```
+</CodeGroup>
+
+### Analytics
+
+| Metric | Description |
+|---|---|
+| **Impressions** | Number of times the upgrade offer was shown |
+| **Upgrades completed** | Number of users who accepted the upgrade |
+| **Conversion rate** | Upgrades / impressions |
+
+<Card title="SDK Integration" icon="code" href="/iap/upgrade-offer">
+  See Upgrade Offers for the full SDK integration guide.
+</Card>
+
+## Promotions
+
+Promotional pricing lets you offer discounts on any product. Promotions are configured per-product on the dashboard and surfaced automatically in the SDK product data.
+
+### Configuration
+
+| Field | Description |
+|---|---|
+| **Display name** | Label shown to users (e.g., "Launch Sale") |
+| **Type** | `percent_off`, `fixed_amount`, or `free_trial` |
+| **Promotional price** | The discounted price during the promotion |
+| **Expiration** | Optional expiry date — no expiration means the promotion runs indefinitely |
+
+### Accessing Promotions
+
+Active promotions are returned alongside product data. No separate fetch is needed:
+
+<CodeGroup>
+```swift Swift
+if let promo = product.promotion {
+    print("\(promo.displayName): \(promo.promotionalPrice.formatted)")
+}
+```
+
+```kotlin Kotlin
+product.promotion?.let { promo ->
+    println("${promo.displayName}: ${promo.promotionalPrice?.formatted}")
+}
+```
+
+```tsx React Native
+if (product.promotion) {
+    const promo = product.promotion;
+    console.log(`${promo.displayName}: ${promo.promotionalPrice.formatted}`);
+}
+```
+
+```dart Flutter
+final promo = product.promotion;
+if (promo != null) {
+    print('${promo.displayName}: ${promo.promotionalPrice.formatted}');
+}
+```
+</CodeGroup>
+
+<Tip>
+  Promotions surface automatically in SDK product data. Create, update, or end promotions from the dashboard at any time — no code change required.
+</Tip>

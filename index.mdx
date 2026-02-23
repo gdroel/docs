@@ -1,13 +1,89 @@
 ---
 title: "Welcome to ZeroSettle"
-description: "Web checkout SDK for mobile apps"
+description: "Subscription revenue platform for mobile apps"
 ---
 
-ZeroSettle is a Merchant of Record platform that processes mobile app payments via web checkout. Instead of routing purchases through Apple or Google's in-app purchase systems, your app uses ZeroSettle's SDK to accept payments directly — with Apple Pay and card support.
+ZeroSettle is a subscription revenue platform for mobile apps. It replaces Apple and Google's in-app purchase systems with web checkout — and goes beyond payments to handle the full subscription lifecycle: entitlements, retention, migration, and payouts.
 
-The platform handles payment processing, tax compliance, refunds, and receipts. You integrate the SDK and handle purchase callbacks.
+ZeroSettle acts as the **Merchant of Record**, handling payment processing, tax compliance, refunds, receipts, and liability. You integrate the SDK and focus on your app.
 
-**Already on Stripe?** [Bring Your Own Stripe (BYOS)](/iap/stripe-catalog) lets you connect your existing Stripe account. Your products, prices, reporting, and customer relationships stay in your Stripe dashboard — ZeroSettle adds the MoR compliance layer on top.
+**Already on Stripe?** [Bring Your Own Stripe (BYOS)](/iap/stripe-catalog) lets you connect your existing Stripe account. Your products, prices, and customer relationships stay in your dashboard — ZeroSettle adds the MoR layer on top.
+
+---
+
+## Fee Comparison
+
+| | Apple/Google IAP | ZeroSettle (Managed) | ZeroSettle (BYOS) |
+|---|---|---|---|
+| **Platform fee** | 30% (15% small business) | 5% + 50¢ | 0.5% |
+| **You keep on a $9.99 sale** | ~$7.00 | ~$8.50 | ~$9.50 |
+| **Tax handling** | Apple/Google handles | ZeroSettle handles | ZeroSettle handles |
+| **Payouts** | 45+ days | Rolling via Stripe | Direct to your Stripe |
+
+<Tip>
+  See [Payouts](/iap/payouts) for a detailed fee breakdown and payout schedule.
+</Tip>
+
+---
+
+## Payments
+
+Process payments via Stripe instead of Apple's StoreKit or Google Play Billing. The SDK presents a native payment sheet with Apple Pay and card support — the user never leaves your app.
+
+<CardGroup cols={3}>
+  <Card title="Web Checkout" icon="credit-card" href="/iap/overview">
+    Embedded payment sheet, in-app Safari, or external Safari — controlled from the dashboard
+  </Card>
+  <Card title="Tax & Compliance" icon="shield-check" href="/iap/overview#what-zerosettle-handles">
+    Automatic sales tax, VAT, and GST calculation and remittance as Merchant of Record
+  </Card>
+  <Card title="Payouts" icon="money-bill-transfer" href="/iap/payouts">
+    Stripe Connect payouts to your bank — Managed (Express) or BYOS (Standard)
+  </Card>
+</CardGroup>
+
+---
+
+## Subscriptions
+
+Track entitlements across web and native purchases, manage subscriptions through a customer portal, and sync state in real time.
+
+<CardGroup cols={3}>
+  <Card title="Entitlements" icon="bell" href="/iap/subscription-state">
+    Real-time entitlement tracking across web checkout, StoreKit, and Play Billing
+  </Card>
+  <Card title="Customer Portal" icon="user-gear" href="/iap/customer-portal">
+    Stripe-powered subscription management — cancel, upgrade, update payment, view history
+  </Card>
+  <Card title="User Identity" icon="fingerprint" href="/iap/user-identity">
+    Map your user IDs to purchases and entitlements across platforms
+  </Card>
+</CardGroup>
+
+---
+
+## Growth
+
+Retain subscribers, convert them to higher-value plans, and migrate them off platform billing — all configured from the dashboard with built-in analytics.
+
+<CardGroup cols={2}>
+  <Card title="Cancel Flows & Pause" icon="hand" href="/iap/cancel-flow">
+    Cancellation questionnaires, retention offers, and subscription pausing — reduce churn without code changes
+  </Card>
+  <Card title="Upgrade Offers" icon="arrow-up-right" href="/iap/upgrade-offer">
+    Prompt subscribers to switch from monthly to annual with prorated savings
+  </Card>
+  <Card title="Switch & Save" icon="gift" href="/iap/switch-and-save">
+    Migrate StoreKit and Play Store subscribers to web checkout with discount incentives
+  </Card>
+  <Card title="Campaigns & Promotions" icon="bullhorn" href="/iap/campaigns">
+    Migration campaigns, upgrade targeting, and promotional pricing — all dashboard-configured
+  </Card>
+</CardGroup>
+
+---
+
+## Quick Integration
 
 <CodeGroup>
 
@@ -21,7 +97,7 @@ ZeroSettle.shared.configure(.init(publishableKey: "your_key"))
 let catalog = try await ZeroSettle.shared.fetchProducts(userId: user.id)
 
 // Show the payment sheet
-.zsPaymentSheet(item: $selectedProduct, userId: user.id) { result in
+.checkoutSheet(item: $selectedProduct, userId: user.id) { result in
     // Done. That's it.
 }
 ```
@@ -74,42 +150,6 @@ final txn = await ZeroSettle.instance.presentPaymentSheet(
 
 ---
 
-## How It Works
-
-ZeroSettle acts as the Merchant of Record for your purchases — handling the payment flow, tax remittance, and compliance. The managed-mode fee is 5% + 50¢ per transaction.
-
-<Steps>
-<Step title="User Taps Purchase">
-  Your app shows a purchase button. When tapped, ZeroSettle presents a native payment sheet with Apple Pay and card support.
-</Step>
-
-<Step title="User Pays">
-  The user completes payment without leaving your app. Apple Pay, credit cards, and debit cards are all supported.
-</Step>
-
-<Step title="You Get a Callback">
-  Your app receives a verified `ZSTransaction` confirming the purchase.
-</Step>
-
-<Step title="You Deliver Content">
-  Unlock the content. Entitlements are tracked automatically.
-</Step>
-</Steps>
-
-### What ZeroSettle Handles
-
-- **Payment Processing** — Stripe-powered checkout with Apple Pay support
-- **Tax Compliance** — Automatic sales tax, VAT, and GST calculation and remittance
-- **Merchant of Record** — ZeroSettle is the seller of record, handling liability and disputes
-- **Refunds** — Refund requests and chargebacks are handled automatically
-- **Receipts** — Automatic email receipts to customers
-
-<Card title="Get Started with IAP" icon="rocket" href="/iap/installation">
-  Add web checkout to your app in under 10 minutes
-</Card>
-
----
-
 ## Two Ways to Integrate
 
 <CardGroup cols={2}>
@@ -117,7 +157,26 @@ ZeroSettle acts as the Merchant of Record for your purchases — handling the pa
     **Get started fast.** Stripe products are created and managed automatically via Express onboarding. Best for apps starting fresh.
   </Card>
   <Card title="Bring Your Own Stripe" icon="link" href="/iap/stripe-catalog">
-    **Already on Stripe?** Connect your existing account, keep your products and prices, and retain full control of your Stripe dashboard. 1% fee — revenue goes directly to your account.
+    **Already on Stripe?** Connect your existing account, keep your products and prices, and retain full control of your Stripe dashboard. 0.5% fee — revenue goes directly to your account.
+  </Card>
+</CardGroup>
+
+---
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card title="Account Setup" icon="user-plus" href="/iap/account-setup">
+    Create your account, connect Stripe, and configure products
+  </Card>
+  <Card title="SDK Installation" icon="download" href="/iap/installation">
+    Add the SDK to your project
+  </Card>
+  <Card title="Testing & Sandbox" icon="flask-vial" href="/iap/testing">
+    Test purchases and entitlements before going live
+  </Card>
+  <Card title="Go-Live Checklist" icon="rocket" href="/iap/go-live">
+    Everything to verify before processing real payments
   </Card>
 </CardGroup>
 
@@ -129,9 +188,9 @@ ZeroSettle acts as the Merchant of Record for your purchases — handling the pa
   <Card
     title="Documentation"
     icon="book"
-    href="/iap/quickstart"
+    href="/iap/overview"
   >
-    Guides and API reference
+    Full IAP overview, platform support, and payment modes
   </Card>
   <Card
     title="Support"

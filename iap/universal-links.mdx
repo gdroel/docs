@@ -8,7 +8,7 @@ After a user completes (or cancels) checkout in a browser, ZeroSettle redirects 
 
 ## How It Works
 
-1. User initiates purchase with `ZeroSettle.shared.purchase()`
+1. User initiates purchase via `.checkoutSheet()` (iOS) or the platform-specific purchase API
 2. SDK opens Stripe checkout in Safari
 3. User completes payment (or cancels)
 4. Stripe redirects to `https://api.zerosettle.io/checkout/callback?...`

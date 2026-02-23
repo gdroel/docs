@@ -1,0 +1,90 @@
+---
+title: 'Payouts'
+description: 'How you get paid — Stripe Connect payouts for Managed and BYOS modes'
+icon: 'money-bill-transfer'
+---
+
+ZeroSettle collects payments as Merchant of Record and pays out revenue to you via Stripe Connect. How payouts work depends on your payment mode.
+
+## Managed Mode
+
+In Managed mode, ZeroSettle processes the charge on your behalf using a Stripe Express account.
+
+1. Customer pays via web checkout
+2. ZeroSettle collects the payment, deducts platform and processing fees
+3. Net revenue is transferred to your Stripe Express account
+4. Stripe pays out to your linked bank account on the standard payout schedule
+
+Access your Express dashboard directly from the [ZeroSettle dashboard](https://dashboard.zerosettle.io) to view transfers and update your bank details.
+
+## BYOS Mode
+
+In Bring Your Own Stripe mode, charges go directly to your Stripe account. ZeroSettle collects a 0.5% application fee on each transaction.
+
+You retain full control of your Stripe dashboard, reporting, payout schedule, and customer management. ZeroSettle handles sales tax collection and remittance as MoR regardless of mode.
+
+## Fee Breakdown
+
+| | Managed | BYOS |
+|---|---|---|
+| **Stripe processing** | ~2.9% + 30c | ~2.9% + 30c (your negotiated rate) |
+| **ZeroSettle platform fee** | 5% + 50c | 0.5% |
+| **Sales tax** | Collected & remitted by ZeroSettle | Collected & remitted by ZeroSettle |
+| **Net to you** | Gross - Stripe - ZeroSettle fees | Gross - Stripe - 0.5% |
+
+### Example: $9.99 Sale
+
+**Managed mode:**
+
+| Line item | Amount |
+|---|---|
+| Gross | $9.99 |
+| Stripe processing (2.9% + 30c) | -$0.59 |
+| ZeroSettle platform fee (5% + 50c) | -$1.00 |
+| **Net to you** | **$8.40** |
+
+**BYOS mode:**
+
+| Line item | Amount |
+|---|---|
+| Gross | $9.99 |
+| Stripe processing (2.9% + 30c) | -$0.59 |
+| ZeroSettle application fee (0.5%) | -$0.05 |
+| **Net to you** | **$9.35** |
+
+<Note>
+  Sales tax is collected from the customer on top of the product price and remitted by ZeroSettle. It does not reduce your net revenue.
+</Note>
+
+## Viewing Payout History
+
+The dashboard payouts page shows a history of all payouts with:
+
+| Field | Description |
+|---|---|
+| **Amount** | Payout amount in your currency |
+| **Currency** | Payout currency (e.g., USD) |
+| **Status** | `paid`, `pending`, `in_transit`, or `failed` |
+| **Arrival date** | Expected or actual arrival date |
+| **Destination** | Last 4 digits of the destination bank account |
+
+The status endpoint returns your current balance (available and pending) along with your payout schedule details (interval and delay days).
+
+## Payout Schedule
+
+Payout timing is controlled by Stripe. The default for US accounts is a rolling 2-day schedule — funds from a charge become available 2 business days after the payment is captured.
+
+You can view your schedule details on the dashboard. To change your payout schedule or frequency, update it from your Stripe Express dashboard (Managed) or your Stripe dashboard (BYOS).
+
+## Tax Handling
+
+ZeroSettle handles sales tax as Merchant of Record:
+
+- **Tax is collected from the customer** — added on top of the product price at checkout
+- **Tax is remitted to authorities** — ZeroSettle files and pays sales tax in all applicable US jurisdictions
+- **You receive net revenue after fees** — tax never touches your payout
+- **No 1099 headaches for end customers** — ZeroSettle is the seller of record
+
+<Tip>
+  Because ZeroSettle is the Merchant of Record, your customers receive receipts from ZeroSettle. You receive payouts as a platform partner, not as a direct seller.
+</Tip>

@@ -27,6 +27,7 @@ If you use RevenueCat for subscription management, pass the same user ID:
 <CodeGroup>
 
 ```swift Swift
+import SwiftUI
 import ZeroSettleKit
 import RevenueCat
 
@@ -37,10 +38,17 @@ ZeroSettle.shared.configure(.init(
 ))
 
 // Purchase - use your RC user ID
-try await ZeroSettle.shared.purchase(
-    productId: "premium_monthly",
-    userId: Purchases.shared.appUserID
-)
+@State private var selectedProduct: Product?
+
+Button("Buy") { selectedProduct = product }
+    .checkoutSheet(item: $selectedProduct, userId: Purchases.shared.appUserID) { result in
+        switch result {
+        case .success(let transaction):
+            print("Purchased: \(transaction.productId)")
+        case .failure(let error):
+            print("Error: \(error)")
+        }
+    }
 ```
 
 ```kotlin Kotlin
@@ -109,16 +117,24 @@ If you have your own authentication system:
 <CodeGroup>
 
 ```swift Swift
+import SwiftUI
 import ZeroSettleKit
 
 // Configure
 ZeroSettle.shared.configure(.init(publishableKey: "pk_live_..."))
 
 // Purchase - use your user ID
-try await ZeroSettle.shared.purchase(
-    productId: "premium_monthly",
-    userId: Auth.currentUser.id
-)
+@State private var selectedProduct: Product?
+
+Button("Buy") { selectedProduct = product }
+    .checkoutSheet(item: $selectedProduct, userId: Auth.currentUser.id) { result in
+        switch result {
+        case .success(let transaction):
+            print("Purchased: \(transaction.productId)")
+        case .failure(let error):
+            print("Error: \(error)")
+        }
+    }
 
 // Later: restore entitlements
 let entitlements = try await ZeroSettle.shared.restoreEntitlements(
@@ -184,16 +200,24 @@ No user system? Users are identified by their email from checkout:
 <CodeGroup>
 
 ```swift Swift
+import SwiftUI
 import ZeroSettleKit
 
 // Configure
 ZeroSettle.shared.configure(.init(publishableKey: "pk_live_..."))
 
 // Purchase - pass empty string for userId
-try await ZeroSettle.shared.purchase(
-    productId: "premium_lifetime",
-    userId: ""
-)
+@State private var selectedProduct: Product?
+
+Button("Buy") { selectedProduct = product }
+    .checkoutSheet(item: $selectedProduct, userId: "") { result in
+        switch result {
+        case .success(let transaction):
+            print("Purchased: \(transaction.productId)")
+        case .failure(let error):
+            print("Error: \(error)")
+        }
+    }
 ```
 
 ```kotlin Kotlin

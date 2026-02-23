@@ -18,7 +18,7 @@ https://github.com/zerosettle/ZeroSettleKit
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/zerosettle/ZeroSettleKit", from: "1.0.0")
+    .package(url: "https://github.com/zerosettle/ZeroSettleKit", from: "0.13.0")
 ]
 ```
 
@@ -50,7 +50,7 @@ Add the ZeroSettle SDK from [Maven Central](https://central.sonatype.com/artifac
 ```kotlin
 // build.gradle.kts (app module)
 dependencies {
-    implementation("io.zerosettle:zerosettle-android:0.9.0")
+    implementation("io.zerosettle:zerosettle-android:0.10.0")
 }
 ```
 
@@ -59,7 +59,7 @@ dependencies {
 ```toml
 # gradle/libs.versions.toml
 [versions]
-zerosettle = "0.9.0"
+zerosettle = "0.10.0"
 
 [libraries]
 zerosettle = { module = "io.zerosettle:zerosettle-android", version.ref = "zerosettle" }
@@ -106,7 +106,7 @@ flutter pub add zerosettle
 
 ```yaml
 dependencies:
-  zerosettle: ^0.2.0
+  zerosettle: ^0.8.0
 ```
 
 Then run `flutter pub get`.
@@ -147,6 +147,8 @@ Before integrating the SDK, connect your Stripe account on the [dashboard](https
 |------|-------------|-------|
 | **Managed** (default) | ZeroSettle creates Stripe products for you via Express | One-click onboarding on the dashboard |
 | **BYOS** (Bring Your Own Stripe) | Use your own Stripe account and existing products | Connect via OAuth, then map products in [Stripe Catalog](/iap/stripe-catalog) |
+
+For a complete walkthrough of Stripe setup, product creation, and API keys, see [Account Setup](/iap/account-setup).
 
 Both modes use the same SDK integration — no code differences. The mode only affects how payments are processed on the backend.
 

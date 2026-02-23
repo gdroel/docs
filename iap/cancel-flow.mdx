@@ -1,0 +1,98 @@
+---
+title: 'Cancel Flow'
+description: 'Configure cancellation questionnaires and retention offers from the dashboard'
+icon: 'user-xmark'
+---
+
+The cancel flow is a multi-step UI that intercepts cancellation requests. It collects feedback via a questionnaire, optionally presents a retention offer or pause option, and processes the outcome. The entire flow is configured from the [ZeroSettle dashboard](https://dashboard.zerosettle.io) — update questions and offers without an app update.
+
+<Card title="SDK Integration" icon="code" href="/iap/customer-portal#cancel-flow">
+  See the Cancel Flow section in Customer Portal for SwiftUI, Kotlin, and Flutter code examples.
+</Card>
+
+## Configuring Questions
+
+Add, edit, and reorder questions from the dashboard. Each question has:
+
+| Field | Description |
+|---|---|
+| **Question text** | The prompt shown to the user (max 500 characters) |
+| **Question type** | `single_select` (predefined options) or `free_text` (open response) |
+| **Required** | Whether the user must answer before proceeding |
+| **Options** | For `single_select` only — an ordered list of options, each with a label |
+
+Questions are presented in the order you set on the dashboard. Drag to reorder.
+
+## Retention Offers
+
+Enable or disable the save offer from the dashboard. When enabled, the flow can present a retention offer before processing the cancellation.
+
+| Field | Description |
+|---|---|
+| **Offer title** | Heading shown on the offer page (max 200 characters) |
+| **Offer body** | Explanation of the offer |
+| **CTA text** | Button text for accepting the offer (max 100 characters) |
+| **Offer type** | `discount_percent` (e.g., 20% off), `free_period` (e.g., 1 month free), or `custom` |
+| **Offer value** | Numeric value (e.g., `20` for 20% off, `30` for 30 days free) |
+
+When a user accepts the retention offer, the outcome is recorded as `retained` and the subscription continues with the applied offer.
+
+## Pause Option
+
+Enable or disable pause as an alternative to cancellation. When enabled, the flow can present a pause page where the user picks a duration.
+
+| Field | Description |
+|---|---|
+| **Pause title** | Heading shown on the pause page |
+| **Pause body** | Explanation of what pausing means |
+| **Pause CTA text** | Button text for confirming the pause |
+| **Pause duration options** | Each option has a label and either a number of days or a specific resume date |
+
+When a user pauses:
+
+- The entitlement status changes to `paused` with a `pauseResumesAt` date
+- Access is revoked during the pause period
+- The subscription resumes automatically on the resume date and access is restored
+
+## Answer-Level Triggers
+
+Individual answer options in a `single_select` question can trigger specific pages in the flow:
+
+| Trigger | Behavior |
+|---|---|
+| `triggers_offer: true` | Routes the user to the retention offer page after answering |
+| `triggers_pause: true` | Routes the user to the pause page after answering |
+
+Only one trigger can be set per option. Options without triggers proceed to the next question or the default flow.
+
+This lets you tailor the experience based on the cancellation reason. For example, if a user selects "Too expensive," route them to a discount offer. If they select "Taking a break," route them to the pause page.
+
+## Outcomes
+
+Every cancel flow interaction results in one of four outcomes:
+
+| Outcome | Description |
+|---|---|
+| `cancelled` | User completed the flow and cancelled their subscription |
+| `retained` | User accepted the retention offer and kept their subscription |
+| `paused` | User chose to pause their subscription |
+| `dismissed` | User closed the flow without completing it |
+
+## Analytics
+
+The dashboard tracks detailed analytics per cancel flow response:
+
+| Metric | Description |
+|---|---|
+| **Outcome distribution** | Breakdown of cancelled, retained, paused, and dismissed outcomes |
+| **Offer shown / accepted** | Whether the retention offer was presented and whether the user accepted |
+| **Pause shown / accepted** | Whether the pause option was presented and whether the user accepted |
+| **Pause duration selected** | Which pause duration the user chose |
+| **Last step reached** | The furthest step the user reached in the flow |
+| **Question answers** | Individual responses — selected option label or free text content |
+
+Use this data to optimize your questions and offers. For example, if most users who see the retention offer accept it, consider triggering it for more answer options. If a particular question has low completion, simplify it.
+
+<Tip>
+  Update questions, offers, and triggers from the dashboard at any time. Changes take effect immediately — no app update required.
+</Tip>

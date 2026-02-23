@@ -1,0 +1,95 @@
+---
+title: 'Go-Live Checklist'
+description: 'Everything to verify before processing real payments'
+icon: 'rocket'
+---
+
+Work through each section before switching from sandbox to live.
+
+## Dashboard Checklist
+
+- [ ] Stripe live onboarding complete (Managed: Express details submitted; BYOS: Standard account connected and authorized)
+- [ ] Live publishable key generated (`zs_pk_live_...`)
+- [ ] Products created with correct web prices
+- [ ] Checkout branding configured (logo, app icon, brand colors)
+- [ ] Checkout type set per jurisdiction (`webview` recommended for US)
+- [ ] Web checkout enabled for target jurisdictions
+
+## Code Checklist
+
+- [ ] Using live publishable key (not `zs_pk_test_`)
+- [ ] Universal link handler configured (required for Safari checkout flow)
+- [ ] `restoreEntitlements()` called on app launch (or via `bootstrap()`)
+- [ ] Purchase error handling implemented in delegate
+- [ ] Entitlement delegate callback updating UI (`zeroSettleEntitlementsDidUpdate`)
+- [ ] Fallback to StoreKit / Play Billing when `isWebCheckoutEnabled` is `false`
+
+<CodeGroup>
+```swift Swift
+// Verify your live configuration
+ZeroSettle.shared.configure(.init(
+    publishableKey: "zs_pk_live_..."  // Live key
+))
+
+// Verify fallback logic
+if ZeroSettle.shared.isWebCheckoutEnabled {
+    // Show web checkout
+} else {
+    // Fall back to StoreKit
+}
+```
+
+```kotlin Kotlin
+// Verify your live configuration
+ZeroSettle.configure(context, ZeroSettle.Configuration(
+    publishableKey = "zs_pk_live_..."  // Live key
+))
+
+// Verify fallback logic
+if (ZeroSettle.isWebCheckoutEnabled) {
+    // Show web checkout
+} else {
+    // Fall back to Play Billing
+}
+```
+</CodeGroup>
+
+## App Store / Play Store Checklist
+
+- [ ] External Purchase Link entitlement approved by Apple (required for US)
+- [ ] Disclosure modal implemented (Apple requires showing a modal before link-out in Safari flows)
+- [ ] Google Play alternative billing option configured
+- [ ] App review submitted with external purchase flow documented
+
+<Warning>
+  Apple requires the External Purchase Link entitlement for US apps that link out to web checkout via Safari. Apps without this entitlement may be rejected during review. The payment sheet (`webview`) flow does not require this entitlement.
+</Warning>
+
+<Note>
+  The disclosure modal is only required for the Safari checkout flow. If you're using the payment sheet (`webview`) exclusively, you can skip this step.
+</Note>
+
+## Final Testing
+
+- [ ] Full purchase tested end-to-end in sandbox with a test card
+- [ ] Tested on a physical device (not just simulator)
+- [ ] Tested restore on a fresh install / new device
+- [ ] Tested cancel and refund flows
+- [ ] Tested with web checkout disabled (StoreKit / Play Billing fallback works correctly)
+
+<Tip>
+  See [Testing & Sandbox](/iap/testing) for the full end-to-end test flow and test card numbers.
+</Tip>
+
+## Going Live
+
+Once all checklists are complete:
+
+1. **Switch your key** — replace `zs_pk_test_...` with `zs_pk_live_...` in your app configuration
+2. **Deploy your update** — ship the app update through the App Store or Play Store
+3. **Verify your first transaction** — make a real purchase and confirm it appears in the dashboard under live mode
+4. **Monitor** — watch the dashboard for transaction volume, errors, and webhook delivery
+
+<Note>
+  The key prefix is the only thing that changes between sandbox and live. No other code changes are needed.
+</Note>

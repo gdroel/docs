@@ -414,21 +414,20 @@ bool hasActiveSubscription(List<Entitlement> entitlements) {
 
 ### Use the Payment Sheet
 
-On iOS, `ZSPaymentSheet` provides the best conversion rates because the user stays in your app. On Android, use `ZeroSettle.purchase()` which opens a Custom Tab for the web checkout:
+On iOS, `checkoutSheet` provides the best conversion rates because the user stays in your app. On Android, use `ZeroSettle.purchase()` which opens a Custom Tab for the web checkout:
 
 <CodeGroup>
 ```swift Swift
 struct PurchaseButton: View {
-    @State private var showCheckout = false
+    @State private var selectedProduct: Product?
     let product: ZSProduct
 
     var body: some View {
         Button("Buy \(product.displayName) — \(product.webPrice.formatted)") {
-            showCheckout = true
+            selectedProduct = product
         }
-        .zsPaymentSheet(
-            isPresented: $showCheckout,
-            product: product,
+        .checkoutSheet(
+            item: $selectedProduct,
             userId: Auth.currentUser.id
         ) { result in
             switch result {
@@ -524,7 +523,7 @@ ElevatedButton(
   Preloading and `warmUp()` are iOS-specific APIs. On Android, products are cached in the `ZeroSettle.products` StateFlow after calling `bootstrap()` or `fetchProducts()`. No additional preloading step is needed.
 </Note>
 
-The `.zsPaymentSheet()` modifier automatically preloads the `PaymentIntent` and `WKWebView` before presenting the sheet, so the checkout is fully rendered the moment it slides up.
+The `.checkoutSheet()` modifier automatically preloads the `PaymentIntent` and `WKWebView` before presenting the sheet, so the checkout is fully rendered the moment it slides up.
 
 `PaymentIntent` results are cached for 5 minutes. This means re-opens after dismiss skip the API call entirely. The cache is invalidated automatically after a successful payment.
 
@@ -537,7 +536,7 @@ For the fastest first open, call `warmUp()` right after fetching products:
 
     // Pre-cache the PaymentIntent while the user browses
     if let first = catalog.products.first {
-        await ZSPaymentSheet.warmUp(productId: first.id, userId: currentUser.id)
+        await CheckoutSheet.warmUp(productId: first.id, userId: currentUser.id)
     }
 }
 ```
@@ -565,12 +564,12 @@ if (catalog.products.isNotEmpty) {
 ```
 </CodeGroup>
 
-For the standalone `ZSPaymentSheet` init or UIKit's `present` method, you can preload manually:
+For the standalone `CheckoutSheet` init or UIKit's `present` method, you can preload manually:
 
 <CodeGroup>
 ```swift Swift
 .task {
-    preloaded = await ZSPaymentSheet.preload(
+    preloaded = await CheckoutSheet.preload(
         productId: product.id,
         userId: currentUser.id
     )
@@ -602,18 +601,14 @@ Show feedback immediately when a checkout is in progress:
 
 <CodeGroup>
 ```swift Swift
-struct SafariPurchaseButton: View {
+struct PurchaseButton: View {
     @ObservedObject var iap = ZeroSettle.shared
+    @State private var selectedProduct: Product?
     let product: ZSProduct
 
     var body: some View {
         Button {
-            Task {
-                try await iap.purchase(
-                    productId: product.id,
-                    userId: Auth.currentUser.id
-                )
-            }
+            selectedProduct = product
         } label: {
             if iap.pendingCheckout {
                 ProgressView()
@@ -622,6 +617,19 @@ struct SafariPurchaseButton: View {
             }
         }
         .disabled(iap.pendingCheckout)
+        .checkoutSheet(
+            item: $selectedProduct,
+            userId: Auth.currentUser.id
+        ) { result in
+            switch result {
+            case .success(let transaction):
+                unlockProduct(transaction.productId)
+            case .failure(let error):
+                if let sheetError = error as? PaymentSheetError,
+                   sheetError == .cancelled { return }
+                showError(error)
+            }
+        }
     }
 }
 ```
@@ -1014,20 +1022,31 @@ If your app supports logged-out usage, decide how to handle purchases:
 
 <CodeGroup>
 ```swift Swift
-func purchase(product: ZSProduct) async throws {
-    guard let user = Auth.currentUser else {
-        // Option 1: Require login first
-        showLoginPrompt()
-        return
+struct PurchaseView: View {
+    @State private var selectedProduct: Product?
+    let product: ZSProduct
 
-        // Option 2: Use anonymous purchase (email from checkout)
-        // try await ZeroSettle.shared.purchase(productId: product.id, userId: "")
+    var body: some View {
+        Button("Buy") {
+            guard Auth.currentUser != nil else {
+                // Option 1: Require login first
+                showLoginPrompt()
+                return
+            }
+            selectedProduct = product
+        }
+        .checkoutSheet(
+            item: $selectedProduct,
+            userId: Auth.currentUser?.id ?? ""
+        ) { result in
+            switch result {
+            case .success(let transaction):
+                unlockProduct(transaction.productId)
+            case .failure(let error):
+                showError(error)
+            }
+        }
     }
-
-    try await ZeroSettle.shared.purchase(
-        productId: product.id,
-        userId: user.id
-    )
 }
 ```
 
@@ -1104,18 +1123,29 @@ ZeroSettle uses specific error types for different scenarios:
 
 <CodeGroup>
 ```swift Swift
-do {
-    try await ZeroSettle.shared.purchase(productId: id, userId: userId)
-} catch let error as ZSError {
-    switch error {
-    case .notConfigured:
-        fatalError("SDK not configured")
-    case .productNotFound(let id):
-        print("Product \(id) not found")
-    case .networkError(let underlying):
-        showRetry("Network error: \(underlying.localizedDescription)")
-    default:
-        showError(error.localizedDescription)
+// checkoutSheet handles errors via its completion handler
+.checkoutSheet(item: $selectedProduct, userId: userId) { result in
+    switch result {
+    case .success(let transaction):
+        unlockProduct(transaction.productId)
+    case .failure(let error):
+        if let zsError = error as? ZSError {
+            switch zsError {
+            case .notConfigured:
+                fatalError("SDK not configured")
+            case .productNotFound(let id):
+                print("Product \(id) not found")
+            case .networkError(let underlying):
+                showRetry("Network error: \(underlying.localizedDescription)")
+            default:
+                showError(error.localizedDescription)
+            }
+        } else if let sheetError = error as? PaymentSheetError,
+                  sheetError == .cancelled {
+            // User cancelled — don't show an error
+        } else {
+            showError(error.localizedDescription)
+        }
     }
 }
 ```
@@ -1328,11 +1358,11 @@ Before releasing, test these scenarios on a physical device:
 
 | Scenario | Platform | Expected Behavior |
 |----------|----------|-------------------|
-| Complete purchase (payment sheet) | iOS | Transaction returned, entitlements update |
-| Complete purchase (Safari) | iOS | Universal link callback, entitlements update |
+| Complete purchase (checkoutSheet) | iOS | Transaction returned, entitlements update |
+| Complete purchase (Safari fallback) | iOS | Universal link callback, entitlements update |
 | Complete purchase (Custom Tab) | Android | Transaction returned, entitlements update |
-| Cancel payment sheet | iOS | `.cancelled` error, no entitlement change |
-| Cancel Safari checkout | iOS | No entitlement change, no error shown |
+| Cancel checkoutSheet | iOS | `.cancelled` error, no entitlement change |
+| Cancel Safari fallback | iOS | No entitlement change, no error shown |
 | Cancel Custom Tab checkout | Android | `ZSError.Cancelled`, no entitlement change |
 | Restore purchases | Both | All previous purchases recovered |
 | App killed during checkout | Both | Entitlements sync on next launch |
@@ -1401,7 +1431,7 @@ final products = catalog.products;
 ### Prefetch Products & Warm Up
 
 <Note>
-  `warmUp()` and `PaymentIntent` preloading are iOS-specific APIs. On Android, products are cached in the `ZeroSettle.products` StateFlow after `bootstrap()` or `fetchProducts()` -- no additional warm-up step is needed.
+  `warmUp()` and `PaymentIntent` preloading are iOS-specific APIs. On Android, products are cached in the `ZeroSettle.products` StateFlow after `bootstrap()` or `fetchProducts()` --- no additional warm-up step is needed.
 </Note>
 
 When you call `bootstrap()`, products are fetched and the first product's `PaymentIntent` is warmed up automatically. No separate calls are needed.
@@ -1419,7 +1449,7 @@ struct HomeView: View {
             // Products already fetched by bootstrap() — warm up additional products
             let products = ZeroSettle.shared.products
             for product in products.prefix(3) {
-                await ZSPaymentSheet.warmUp(
+                await CheckoutSheet.warmUp(
                     productId: product.id,
                     userId: Auth.currentUser.id
                 )
@@ -1470,15 +1500,15 @@ For critical features, verify entitlements server-side:
 
 # Your backend calls ZeroSettle
 curl -X GET "https://api.zerosettle.io/v1/iap/entitlements?user_id=<user_id>" \
-  -H "X-ZeroSettle-Key: <secret_key>"
+  -H "X-ZeroSettle-Key: <publishable_key>"
 ```
 </CodeGroup>
 
-### Keep Secret Keys Server-Side
+### API Key Usage
 
-Only use publishable keys in your app. Secret keys belong on your server:
+All ZeroSettle API endpoints — including the REST API — authenticate with your **publishable key** (`zs_pk_live_...` or `zs_pk_test_...`) via the `X-ZeroSettle-Key` header. This is the same key you use in the SDK.
 
 | Key Type | Where to Use |
 |----------|--------------|
-| Publishable | iOS / Android app |
-| Secret | Your backend only |
+| Publishable (`zs_pk_`) | SDK, REST API, everywhere |
+| Secret (`zs_sk_`) | Reserved for future use |

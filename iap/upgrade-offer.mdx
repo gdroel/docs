@@ -1,0 +1,201 @@
+---
+title: 'Upgrade Offers'
+description: 'Prompt subscribers to upgrade and save with web checkout'
+icon: 'arrow-up-right'
+---
+
+Upgrade offers prompt eligible subscribers to switch from shorter billing cycles (e.g., monthly) to longer ones (e.g., annual) at a savings. The SDK handles proration for existing web checkout subscribers and shows Apple cancel instructions for StoreKit-to-web migrations.
+
+## SwiftUI Modifier
+
+The simplest way to present an upgrade offer is the `.upgradeOffer()` modifier:
+
+<CodeGroup>
+
+```swift Swift
+@State private var showUpgradeOffer = false
+
+Button("See Upgrade Options") {
+    showUpgradeOffer = true
+}
+.upgradeOffer(
+    isPresented: $showUpgradeOffer,
+    productId: "premium_monthly",
+    userId: currentUser.id
+) { result in
+    switch result {
+    case .upgraded:
+        showConfirmation("You've been upgraded!")
+    case .declined:
+        break
+    case .dismissed:
+        break
+    }
+}
+```
+
+```kotlin Kotlin
+// Launch from a button click or Composable
+scope.launch {
+    val result = ZeroSettle.presentUpgradeOffer(
+        activity = context as Activity,
+        productId = "premium_monthly",
+        userId = currentUser.id,
+    )
+    when (result) {
+        UpgradeOfferResult.Upgraded -> showConfirmation("You've been upgraded!")
+        UpgradeOfferResult.Declined -> { /* No action */ }
+        UpgradeOfferResult.Dismissed -> { /* No action */ }
+    }
+}
+```
+
+```dart Flutter
+final result = await ZeroSettle.instance.presentUpgradeOffer(
+  productId: 'premium_monthly',
+  userId: currentUser.id,
+);
+switch (result) {
+  case UpgradeOfferUpgraded():
+    showConfirmation("You've been upgraded!");
+  case UpgradeOfferDeclined():
+    break;
+  case UpgradeOfferDismissed():
+    break;
+}
+```
+
+</CodeGroup>
+
+## Programmatic API
+
+For more control over when and how offers are presented:
+
+<CodeGroup>
+
+```swift Swift
+let result = await ZeroSettle.shared.presentUpgradeOffer(
+    productId: "premium_monthly",
+    userId: currentUser.id
+)
+// result is UpgradeOffer.Result: .upgraded, .declined, or .dismissed
+```
+
+```kotlin Kotlin
+val result = ZeroSettle.presentUpgradeOffer(
+    activity = this,
+    productId = "premium_monthly",
+    userId = currentUser.id,
+)
+// result is UpgradeOfferResult: Upgraded, Declined, or Dismissed
+```
+
+```dart Flutter
+final result = await ZeroSettle.instance.presentUpgradeOffer(
+  productId: 'premium_monthly',
+  userId: currentUser.id,
+);
+// result is UpgradeOfferResult: UpgradeOfferUpgraded, UpgradeOfferDeclined, or UpgradeOfferDismissed
+```
+
+</CodeGroup>
+
+The `productId` parameter specifies the user's current product. The SDK fetches the configured upgrade target from the dashboard automatically.
+
+## Headless API
+
+Fetch the upgrade offer configuration without presenting any UI. Use this to build a custom upgrade experience or to check eligibility before showing your own prompt.
+
+<CodeGroup>
+
+```swift Swift
+let config = try await ZeroSettle.shared.fetchUpgradeOfferConfig(
+    productId: "premium_monthly",
+    userId: currentUser.id
+)
+
+if config.available, let target = config.targetProduct {
+    // Show your own upgrade UI
+    print("Save \(config.savingsPercent ?? 0)% by switching to \(target.name)")
+} else {
+    // User is not eligible — config.reason explains why
+    print("Not eligible: \(config.reason?.description ?? "unknown")")
+}
+```
+
+```kotlin Kotlin
+val config = ZeroSettle.fetchUpgradeOffer(
+    productId = "premium_monthly",
+    userId = currentUser.id,
+)
+
+if (config.available && config.targetProduct != null) {
+    // Show your own upgrade UI
+    println("Save ${config.savingsPercent}% by switching to ${config.targetProduct.name}")
+} else {
+    // User is not eligible
+    println("Not eligible: ${config.reason}")
+}
+```
+
+```dart Flutter
+final config = await ZeroSettle.instance.fetchUpgradeOfferConfig(
+  productId: 'premium_monthly',
+  userId: currentUser.id,
+);
+
+if (config.available && config.targetProduct != null) {
+  // Show your own upgrade UI
+  print('Save ${config.savingsPercent}% by switching to ${config.targetProduct!.name}');
+} else {
+  // User is not eligible
+  print('Not eligible: ${config.reason}');
+}
+```
+
+</CodeGroup>
+
+The config includes the current product, target product, savings percentage, proration details, and display copy — everything you need to render a custom offer.
+
+## Results
+
+| Result | Description |
+|--------|-------------|
+| `upgraded` / `Upgraded` | User accepted the offer and the upgrade was executed |
+| `declined` / `Declined` | User explicitly declined the offer |
+| `dismissed` / `Dismissed` | User dismissed the sheet without acting |
+
+## Upgrade Types
+
+The SDK handles two upgrade scenarios automatically:
+
+| Type | Description |
+|------|-------------|
+| `web_to_web` | User has an existing web checkout subscription. The SDK modifies the Stripe subscription in place with proration — the user pays the difference immediately and switches to the new billing cycle. |
+| `storekit_to_web` | User has a StoreKit subscription. The SDK creates a new web checkout subscription and shows Apple cancel instructions so the user can stop their App Store billing. |
+
+The upgrade type is determined automatically based on the user's current entitlement source. No code changes needed.
+
+## Dashboard Configuration
+
+Upgrade offers are configured entirely from the [ZeroSettle dashboard](/iap/dashboard):
+
+- **Upgrade paths** — Map source products to target products (e.g., monthly → annual)
+- **Messaging** — Customize the title, body, CTA, and dismiss text. Use `{savings_percent}` and `{target_name}` template variables for dynamic copy
+- **Minimum subscription age** — Only show offers to users who have been subscribed for a minimum number of days
+- **StoreKit migration messaging** — Separate body text and cancel instructions for users migrating from Apple billing
+
+<Tip>
+  Configure upgrade paths and messaging from the ZeroSettle dashboard. No code changes needed to update targeting or copy.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Customer Portal" icon="user-gear" href="/iap/customer-portal">
+    Let customers manage subscriptions and payment methods
+  </Card>
+  <Card title="Switch & Save" icon="gift" href="/iap/switch-and-save">
+    Drop-in view that migrates Apple subscribers to direct billing
+  </Card>
+</CardGroup>

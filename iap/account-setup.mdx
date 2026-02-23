@@ -1,0 +1,152 @@
+---
+title: 'Account Setup'
+description: 'Create your account, connect Stripe, and configure your first product'
+icon: 'user-plus'
+---
+
+## Create Your Account
+
+Sign up at [dashboard.zerosettle.io](https://dashboard.zerosettle.io) and create a workspace. Each workspace represents one organization and can contain multiple apps.
+
+After signing up, you'll be guided through onboarding: connecting Stripe, adding your first app, and creating your first product.
+
+## Connect Stripe
+
+ZeroSettle supports two Stripe integration modes. Choose one during onboarding:
+
+### Managed (Express)
+
+One-click onboarding via Stripe Express. ZeroSettle creates and manages Stripe products and prices automatically. Payouts go directly to your bank account.
+
+- **Fee:** 5% + 50¢ per transaction
+- **Setup:** Enter your business details in the Stripe Express flow
+- **Best for:** New apps, fast setup, no existing Stripe account
+
+### Bring Your Own Stripe (BYOS)
+
+Connect your existing Stripe standard account via OAuth. Keep your products, prices, and customers. Retain full access to the Stripe dashboard for reporting and analytics.
+
+- **Fee:** 0.5% per transaction
+- **Setup:** Authorize via OAuth, then map products in the [Stripe Catalog](/iap/stripe-catalog)
+- **Best for:** Apps with an existing Stripe integration
+
+### Comparison
+
+| | Managed (Express) | BYOS |
+|---|---|---|
+| **Setup time** | Minutes | 15–30 minutes |
+| **ZeroSettle fee** | 5% + 50¢ | 0.5% |
+| **Stripe product management** | Automatic | You manage via Stripe dashboard |
+| **Existing Stripe account required** | No | Yes |
+| **Full Stripe dashboard access** | No | Yes |
+| **Stripe Catalog mapping** | Not needed | Required |
+
+<Tip>
+  Start with **Managed** to get up and running quickly. You can switch to BYOS at any time from your tenant settings — existing Stripe Catalog mappings are preserved.
+</Tip>
+
+## Add Your App
+
+After connecting Stripe, add the app that will use ZeroSettle. There are two paths:
+
+### Option A: Connect App Store Connect
+
+Upload your App Store Connect API key to automatically sync your apps and products.
+
+1. In the dashboard, go to **Settings > App Store Connect**
+2. Upload your `.p8` key file
+3. Enter the **Key ID** and **Issuer ID** (found in App Store Connect under Users and Access > Integrations > App Store Connect API)
+4. The dashboard validates your credentials and syncs your apps automatically
+
+<Tip>
+  Connecting App Store Connect enables automatic product sync and StoreKit price fetching. This is the recommended path if you have existing App Store products.
+</Tip>
+
+### Option B: Create Manually
+
+If you don't have an App Store Connect key or prefer manual setup:
+
+1. Go to **Apps** in the dashboard
+2. Click **Add App**
+3. Enter your app name and bundle ID (e.g., `com.yourcompany.yourapp`)
+
+## Create Products
+
+Add your first product from the dashboard. Each product requires:
+
+| Field | Description |
+|---|---|
+| **Product ID** | Must match your App Store Connect product identifier (e.g., `com.app.premium_monthly`) |
+| **Display name** | Shown to users in the checkout UI |
+| **Description** | Product description |
+| **Type** | Auto-renewable subscription, non-renewing subscription, consumable, or non-consumable |
+| **Web price** | The price charged via web checkout |
+
+For subscriptions, you'll also configure:
+
+| Field | Description |
+|---|---|
+| **Subscription group** | Groups mutually exclusive subscription tiers (e.g., "Premium") |
+| **Duration** | Billing interval — weekly, monthly, quarterly, semi-annual, or annual |
+
+<Note>
+  If you connected App Store Connect, you can sync products directly from your ASC catalog. The dashboard will pre-fill product details and keep them in sync.
+</Note>
+
+## Your API Keys
+
+The dashboard provides publishable keys for sandbox and live environments:
+
+| Key | Prefix | Description |
+|---|---|---|
+| **Sandbox** | `zs_pk_test_` | No real charges. Use during development. |
+| **Live** | `zs_pk_live_` | Real payments processed via Stripe. |
+
+The key prefix determines sandbox vs live mode — there is no separate environment toggle.
+
+All ZeroSettle API endpoints — both the SDK and REST API — authenticate with your publishable key via the `X-ZeroSettle-Key` header.
+
+Pass your publishable key to the SDK at launch:
+
+<CodeGroup>
+```swift Swift
+ZeroSettle.shared.configure(.init(
+    publishableKey: "zs_pk_test_..."  // Sandbox for development
+))
+```
+
+```kotlin Kotlin
+ZeroSettle.configure(context, ZeroSettle.Configuration(
+    publishableKey = "zs_pk_test_..."  // Sandbox for development
+))
+```
+
+```tsx React Native
+await ZeroSettle.configure({
+    publishableKey: 'zs_pk_test_...',  // Sandbox for development
+});
+```
+
+```dart Flutter
+await ZeroSettle.instance.configure(
+    publishableKey: 'zs_pk_test_...',  // Sandbox for development
+);
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart (Swift)" icon="apple" href="/iap/quickstart">
+    Integrate the SDK into your iOS app
+  </Card>
+  <Card title="Quickstart (Android)" icon="android" href="/iap/quickstart-android">
+    Integrate the SDK into your Android app
+  </Card>
+  <Card title="Quickstart (Flutter)" icon="flutter" href="/iap/quickstart-flutter">
+    Integrate the SDK into your Flutter app
+  </Card>
+  <Card title="Testing & Sandbox" icon="flask-vial" href="/iap/testing">
+    Test purchases and entitlements before going live
+  </Card>
+</CardGroup>

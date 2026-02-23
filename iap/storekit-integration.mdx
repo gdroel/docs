@@ -79,18 +79,17 @@ A common pattern is to offer web checkout as the primary option with StoreKit as
 
 ```swift
 struct ProductView: View {
-    @State private var showPaymentSheet = false
+    @State private var selectedProduct: ZSProduct?
     let product: ZSProduct
 
     var body: some View {
         VStack(spacing: 16) {
             // Primary: Web checkout (lower fees)
             Button("Buy — \(product.webPrice.formatted)") {
-                showPaymentSheet = true
+                selectedProduct = product
             }
-            .zsPaymentSheet(
-                isPresented: $showPaymentSheet,
-                product: product,
+            .checkoutSheet(
+                item: $selectedProduct,
                 userId: currentUser.id
             ) { result in
                 handleResult(result)
@@ -138,7 +137,13 @@ class PurchaseManager: ZeroSettleDelegate {
 ```
 
 <Note>
-  Sync failures don't affect the StoreKit purchase itself. The user still gets their purchase through Apple. The sync will be retried the next time the app launches.
+  Sync failures don't affect the StoreKit purchase itself — the user gets their purchase through Apple immediately. Failed syncs are handled by a persistent retry queue:
+
+  - **Automatic retries**: Failed syncs are enqueued to `StoreKitSyncQueue` with exponential backoff (1s → 5s → 30s → 5min delays between attempts)
+  - **Persistence**: The retry queue is stored in `UserDefaults`, so pending syncs survive app restarts and device reboots
+  - **Max attempts**: Each sync is retried up to 5 times before being abandoned
+  - **Transaction safety**: On sync failure, `transaction.finish()` is **not** called — StoreKit will redeliver the unfinished transaction on the next app launch, providing an additional safety net beyond the retry queue
+  - **No user impact**: The purchase succeeds immediately through Apple; only the backend sync (entitlement creation, revenue tracking) is retried in the background
 </Note>
 
 ## Entitlement Sources

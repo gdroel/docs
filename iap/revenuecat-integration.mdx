@@ -110,11 +110,8 @@ let rcUserId = Purchases.shared.appUserID
 // Fetch ZeroSettle product catalog
 let catalog = try await ZeroSettle.shared.fetchProducts(userId: rcUserId)
 
-// Purchase via web checkout
-try await ZeroSettle.shared.purchase(
-    productId: product.id,
-    userId: rcUserId
-)
+// Purchase via web checkout using .checkoutSheet() in your SwiftUI view:
+// .checkoutSheet(item: $selectedProduct, userId: rcUserId) { result in ... }
 ```
 
 ```kotlin Kotlin
@@ -158,7 +155,7 @@ Show both ZeroSettle (web checkout) and RevenueCat (StoreKit/Play Billing) purch
 <CodeGroup>
 ```swift Swift
 struct PaywallView: View {
-    @State private var showPaymentSheet = false
+    @State private var selectedProduct: ZSProduct?
     let zsProduct: ZSProduct      // From ZeroSettleKit
     let rcPackage: Package        // From RevenueCat
 
@@ -166,11 +163,10 @@ struct PaywallView: View {
         VStack(spacing: 16) {
             // Web checkout — lower fees
             Button("Subscribe — \(zsProduct.webPrice.formatted)") {
-                showPaymentSheet = true
+                selectedProduct = zsProduct
             }
-            .zsPaymentSheet(
-                isPresented: $showPaymentSheet,
-                product: zsProduct,
+            .checkoutSheet(
+                item: $selectedProduct,
                 userId: Purchases.shared.appUserID
             ) { result in
                 if case .success = result {
@@ -267,16 +263,6 @@ try {
 await Purchases.purchasePackage(rcPackage);
 ```
 </CodeGroup>
-
-### Webhook Sync
-
-When a user purchases via ZeroSettle web checkout, you need to sync the entitlement to RevenueCat. Configure a webhook in your ZeroSettle dashboard that posts to RevenueCat's REST API:
-
-1. Go to your ZeroSettle dashboard
-2. Add a webhook endpoint pointing to your backend
-3. Your backend receives the purchase event and calls RevenueCat's [Grant Entitlement API](https://www.revenuecat.com/docs/api-v1#tag/Entitlements/operation/grant-a-promotional-entitlement)
-
-This ensures RevenueCat's `CustomerInfo` stays in sync with web checkout purchases.
 
 ## Option 2: RevenueCat Paywall Custom Button
 

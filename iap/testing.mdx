@@ -1,0 +1,139 @@
+---
+title: 'Testing & Sandbox'
+description: 'Test purchases, subscriptions, and entitlements before going live'
+icon: 'flask-vial'
+---
+
+## Sandbox Mode
+
+ZeroSettle uses separate sandbox and live environments, determined entirely by your API key prefix:
+
+- **Sandbox** (`zs_pk_test_`): Connects to Stripe's test environment. No real charges.
+- **Live** (`zs_pk_live_`): Connects to Stripe's live environment. Real payments processed.
+
+All SDK behavior is identical between sandbox and live — the only difference is which Stripe environment processes the payment. The dashboard has a **Sandbox** toggle in the top nav to switch between viewing sandbox and live data.
+
+## Test Cards
+
+Stripe provides test card numbers for simulating different payment outcomes. Use any future expiry date and any 3-digit CVC.
+
+| Card Number | Outcome |
+|---|---|
+| `4242 4242 4242 4242` | Successful payment |
+| `4000 0000 0000 0002` | Card declined |
+| `4000 0000 0000 3220` | 3D Secure authentication required |
+| `4000 0000 0000 9995` | Insufficient funds |
+
+<Tip>
+  For the full list of test cards (including specific error codes, international cards, and more), see [Stripe's testing documentation](https://docs.stripe.com/testing).
+</Tip>
+
+## End-to-End Test Flow
+
+Walk through a complete purchase cycle in sandbox:
+
+1. **Configure the SDK** with your sandbox key (`zs_pk_test_...`)
+2. **Create a test product** on the dashboard (make sure you're in sandbox mode)
+3. **Fetch products** — call `fetchProducts()` and verify your test product appears
+4. **Trigger a purchase** — present the payment sheet or Safari checkout and pay with a test card
+5. **Verify the transaction callback** — confirm your delegate receives `zeroSettleCheckoutDidComplete`
+6. **Check entitlements** — call `restoreEntitlements()` and verify the product is active
+7. **Verify in the dashboard** — switch to sandbox mode, open the **Transactions** tab, and confirm the transaction appears
+
+<CodeGroup>
+```swift Swift
+// 1. Configure with sandbox key
+ZeroSettle.shared.configure(.init(
+    publishableKey: "zs_pk_test_..."
+))
+
+// 2–3. Bootstrap fetches products and restores entitlements
+try await ZeroSettle.shared.bootstrap(userId: testUser.id)
+
+// 4. Trigger purchase (payment sheet or Safari)
+// Use test card 4242 4242 4242 4242
+
+// 5. Delegate callback fires
+func zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
+    print("Transaction: \(transaction.id)")
+}
+
+// 6. Verify entitlements
+let entitlements = try await ZeroSettle.shared.restoreEntitlements(
+    userId: testUser.id
+)
+print("Active: \(entitlements.filter { $0.isActive })")
+```
+
+```kotlin Kotlin
+// 1. Configure with sandbox key
+ZeroSettle.configure(context, ZeroSettle.Configuration(
+    publishableKey = "zs_pk_test_..."
+))
+
+// 2–3. Bootstrap fetches products and restores entitlements
+ZeroSettle.bootstrap(userId = testUser.id)
+
+// 4. Trigger purchase (payment sheet or Safari)
+// Use test card 4242 4242 4242 4242
+
+// 5. Delegate callback fires
+override fun zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
+    println("Transaction: ${transaction.id}")
+}
+
+// 6. Verify entitlements
+val entitlements = ZeroSettle.restoreEntitlements(userId = testUser.id)
+println("Active: ${entitlements.filter { it.isActive }}")
+```
+</CodeGroup>
+
+## Testing Subscriptions
+
+Subscription lifecycle works the same in sandbox as in production:
+
+- **Renewals** — Sandbox subscriptions renew on their normal schedule. Stripe's test clocks can be used to simulate time passing.
+- **Cancellation** — Users can cancel via the Stripe customer portal. The entitlement remains active until the end of the current billing period.
+- **Refunds** — Issue refunds from the dashboard or directly in the Stripe dashboard. Entitlements are revoked upon refund.
+
+<Note>
+  Sandbox subscriptions use real time intervals (e.g., a monthly subscription renews after 30 days). Use Stripe's [test clocks](https://docs.stripe.com/billing/testing/test-clocks) to fast-forward time during testing.
+</Note>
+
+## Resetting Sandbox Data
+
+The dashboard provides three reset options under **Settings > Sandbox**:
+
+### Reset to Live
+
+Copies your live products and subscription configurations into the sandbox environment. Useful when your live catalog has diverged from sandbox.
+
+```
+POST /api/v1/sandbox/reset-to-live/
+```
+
+### Reset to ASC
+
+Re-syncs the sandbox from App Store Connect. Pulls the latest product metadata from your ASC catalog into sandbox.
+
+```
+POST /api/v1/sandbox/reset-to-asc/
+```
+
+### Clear All
+
+Wipes all sandbox data — transactions, entitlements, and game sessions. Products are preserved.
+
+<Warning>
+  **Clear All** is irreversible. You'll be asked to confirm before the reset is applied.
+</Warning>
+
+## Common Issues
+
+| Symptom | Likely Cause | Fix |
+|---|---|---|
+| Products not loading | Wrong key or no sandbox products | Verify you're using `zs_pk_test_` and that products exist in sandbox mode on the dashboard |
+| Payment sheet not appearing | Web checkout disabled for jurisdiction | Check `isWebCheckoutEnabled` and verify jurisdiction config on the dashboard |
+| Entitlements not updating after purchase | Webhook not delivered | Call `restoreEntitlements()` to force a refresh; check webhook delivery in the Stripe dashboard |
+| "Web checkout disabled" error | Web checkout not enabled | Enable web checkout for the target jurisdiction on the dashboard |
+| Transaction succeeds but delegate not called | Delegate not set | Ensure `ZeroSettle.shared.delegate = self` is set before triggering the purchase |

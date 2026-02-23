@@ -192,11 +192,29 @@ try {
 
 This fetches entitlements from both ZeroSettle's web checkout system and StoreKit/Play Store (if native transaction syncing is enabled).
 
+### Anonymous Users
+
+`restoreEntitlements()` requires a `userId`. If your app doesn't have a user account system (anonymous mode), entitlements are linked to the **email address** the user enters during Stripe checkout — not to a userId.
+
+This means:
+
+- **During the session**: After a successful purchase, the SDK caches entitlements in memory. The user has access for the remainder of the session without calling `restoreEntitlements()`.
+- **On a new session or device**: `restoreEntitlements()` cannot recover entitlements without a userId. There is no SDK method for email-based restoration.
+- **REST API workaround**: You can query entitlements by email from your backend using the REST API (`?email=user@example.com`).
+
+<Warning>
+  If your app uses anonymous checkout (empty `userId`), users will lose access to their entitlements when the app is reinstalled or on a new device. Consider prompting users to create an account after purchase, or use the REST API to implement email-based restoration in your backend. See [User Identity — Anonymous Users](/iap/user-identity#option-3-anonymous-users) for details.
+</Warning>
+
 ## Cache
 
-The SDK caches the user's subscription information to reduce your app's reliance on the network.
+The SDK caches the user's subscription information **in memory** to reduce your app's reliance on the network. The cache is not persisted to disk — it is cleared when the app process terminates.
 
-Users who unlock entitlements will be able to access them even without an internet connection. The SDK will update the cache if it's older than 5 minutes when you call `restoreEntitlements()`, make a purchase, or restore purchases. It's a good idea to call `restoreEntitlements()` any time a user accesses premium content.
+Users who unlock entitlements will be able to access them even without an internet connection for the duration of the session. The SDK will update the cache if it's older than 5 minutes when you call `restoreEntitlements()`, make a purchase, or restore purchases. It's a good idea to call `restoreEntitlements()` on app launch and any time a user accesses premium content.
+
+<Note>
+  Because the cache is in-memory only, you should call `restoreEntitlements()` on every app launch to rehydrate the user's entitlements from the server.
+</Note>
 
 ## Listening For Entitlement Updates
 
@@ -306,12 +324,29 @@ StreamBuilder<List<Entitlement>>(
 
 If you need to get a user's subscription status from outside of the ZeroSettle SDK, for example, from your own backend, you should use the REST API.
 
+Query by user ID:
+
 ```bash
 curl --request GET \
   --url https://api.zerosettle.io/v1/iap/entitlements?user_id=app_user_id \
   --header 'Content-Type: application/json' \
-  --header 'X-ZeroSettle-Key: your_secret_key'
+  --header 'X-ZeroSettle-Key: zs_pk_live_...'
 ```
+
+Query by email (for anonymous users without a user ID):
+
+```bash
+curl --request GET \
+  --url https://api.zerosettle.io/v1/iap/entitlements?email=user@example.com \
+  --header 'Content-Type: application/json' \
+  --header 'X-ZeroSettle-Key: zs_pk_live_...'
+```
+
+Either `user_id` or `email` is required. The email parameter is useful for recovering entitlements for [anonymous users](/iap/user-identity#option-3-anonymous-users) who purchased without a user account.
+
+<Note>
+  All API endpoints authenticate with your **publishable key** (`zs_pk_live_...` or `zs_pk_test_...`) via the `X-ZeroSettle-Key` header — the same key you use in the SDK.
+</Note>
 
 ## Handling Refunds
 

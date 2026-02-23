@@ -206,11 +206,13 @@ ZSMigrationManager.resetDismissedState()
 ```
 
 ```tsx React Native
-// Not available in React Native — use the native iOS debug tools.
+import { resetMigrateTipState } from 'react-native-zerosettle-kit';
+
+resetMigrateTipState();
 ```
 
 ```dart Flutter
-// Not available in Flutter — use the native iOS debug tools.
+await ZeroSettle.instance.resetMigrateTipState();
 ```
 
 ```kotlin Kotlin

@@ -73,22 +73,21 @@ for product in catalog.products {
 
 ## Make a Purchase
 
-### Option 1: Payment Sheet (Recommended)
+### Payment Sheet
 
-Present an embedded payment sheet with Apple Pay and card support. The user never leaves your app.
+Present a checkout sheet with Apple Pay and card support. The checkout mode (embedded webview, Safari VC, or external Safari) is controlled by your remote config on the dashboard — `checkoutSheet` handles all modes automatically.
 
 ```swift
 struct PaywallView: View {
-    @State private var showCheckout = false
+    @State private var selectedProduct: Product?
     let product: ZSProduct
 
     var body: some View {
         Button("Subscribe — \(product.webPrice.formatted)") {
-            showCheckout = true
+            selectedProduct = product
         }
-        .zsPaymentSheet(
-            isPresented: $showCheckout,
-            product: product,
+        .checkoutSheet(
+            item: $selectedProduct,
             userId: currentUser.id
         ) { result in
             switch result {
@@ -102,24 +101,11 @@ struct PaywallView: View {
 }
 ```
 
-See [Payment Sheet](/iap/payment-sheet) for the full guide on `ZSPaymentSheet`, including preloading, custom headers, and UIKit usage.
-
-### Option 2: Safari Checkout
-
-Opens the checkout in Safari. The result comes back via universal link.
-
-```swift
-try await ZeroSettle.shared.purchase(
-    productId: "premium_monthly",
-    userId: currentUser.id
-)
-```
-
-See [Universal Links](/iap/universal-links) for setup instructions.
+See [Payment Sheet](/iap/payment-sheet) for the full guide on `checkoutSheet`, including preloading, custom headers, and UIKit usage.
 
 ## Handle Universal Link Callback
 
-For Safari-based checkout, the result comes back via universal link. Add the `.zeroSettleHandler()` modifier to your root view:
+For Safari-based checkout modes, the result comes back via universal link. Add the `.zeroSettleHandler()` modifier to your root view:
 
 ```swift
 @main
@@ -226,7 +212,7 @@ struct ContentView: View {
                 }
             }
         }
-        .zsPaymentSheet(
+        .checkoutSheet(
             item: $selectedProduct,
             userId: Auth.currentUser.id
         ) { result in

@@ -6,6 +6,10 @@ icon: 'gauge'
 
 The [ZeroSettle dashboard](https://dashboard.zerosettle.io) is where you manage everything that doesn't require a code change — products, pricing, checkout behavior, promotions, and migration campaigns. Changes take effect immediately without an app update.
 
+<Note>
+  New to ZeroSettle? Start with [Account Setup](/iap/account-setup) for a step-by-step walkthrough of creating your account, connecting Stripe, and adding your first product.
+</Note>
+
 ## API Keys
 
 Your dashboard provides two publishable keys:
@@ -317,6 +321,8 @@ await ZeroSettle.instance.trackMigrationConversion(userId: user.id);
 
 See [StoreKit Integration](/iap/storekit-integration) for the full migration guide.
 
+For detailed dashboard configuration options — rollout percentage, eligibility targeting, and analytics — see [Campaigns & Offers](/iap/campaigns).
+
 ## Stripe Integration
 
 ZeroSettle supports two payment modes. Choose one during onboarding:
@@ -357,3 +363,13 @@ Most configuration is dashboard-driven. Here's a quick reference:
 | Choose `isPresented:` vs `item:` API | No | Yes |
 | Handle purchase results | No | Yes |
 | Set up universal links (Safari flow) | No | Yes |
+
+## Cancel Flow
+
+Configure cancellation questionnaires and retention offers to reduce churn — all from the dashboard.
+
+<Card title="Cancel Flow Configuration" icon="user-xmark" href="/iap/cancel-flow">
+  Set up questions, retention offers, and pause options from the dashboard.
+</Card>
+
+For SDK integration, see [Customer Portal — Cancel Flow](/iap/customer-portal#cancel-flow).

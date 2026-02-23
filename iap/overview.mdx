@@ -1,6 +1,6 @@
 ---
 title: 'Overview'
-description: 'Web checkout SDK for mobile apps'
+description: 'Web checkout and subscription lifecycle SDK for mobile apps'
 icon: 'credit-card'
 ---
 
@@ -19,7 +19,7 @@ The platform handles payments, tax compliance, refunds, receipts, and liability.
 | **Payouts** | 45+ days | [Instant via Stripe](https://connect.stripe.com/express_login) |
 | **Your Stripe account** | N/A | Use your own (BYOS) or ours (Managed) |
 
-With **Bring Your Own Stripe (BYOS)**, you connect your existing Stripe account and keep your products, prices, customers, and reporting. Charges go directly to your account — ZeroSettle adds the Merchant of Record layer on top. BYOS fee is 1%.
+With **Bring Your Own Stripe (BYOS)**, you connect your existing Stripe account and keep your products, prices, customers, and reporting. Charges go directly to your account — ZeroSettle adds the Merchant of Record layer on top. BYOS fee is 0.5%.
 
 ## Payment Modes
 
@@ -32,7 +32,7 @@ Choose the integration that fits your business:
 | **Revenue reporting** | Via ZeroSettle dashboard | Your Stripe dashboard + ZeroSettle |
 | **Customer data** | Managed by ZeroSettle | In your Stripe account |
 | **Setup time** | ~2 minutes | ~10 minutes (connect + map products) |
-| **Fee** | 5% + 50¢ | 1% |
+| **Fee** | 5% + 50¢ | 0.5% |
 
 Both modes share the same SDK integration — no code differences. The only setup difference is on the dashboard.
 
@@ -53,12 +53,12 @@ There are three checkout modes, controlled server-side via remote config:
 
 ### Embedded Payment Sheet (Recommended)
 
-`ZSPaymentSheet` presents a native-feeling bottom sheet inside your app. It loads a WKWebView with Apple Pay and card entry. The user never leaves your app.
+`checkoutSheet` presents a native-feeling bottom sheet inside your app. It loads a WKWebView with Apple Pay and card entry. The user never leaves your app.
 
 <CodeGroup>
 
 ```swift Swift
-.zsPaymentSheet(isPresented: $showCheckout, product: product, userId: user.id) { result in
+.checkoutSheet(item: $selectedProduct, userId: user.id) { result in
     switch result {
     case .success(let transaction):
         print("Purchased: \(transaction.productId)")
@@ -147,9 +147,31 @@ Opens the checkout URL in the user's default browser. The result returns to your
 | Flutter | Flutter 3.3.0+, iOS 17.0+ / Android API 26+ | Available |
 | React Native | — | Coming soon |
 
+## Beyond Checkout
+
+ZeroSettle includes a full subscription lifecycle toolkit — all configured from the dashboard with built-in A/B testing.
+
+<CardGroup cols={2}>
+  <Card title="Upgrade Offers" icon="arrow-up-right" href="/iap/upgrade-offer">
+    Prompt subscribers to upgrade billing cycles with prorated savings
+  </Card>
+  <Card title="Switch & Save" icon="gift" href="/iap/switch-and-save">
+    Migrate Apple subscribers to direct billing with discount incentives
+  </Card>
+  <Card title="Cancel Flows & Pause" icon="user-gear" href="/iap/customer-portal">
+    Retention questionnaires, save offers, and subscription pausing
+  </Card>
+  <Card title="Customer Portal" icon="credit-card" href="/iap/customer-portal">
+    Stripe-powered subscription management for your users
+  </Card>
+</CardGroup>
+
 ## Get Started
 
 <CardGroup cols={2}>
+  <Card title="Account Setup" icon="user-plus" href="/iap/account-setup">
+    Create your account, connect Stripe, and set up products
+  </Card>
   <Card title="Installation" icon="download" href="/iap/installation">
     Add the SDK to your project
   </Card>

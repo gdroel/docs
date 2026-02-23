@@ -1,10 +1,10 @@
 ---
-title: 'Payment Sheet'
+title: 'Checkout Sheet'
 description: 'Embedded checkout UI with Apple Pay and card support'
 icon: 'credit-card'
 ---
 
-`ZSPaymentSheet` is an embedded checkout experience that presents a native-feeling bottom sheet inside your app. Users can pay with Apple Pay or enter a card — without ever leaving your app.
+`checkoutSheet` is an embedded checkout experience that presents a native-feeling bottom sheet inside your app. Users can pay with Apple Pay or enter a card — without ever leaving your app. It automatically reads your dashboard configuration to choose the correct checkout mode (webview, Safari VC, or external Safari).
 
 This is the recommended way to accept payments with ZeroSettle.
 
@@ -12,24 +12,20 @@ This is the recommended way to accept payments with ZeroSettle.
 
 ### Basic Usage
 
-Use the `.zsPaymentSheet()` view modifier to present the payment sheet:
+Use the `.checkoutSheet()` view modifier to present the checkout sheet:
 
 <CodeGroup>
 
 ```swift Swift
 struct PaywallView: View {
-    @State private var showCheckout = false
+    @State private var selectedProduct: ZSProduct?
     let product: ZSProduct
 
     var body: some View {
         Button("Subscribe — \(product.webPrice.formatted)") {
-            showCheckout = true
+            selectedProduct = product
         }
-        .zsPaymentSheet(
-            isPresented: $showCheckout,
-            product: product,
-            userId: currentUser.id
-        ) { result in
+        .checkoutSheet(item: $selectedProduct, userId: currentUser.id) { result in
             switch result {
             case .success(let transaction):
                 unlockContent(transaction.productId)
@@ -101,29 +97,24 @@ try {
 
 ### Custom Header
 
-Add a custom header view above the payment sheet to show product details, branding, or promotional messaging:
+Add a custom header view above the checkout sheet to show product details, branding, or promotional messaging:
 
 <CodeGroup>
 
 ```swift Swift
-.zsPaymentSheet(
-    isPresented: $showCheckout,
-    product: product,
-    userId: currentUser.id,
-    header: {
-        VStack(spacing: 8) {
-            Image("premium-icon")
-                .resizable()
-                .frame(width: 60, height: 60)
-            Text(product.displayName)
-                .font(.title2.bold())
-            Text(product.productDescription)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
+.checkoutSheet(item: $selectedProduct, userId: currentUser.id, header: {
+    VStack(spacing: 8) {
+        Image("premium-icon")
+            .resizable()
+            .frame(width: 60, height: 60)
+        Text(selectedProduct?.displayName ?? "")
+            .font(.title2.bold())
+        Text(selectedProduct?.productDescription ?? "")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
     }
-) { result in
+    .padding()
+}) { result in
     // Handle result
 }
 ```
@@ -158,7 +149,7 @@ final transaction = await ZeroSettle.instance.presentPaymentSheet(
 
 ### Item-Based Presentation
 
-If you have an optional `ZSProduct?` binding (e.g., a selected product from a list), use the item-based modifier. The sheet presents when the binding is non-nil and automatically sets it back to `nil` on dismiss:
+The `checkoutSheet` modifier uses an item-based binding by default. Pass an optional `ZSProduct?` binding — the sheet presents when the binding is non-nil and automatically sets it back to `nil` on dismiss:
 
 <CodeGroup>
 
@@ -173,10 +164,7 @@ struct PaywallView: View {
                 selectedProduct = product
             }
         }
-        .zsPaymentSheet(
-            item: $selectedProduct,
-            userId: currentUser.id
-        ) { result in
+        .checkoutSheet(item: $selectedProduct, userId: currentUser.id) { result in
             handleResult(result)
         }
     }
@@ -218,12 +206,7 @@ Pass `dismissible: false` to prevent the user from swiping to dismiss the sheet.
 <CodeGroup>
 
 ```swift Swift
-.zsPaymentSheet(
-    isPresented: $showCheckout,
-    product: product,
-    userId: currentUser.id,
-    dismissible: false
-) { result in
+.checkoutSheet(item: $selectedProduct, userId: currentUser.id, dismissible: false) { result in
     handleResult(result)
 }
 ```
@@ -258,17 +241,17 @@ final transaction = await ZeroSettle.instance.presentPaymentSheet(
 
 ### Direct View Usage
 
-You can also use `ZSPaymentSheet` as a standalone view, for example inside a `.sheet()`:
+You can also use `CheckoutSheet` as a standalone view, for example inside a `.sheet()`:
 
 <CodeGroup>
 
 ```swift Swift
-.sheet(isPresented: $showCheckout) {
-    ZSPaymentSheet(
+.sheet(item: $selectedProduct) { product in
+    CheckoutSheet(
         product: product,
         userId: currentUser.id
     ) { result in
-        showCheckout = false
+        selectedProduct = nil
         handleResult(result)
     }
 }
@@ -307,8 +290,8 @@ Or with a custom header:
 <CodeGroup>
 
 ```swift Swift
-.sheet(isPresented: $showCheckout) {
-    ZSPaymentSheet(
+.sheet(item: $selectedProduct) { product in
+    CheckoutSheet(
         product: product,
         userId: currentUser.id,
         header: {
@@ -317,7 +300,7 @@ Or with a custom header:
                 .padding()
         }
     ) { result in
-        showCheckout = false
+        selectedProduct = nil
         handleResult(result)
     }
 }
@@ -352,7 +335,7 @@ final transaction = await ZeroSettle.instance.presentPaymentSheet(
 </CodeGroup>
 
 <Info>
-  The SwiftUI-specific APIs above (`isPresented:`, `item:`, custom headers, `dismissible:`) are iOS-only. On Android, use `ZeroSettle.purchase()` which handles all presentation automatically. See the [Android section](#android) below.
+  The SwiftUI-specific APIs above (`checkoutSheet` modifier, custom headers, `dismissible:`) are iOS-only. On Android, use `ZeroSettle.purchase()` which handles all presentation automatically. See the [Android section](#android) below.
 </Info>
 
 ## UIKit
@@ -362,7 +345,7 @@ Present the payment sheet from any view controller:
 <CodeGroup>
 
 ```swift Swift
-ZSPaymentSheet.present(
+CheckoutSheet.present(
     from: self,
     product: product,
     userId: currentUser.id
@@ -406,7 +389,7 @@ You can also pass `dismissible: false`, or provide a preloaded `checkoutURL` and
 <CodeGroup>
 
 ```swift Swift
-ZSPaymentSheet.present(
+CheckoutSheet.present(
     from: self,
     product: product,
     userId: currentUser.id,
@@ -535,45 +518,29 @@ try {
 
 </CodeGroup>
 
-## Choosing a Presentation API
+## Presentation API
 
-The payment sheet offers two SwiftUI modifier styles. Choose based on your UI pattern:
+The `checkoutSheet` modifier uses an `item:` binding (`Binding<ZSProduct?>`) that mirrors SwiftUI's `.sheet(item:)` pattern. Set the binding to a product to present the sheet, and it automatically resets to `nil` on dismiss.
 
-| | `isPresented:` | `item:` |
-|---|---|---|
-| **Binding type** | `Binding<Bool>` | `Binding<ZSProduct?>` |
-| **Best for** | Single-product paywalls, "Buy Now" buttons | Product lists, multi-product stores |
-| **Product source** | Passed as a separate parameter | Driven by the binding itself |
-| **Dismiss behavior** | You set `isPresented = false` | Automatically sets `item = nil` |
-| **Re-open speed** | Fast — preloader stays alive, cache hit | Fast — preloader survives nil/non-nil transitions |
+This works for both single-product paywalls (set `selectedProduct = product` on a "Buy" button) and multi-product stores (set `selectedProduct` from a list selection).
 
-<Tip>
-  **Use `item:`** when the user picks from a list of products — it mirrors SwiftUI's `.sheet(item:)` pattern and is the most ergonomic API for multi-product stores.
-
-  **Use `isPresented:`** when you have a fixed product and a simple "Buy" button.
-</Tip>
-
-Both APIs share the same caching and preloading behavior described below.
+The modifier shares the same caching and preloading behavior described below.
 
 <Note>
-  On Android, there is a single `ZeroSettle.purchase()` API that handles all presentation. The `isPresented:` vs `item:` distinction is iOS-only.
+  On Android, there is a single `ZeroSettle.purchase()` API that handles all presentation. The `checkoutSheet` modifier is iOS-only.
 </Note>
 
 ## Performance & Caching
 
 ### Automatic Preloading
 
-The `.zsPaymentSheet()` view modifier automatically preloads both the `PaymentIntent` and the `WKWebView` before presenting the sheet. When the user taps "Buy", the checkout is fully rendered the moment it slides up — no manual preloading is needed.
+The `.checkoutSheet()` view modifier automatically preloads both the `PaymentIntent` and the `WKWebView` before presenting the sheet. When the user taps "Buy", the checkout is fully rendered the moment it slides up — no manual preloading is needed.
 
 <CodeGroup>
 
 ```swift Swift
 // The modifier handles preloading automatically — just use it as normal
-.zsPaymentSheet(
-    isPresented: $showCheckout,
-    product: product,
-    userId: currentUser.id
-) { result in
+.checkoutSheet(item: $selectedProduct, userId: currentUser.id) { result in
     handleResult(result)
 }
 ```
@@ -613,13 +580,13 @@ The SDK automatically caches `PaymentIntent` results (the checkout URL and trans
 - **The cache is shared** across all payment sheet instances in your app.
 - **The cache invalidates automatically** after a successful payment, so the next open gets a fresh `PaymentIntent`.
 
-No code changes are needed to benefit from caching — it works automatically with both `isPresented:` and `item:` APIs.
+No code changes are needed to benefit from caching — it works automatically with the `checkoutSheet` modifier.
 
 ### Eager Warm-Up
 
 When you provide `userId` in `configure()`, the first product's `PaymentIntent` is automatically warmed up. For most apps, this is sufficient and no manual warm-up is needed.
 
-For advanced scenarios — such as warming up multiple products or a specific product the user is likely to buy — call `ZSPaymentSheet.warmUp()` manually:
+For advanced scenarios — such as warming up multiple products or a specific product the user is likely to buy — call `CheckoutSheet.warmUp()` manually:
 
 <CodeGroup>
 
@@ -633,13 +600,13 @@ struct StoreView: View {
             .task {
                 // Products already fetched by configure() — warm up additional ones
                 for product in iap.products.prefix(3) {
-                    await ZSPaymentSheet.warmUp(
+                    await CheckoutSheet.warmUp(
                         productId: product.id,
                         userId: currentUser.id
                     )
                 }
             }
-            .zsPaymentSheet(item: $selectedProduct, userId: currentUser.id) { result in
+            .checkoutSheet(item: $selectedProduct, userId: currentUser.id) { result in
                 handleResult(result)
             }
     }
@@ -691,20 +658,20 @@ The API call is typically 200-500ms. Warm-up eliminates this entirely for the fi
 
 ### Manual Preloading
 
-For the direct `ZSPaymentSheet` init or UIKit's `present` method, you can preload the `PaymentIntent` yourself using `ZSPaymentSheet.preload()`:
+For the direct `CheckoutSheet` init or UIKit's `present` method, you can preload the `PaymentIntent` yourself using `CheckoutSheet.preload()`:
 
 <CodeGroup>
 
 ```swift Swift
 // Preload while the user browses
-let preloaded = await ZSPaymentSheet.preload(
+let preloaded = await CheckoutSheet.preload(
     productId: product.id,
     userId: currentUser.id
 )
 
 // Later, pass the preloaded data to the direct init
-.sheet(isPresented: $showCheckout) {
-    ZSPaymentSheet(
+.sheet(item: $selectedProduct) { product in
+    CheckoutSheet(
         product: product,
         userId: currentUser.id,
         checkoutURL: preloaded?.checkoutURL,
@@ -741,28 +708,22 @@ await ZeroSettle.instance.preloadPaymentSheet(
 </Note>
 
 <Tip>
-  Manual preloading is only needed when using `ZSPaymentSheet` as a standalone view or via UIKit's `present` method. The `.zsPaymentSheet()` modifier handles this automatically.
+  Manual preloading is only needed when using `CheckoutSheet` as a standalone view or via UIKit's `present` method. The `.checkoutSheet()` modifier handles this automatically.
 </Tip>
 
 ### Declarative Preloading (Swift)
 
-For the `.zsPaymentSheet()` modifier, you can pass a `preload:` parameter to automatically preload payment intents:
+For the `.checkoutSheet()` modifier, you can pass a `preload:` parameter to automatically preload payment intents:
 
 ```swift Swift
 // Preload all products
-.zsPaymentSheet(
-    isPresented: $showCheckout,
-    product: product,
-    userId: currentUser.id,
-    preload: .all
-) { result in
+.checkoutSheet(item: $selectedProduct, userId: currentUser.id, preload: .all) { result in
     handleResult(result)
 }
 
 // Preload specific products
-.zsPaymentSheet(
-    isPresented: $showCheckout,
-    product: product,
+.checkoutSheet(
+    item: $selectedProduct,
     userId: currentUser.id,
     preload: .specified(iap.products.prefix(3).map { $0 })
 ) { result in
@@ -782,7 +743,7 @@ For the `.zsPaymentSheet()` modifier, you can pass a `preload:` parameter to aut
 
 ## Android
 
-On Android, the payment sheet is presented as a `ZSPaymentSheetActivity` — a full-screen Activity with an embedded WebView. The SDK handles creating and launching this Activity automatically when you call `purchase()`.
+On Android, the checkout sheet is presented as a `ZSPaymentSheetActivity` — a full-screen Activity with an embedded WebView. The SDK handles creating and launching this Activity automatically when you call `purchase()`.
 
 ### Compose
 
@@ -996,25 +957,25 @@ try {
 </CodeGroup>
 
 <Note>
-  The iOS-specific APIs (`zsPaymentSheet` modifier, `warmUp()`, `preload()`) are not available on Android. On Android, use `ZeroSettle.purchase()` directly — it creates the `PaymentIntent` and presents the checkout UI in a single call.
+  The iOS-specific APIs (`checkoutSheet` modifier, `warmUp()`, `preload()`) are not available on Android. On Android, use `ZeroSettle.purchase()` directly — it creates the `PaymentIntent` and presents the checkout UI in a single call.
 </Note>
 
 ## How It Works
 
-Under the hood, `ZSPaymentSheet`:
+Under the hood, `CheckoutSheet`:
 
 1. Checks the `PaymentIntent` cache (5-min TTL) — on a cache hit, skips the network call
 2. If no cache hit, creates a Stripe `PaymentIntent` via the ZeroSettle API and caches the result
 3. Loads the checkout page in a `WKWebView` with Apple Pay and card entry
 4. Communicates payment status back to your app via a JavaScript bridge
 5. Verifies the transaction server-side and invalidates the cache for this product
-6. Returns a `ZSTransaction` to your completion handler
+6. Returns a `CheckoutTransaction` to your completion handler
 
 The user sees a native-looking sheet with Apple Pay as the primary option and a card form as fallback.
 
 ## Error Handling
 
-The completion handler receives a `Result<ZSTransaction, Error>`. Payment-specific errors are of type `PaymentSheetError` (iOS) or `ZSError` (Android):
+The completion handler receives a `Result<CheckoutTransaction, Error>`. Payment-specific errors are of type `PaymentSheetError` (iOS) or `ZSError` (Android):
 
 <CodeGroup>
 
@@ -1202,12 +1163,7 @@ Pass `freeTrialDays` to offer a trial period before the first charge:
 <CodeGroup>
 
 ```swift Swift
-.zsPaymentSheet(
-    isPresented: $showCheckout,
-    product: product,
-    userId: currentUser.id,
-    freeTrialDays: 7
-) { result in
+.checkoutSheet(item: $selectedProduct, userId: currentUser.id, freeTrialDays: 7) { result in
     handleResult(result)
 }
 ```
