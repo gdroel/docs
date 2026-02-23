@@ -156,16 +156,6 @@ Clears the persisted dismissal, allowing the offer to reappear. Useful for debug
 ZSMigrationManager.resetDismissedState()
 ```
 
-### `demoMode`
-
-Set `ZSMigrationManager.demoMode = true` before bootstrapping to preview the switch and save UI without an active StoreKit subscription. The manager synthesizes a demo offer so you can test your custom UI in the simulator.
-
-```swift
-ZSMigrationManager.demoMode = true
-ZeroSettle.configure(publishableKey: "pk_test_...")
-await ZeroSettle.bootstrap(userId: "demo_user")
-```
-
 ## Full Example
 
 A complete custom switch and save card with loading, error, checkout, and completion states:
