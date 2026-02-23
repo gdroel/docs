@@ -69,6 +69,7 @@
                   "iap/user-identity",
                   "iap/subscription-state",
                   "iap/customer-portal",
+                  "iap/custom-cancel-flow",
                   "iap/upgrade-offer",
                   "iap/refunding-payments",
                   "iap/payouts"

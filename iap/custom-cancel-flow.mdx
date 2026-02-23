@@ -1,0 +1,597 @@
+---
+title: 'Custom Cancel Flow'
+description: 'Build your own cancellation UI with headless cancel flow primitives'
+icon: 'puzzle-piece'
+---
+
+The built-in cancel flow (`presentCancelFlow`) provides a complete retention sheet out of the box. If you need full control over the UI — custom animations, native-feeling screens, or a flow that matches your app's design system — use the headless cancel flow primitives instead.
+
+You get the same backend-driven questionnaire, save offers, and pause options, but you render every pixel yourself.
+
+## How It Works
+
+The headless cancel flow is a set of flat, standalone methods. There's no session object or state machine — you call each primitive when you need it, in whatever order makes sense for your UI.
+
+```
+┌─────────────┐
+│  Your UI     │  ← You build this
+└──────┬──────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────┐
+│  cancelFlowConfig         → Read questionnaire   │
+│  acceptSaveOffer()        → Apply Stripe coupon   │
+│  pauseSubscription()      → Pause via Stripe      │
+│  cancelSubscription()     → Cancel via Stripe     │
+│  openCustomerPortal()     → Stripe billing portal │
+│  submitCancelFlowResponse() → Analytics tracking  │
+└──────────────────────────────────────────────────┘
+```
+
+## Quick Start
+
+<CodeGroup>
+
+```swift Swift
+// 1. Config is already loaded — read it directly
+guard let config = ZeroSettle.shared.cancelFlowConfig, config.enabled else {
+    return // Cancel flow not configured
+}
+
+// 2. Show your questionnaire UI using config.questions
+let questions = config.questions.sorted(by: { $0.order < $1.order })
+
+// 3. Check if the user's answer triggers a save offer
+let selectedOption = questions[0].options.first { $0.id == selectedOptionId }
+if selectedOption?.triggersOffer == true, let offer = config.offer, offer.enabled {
+    // Show your save offer UI using offer.title, offer.body, offer.ctaText
+}
+
+// 4. If user accepts the offer, apply it
+let result = try await ZeroSettle.shared.acceptSaveOffer(
+    productId: "premium_monthly",
+    userId: currentUser.id
+)
+// result.message = "40% off for 3 months"
+
+// 5. Submit analytics
+await ZeroSettle.shared.submitCancelFlowResponse(CancelFlow.Response(
+    productId: "premium_monthly",
+    userId: currentUser.id,
+    outcome: .retained,
+    answers: [CancelFlow.Answer(questionId: 1, selectedOptionId: 3)],
+    offerShown: true,
+    offerAccepted: true
+))
+```
+
+```kotlin Kotlin
+// 1. Config is already loaded — read it directly
+val config = ZeroSettle.cancelFlowConfig.value ?: return
+if (!config.enabled) return
+
+// 2. Show your questionnaire UI using config.questions
+val questions = config.questions.sortedBy { it.order }
+
+// 3. Check if the user's answer triggers a save offer
+val selectedOption = questions[0].options.firstOrNull { it.id == selectedOptionId }
+if (selectedOption?.triggersOffer == true && config.offer?.enabled == true) {
+    // Show your save offer UI using offer.title, offer.body, offer.ctaText
+}
+
+// 4. If user accepts the offer, apply it
+val result = ZeroSettle.acceptSaveOffer(
+    productId = "premium_monthly",
+    userId = currentUser.id,
+)
+// result.message = "40% off for 3 months"
+
+// 5. Submit analytics
+ZeroSettle.submitCancelFlowResponse(CancelFlowResponse(
+    productId = "premium_monthly",
+    userId = currentUser.id,
+    outcome = CancelFlowOutcome.RETAINED,
+    answers = listOf(CancelFlowAnswer(questionId = 1, selectedOptionId = 3)),
+    offerShown = true,
+    offerAccepted = true,
+))
+```
+
+```dart Flutter
+// 1. Config is already loaded — read it directly
+final config = await ZeroSettle.instance.getCancelFlowConfig();
+if (config == null || !config.enabled) return;
+
+// 2. Show your questionnaire UI using config.questions
+final questions = config.questions..sort((a, b) => a.order.compareTo(b.order));
+
+// 3. Check if the user's answer triggers a save offer
+final selectedOption = questions[0].options.firstWhere((o) => o.id == selectedOptionId);
+if (selectedOption.triggersOffer && config.offer != null && config.offer!.enabled) {
+    // Show your save offer UI using offer.title, offer.body, offer.ctaText
+}
+
+// 4. If user accepts the offer, apply it
+final result = await ZeroSettle.instance.acceptSaveOffer(
+  productId: 'premium_monthly',
+  userId: currentUser.id,
+);
+// result.message = "40% off for 3 months"
+
+// 5. Submit analytics
+await ZeroSettle.instance.submitCancelFlowResponse(CancelFlowResponse(
+  productId: 'premium_monthly',
+  userId: currentUser.id,
+  outcome: CancelFlowOutcome.retained,
+  answers: [CancelFlowAnswer(questionId: 1, selectedOptionId: 3)],
+  offerShown: true,
+  offerAccepted: true,
+));
+```
+
+```tsx React Native
+import {
+  getCancelFlowConfig,
+  acceptSaveOffer,
+  submitCancelFlowResponse,
+} from 'react-native-zerosettle-kit';
+
+// 1. Config is already loaded — read it directly
+const config = await getCancelFlowConfig();
+if (!config?.enabled) return;
+
+// 2. Show your questionnaire UI using config.questions
+const questions = [...config.questions].sort((a, b) => a.order - b.order);
+
+// 3. Check if the user's answer triggers a save offer
+const selectedOption = questions[0].options.find(o => o.id === selectedOptionId);
+if (selectedOption?.triggersOffer && config.offer?.enabled) {
+    // Show your save offer UI using offer.title, offer.body, offer.ctaText
+}
+
+// 4. If user accepts the offer, apply it
+const result = await acceptSaveOffer('premium_monthly', currentUser.id);
+// result.message = "40% off for 3 months"
+
+// 5. Submit analytics
+await submitCancelFlowResponse({
+  productId: 'premium_monthly',
+  userId: currentUser.id,
+  outcome: 'retained',
+  answers: [{ questionId: 1, selectedOptionId: 3 }],
+  offerShown: true,
+  offerAccepted: true,
+  pauseShown: false,
+  pauseAccepted: false,
+});
+```
+
+</CodeGroup>
+
+## Configuration
+
+The cancel flow config is fetched automatically during `bootstrap()` — no extra network call is needed. Access it directly from the SDK.
+
+<CodeGroup>
+
+```swift Swift
+let config = ZeroSettle.shared.cancelFlowConfig // CancelFlow.Config?
+```
+
+```kotlin Kotlin
+val config = ZeroSettle.cancelFlowConfig.value // CancelFlowConfig?
+```
+
+```dart Flutter
+final config = await ZeroSettle.instance.getCancelFlowConfig();
+```
+
+```tsx React Native
+const config = await getCancelFlowConfig();
+```
+
+</CodeGroup>
+
+Returns `null` if the cancel flow hasn't been configured on the [dashboard](/iap/dashboard).
+
+### Config Shape
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `Bool` | Whether the cancel flow is active |
+| `questions` | `[Question]` | Ordered questionnaire questions |
+| `offer` | `Offer?` | Save offer config (if configured) |
+| `pause` | `PauseConfig?` | Pause option config (if configured) |
+
+### Question
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `Int` | Question identifier |
+| `order` | `Int` | Display order |
+| `questionText` | `String` | The question to display |
+| `questionType` | `single_select` \| `free_text` | Input type |
+| `isRequired` | `Bool` | Whether an answer is required |
+| `options` | `[Option]` | Answer options (for single-select questions) |
+
+### Option
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `Int` | Option identifier |
+| `order` | `Int` | Display order |
+| `label` | `String` | Option text |
+| `triggersOffer` | `Bool` | If `true`, selecting this option should show the save offer |
+| `triggersPause` | `Bool` | If `true`, selecting this option should show the pause option |
+
+### Offer
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `Bool` | Whether the offer is active |
+| `title` | `String` | Offer heading (e.g., "Wait — how about a discount?") |
+| `body` | `String` | Offer description |
+| `ctaText` | `String` | Accept button text (e.g., "Stay & Save 40%") |
+| `type` | `String` | Offer type (`discount`, `free_trial`, `free_extension`) |
+| `value` | `String` | Offer value (e.g., `"40"` for 40% off) |
+
+### Pause Config
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `Bool` | Whether pause is active |
+| `title` | `String` | Pause section heading |
+| `body` | `String` | Pause description |
+| `ctaText` | `String` | Pause button text |
+| `options` | `[PauseOption]` | Available pause durations |
+
+### Pause Option
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `Int` | Option identifier (pass to `pauseSubscription`) |
+| `order` | `Int` | Display order |
+| `label` | `String` | Display text (e.g., "1 month", "3 months") |
+| `durationType` | `days` \| `fixed_date` | How the duration is specified |
+| `durationDays` | `Int?` | Number of days (when `durationType` is `days`) |
+
+## Save Offer
+
+When a user selects a questionnaire option where `triggersOffer` is `true`, show the save offer from `config.offer`. If the user accepts, call `acceptSaveOffer` to apply the discount via Stripe.
+
+<CodeGroup>
+
+```swift Swift
+do {
+    let result = try await ZeroSettle.shared.acceptSaveOffer(
+        productId: "premium_monthly",
+        userId: currentUser.id
+    )
+    showConfirmation(result.message) // "40% off for 3 months"
+} catch {
+    showError(error.localizedDescription)
+}
+```
+
+```kotlin Kotlin
+try {
+    val result = ZeroSettle.acceptSaveOffer(
+        productId = "premium_monthly",
+        userId = currentUser.id,
+    )
+    showConfirmation(result.message)
+} catch (e: Exception) {
+    showError(e.message)
+}
+```
+
+```dart Flutter
+try {
+    final result = await ZeroSettle.instance.acceptSaveOffer(
+        productId: 'premium_monthly',
+        userId: currentUser.id,
+    );
+    showConfirmation(result.message);
+} on ZSException catch (e) {
+    showError(e.message);
+}
+```
+
+```tsx React Native
+try {
+    const result = await acceptSaveOffer('premium_monthly', currentUser.id);
+    showConfirmation(result.message);
+} catch (error) {
+    showError(error.message);
+}
+```
+
+</CodeGroup>
+
+### SaveOfferResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message` | `String` | Human-readable description (e.g., "40% off for 3 months") |
+| `discountPercent` | `Int?` | Discount percentage, if applicable |
+| `durationMonths` | `Int?` | Duration of the discount in months, if applicable |
+
+<Note>
+  `acceptSaveOffer` creates a Stripe coupon and applies it to the user's subscription. This is a real billing action — the discount takes effect immediately.
+</Note>
+
+## Pause Subscription
+
+When a user selects a questionnaire option where `triggersPause` is `true`, show the pause options from `config.pause`. Let the user pick a duration, then call `pauseSubscription` with the selected option ID.
+
+<CodeGroup>
+
+```swift Swift
+do {
+    let resumesAt = try await ZeroSettle.shared.pauseSubscription(
+        productId: "premium_monthly",
+        userId: currentUser.id,
+        pauseOptionId: selectedPauseOption.id
+    )
+    if let resumesAt {
+        showConfirmation("Paused until \(resumesAt.formatted())")
+    }
+} catch {
+    showError(error.localizedDescription)
+}
+```
+
+```dart Flutter
+try {
+    final resumesAt = await ZeroSettle.instance.pauseSubscription(
+        productId: 'premium_monthly',
+        userId: currentUser.id,
+        pauseOptionId: selectedPauseOption.id,
+    );
+    if (resumesAt != null) {
+        showConfirmation('Paused until $resumesAt');
+    }
+} on ZSException catch (e) {
+    showError(e.message);
+}
+```
+
+```tsx React Native
+try {
+    const resumesAt = await pauseSubscription(
+        'premium_monthly',
+        currentUser.id,
+        selectedPauseOption.id
+    );
+    if (resumesAt) {
+        showConfirmation(`Paused until ${resumesAt}`);
+    }
+} catch (error) {
+    showError(error.message);
+}
+```
+
+</CodeGroup>
+
+Returns an ISO 8601 date string (or `Date` on Swift) for when the subscription will automatically resume, or `null` if the pause was applied without a set resume date.
+
+### Resume Subscription
+
+To resume a paused subscription early:
+
+<CodeGroup>
+
+```swift Swift
+try await ZeroSettle.shared.resumeSubscription(
+    productId: "premium_monthly",
+    userId: currentUser.id
+)
+```
+
+```tsx React Native
+await resumeSubscription('premium_monthly', currentUser.id);
+```
+
+</CodeGroup>
+
+## Cancel Subscription
+
+If the user completes the questionnaire and still wants to cancel:
+
+<CodeGroup>
+
+```swift Swift
+try await ZeroSettle.shared.cancelSubscription(
+    productId: "premium_monthly",
+    userId: currentUser.id,
+    immediate: false // Cancel at period end (default)
+)
+```
+
+```kotlin Kotlin
+ZeroSettle.cancelSubscription(
+    productId = "premium_monthly",
+    userId = currentUser.id,
+    immediate = false, // Cancel at period end (default)
+)
+```
+
+```dart Flutter
+await ZeroSettle.instance.cancelSubscription(
+    productId: 'premium_monthly',
+    userId: currentUser.id,
+    immediate: false, // Cancel at period end (default)
+);
+```
+
+```tsx React Native
+await cancelSubscription('premium_monthly', currentUser.id, false);
+```
+
+</CodeGroup>
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `productId` | `String` | — | The product to cancel |
+| `userId` | `String` | — | Your app's user identifier |
+| `immediate` | `Bool` | `false` | If `true`, cancel immediately. If `false`, cancel at the end of the current billing period. |
+
+## Customer Portal
+
+As a fallback or alternative, open the Stripe customer portal where the user can manage billing, update payment methods, and cancel directly:
+
+<CodeGroup>
+
+```swift Swift
+try await ZeroSettle.shared.openCustomerPortal(userId: currentUser.id)
+```
+
+```kotlin Kotlin
+ZeroSettle.openCustomerPortal(activity = this, userId = currentUser.id)
+```
+
+```dart Flutter
+await ZeroSettle.instance.openCustomerPortal(userId: currentUser.id);
+```
+
+```tsx React Native
+await openCustomerPortal(currentUser.id);
+```
+
+</CodeGroup>
+
+## Analytics
+
+After the user completes your cancel flow — regardless of outcome — submit a response for analytics tracking. This powers your retention funnel metrics on the dashboard.
+
+<CodeGroup>
+
+```swift Swift
+await ZeroSettle.shared.submitCancelFlowResponse(CancelFlow.Response(
+    productId: "premium_monthly",
+    userId: currentUser.id,
+    outcome: .cancelled,
+    answers: [
+        CancelFlow.Answer(questionId: 1, selectedOptionId: 5),
+        CancelFlow.Answer(questionId: 2, freeText: "Too expensive"),
+    ],
+    offerShown: true,
+    offerAccepted: false
+))
+```
+
+```kotlin Kotlin
+ZeroSettle.submitCancelFlowResponse(CancelFlowResponse(
+    productId = "premium_monthly",
+    userId = currentUser.id,
+    outcome = CancelFlowOutcome.CANCELLED,
+    answers = listOf(
+        CancelFlowAnswer(questionId = 1, selectedOptionId = 5),
+        CancelFlowAnswer(questionId = 2, freeText = "Too expensive"),
+    ),
+    offerShown = true,
+    offerAccepted = false,
+))
+```
+
+```dart Flutter
+await ZeroSettle.instance.submitCancelFlowResponse(CancelFlowResponse(
+    productId: 'premium_monthly',
+    userId: currentUser.id,
+    outcome: CancelFlowOutcome.cancelled,
+    answers: [
+        CancelFlowAnswer(questionId: 1, selectedOptionId: 5),
+        CancelFlowAnswer(questionId: 2, freeText: 'Too expensive'),
+    ],
+    offerShown: true,
+    offerAccepted: false,
+));
+```
+
+```tsx React Native
+await submitCancelFlowResponse({
+    productId: 'premium_monthly',
+    userId: currentUser.id,
+    outcome: 'cancelled',
+    answers: [
+        { questionId: 1, selectedOptionId: 5 },
+        { questionId: 2, freeText: 'Too expensive' },
+    ],
+    offerShown: true,
+    offerAccepted: false,
+    pauseShown: false,
+    pauseAccepted: false,
+});
+```
+
+</CodeGroup>
+
+This is fire-and-forget — it resolves immediately and never throws. Failed submissions are silently dropped.
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `productId` | `String` | The product the user was cancelling |
+| `userId` | `String` | Your app's user identifier |
+| `outcome` | `cancelled` \| `retained` \| `paused` \| `dismissed` | What the user ultimately did |
+| `answers` | `[Answer]` | Questionnaire answers |
+| `offerShown` | `Bool` | Whether you showed the save offer |
+| `offerAccepted` | `Bool` | Whether the user accepted the save offer |
+| `pauseShown` | `Bool` | Whether you showed the pause option |
+| `pauseAccepted` | `Bool` | Whether the user accepted the pause |
+| `pauseDurationDays` | `Int?` | Days paused, if applicable |
+
+## Typical Flow
+
+Here's a typical sequence for a cancel flow with a save offer:
+
+```
+User taps "Cancel Subscription"
+    │
+    ▼
+Read cancelFlowConfig.questions
+Show questionnaire UI
+    │
+    ▼ (user selects an option where triggersOffer = true)
+    │
+Show save offer (config.offer.title, body, ctaText)
+    │
+    ├── User accepts → acceptSaveOffer() → Show "Thanks for staying!"
+    │
+    ├── User declines, triggersPause = true → Show pause options
+    │   ├── User pauses → pauseSubscription() → Show "Paused until..."
+    │   └── User declines → cancelSubscription() → Show "Cancelled"
+    │
+    └── User declines → cancelSubscription() → Show "Cancelled"
+    │
+    ▼
+submitCancelFlowResponse() ← Always call this at the end
+```
+
+<Tip>
+  The questionnaire, save offer text, and pause options are all configured on the [ZeroSettle dashboard](/iap/dashboard) — no code changes needed to update them.
+</Tip>
+
+## Relationship to presentCancelFlow
+
+`presentCancelFlow` uses the same backend primitives internally. Choose based on your needs:
+
+| | `presentCancelFlow` | Headless Primitives |
+|---|---|---|
+| **Effort** | One method call | You build the entire UI |
+| **Customization** | None — uses the built-in sheet | Full control over layout, animations, and copy |
+| **Platforms** | iOS, Android (built-in UI), Flutter | All platforms |
+| **Analytics** | Automatic | You call `submitCancelFlowResponse` |
+| **State management** | Handled internally | You manage the flow state |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Customer Portal" icon="user-gear" href="/iap/customer-portal">
+    Use the built-in cancel flow sheet instead
+  </Card>
+  <Card title="Dashboard" icon="gauge" href="/iap/dashboard">
+    Configure your questionnaire, save offer, and pause options
+  </Card>
+</CardGroup>
