@@ -436,7 +436,7 @@ await cancelSubscription('premium_monthly', currentUser.id, false);
 | `userId` | `String` | — | Your app's user identifier |
 | `immediate` | `Bool` | `false` | If `true`, cancel immediately. If `false`, cancel at the end of the current billing period. |
 
-## Customer Portal
+## Cancel Flow UI
 
 As a fallback or alternative, open the Stripe customer portal where the user can manage billing, update payment methods, and cancel directly:
 
@@ -588,7 +588,7 @@ submitCancelFlowResponse() ← Always call this at the end
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Customer Portal" icon="user-gear" href="/iap/customer-portal">
+  <Card title="Cancel Flow UI" icon="user-gear" href="/iap/customer-portal">
     Use the built-in cancel flow sheet instead
   </Card>
   <Card title="Dashboard" icon="gauge" href="/iap/dashboard">
