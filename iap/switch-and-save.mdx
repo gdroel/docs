@@ -26,7 +26,16 @@ ZSMigrateTipView(
     bodyFont: .system(size: 16),                     // optional
     ctaFont: .system(size: 17, weight: .bold),       // optional
     borderColor: .white.opacity(0.2),                // optional
-    onDismiss: { print("dismissed") }                // optional
+    onEvent: { event in                              // optional
+        switch event {
+        case .ctaTapped:              print("user tapped CTA")
+        case .checkoutCompleted:      print("web checkout succeeded")
+        case .appleSubscriptionManagementOpened:
+                                      print("opened Apple sub management")
+        case .migrationCompleted:     print("full migration done")
+        case .dismissed:              print("view dismissed")
+        }
+    }
 )
 ```
 
@@ -177,9 +186,27 @@ These optional parameters are available on the native SwiftUI view. React Native
 | `bodyFont` | `Font?` | System default | Custom font for the body/message text. |
 | `ctaFont` | `Font?` | System bold | Custom font for the CTA button text. |
 | `borderColor` | `Color?` | `nil` (no border) | Border color applied as a rounded rectangle stroke on the card. |
-| `onDismiss` | `(() -> Void)?` | `nil` | Closure invoked when the view is dismissed (close button, auto-dismiss after completion, or state becomes ineligible). |
+| `onEvent` | `((MigrationTipView.Event) -> Void)?` | `nil` | Closure invoked when a lifecycle event occurs. See **Event Types** below. |
 
 The button copy, discount amount, and messaging are controlled from the [dashboard switch and save campaign](/iap/dashboard#migration-campaigns). No code change needed.
+
+### Event Types
+
+The `onEvent` callback receives a `MigrationTipView.Event` value as the user progresses through the migration flow:
+
+| Event | When it fires |
+|-------|--------------|
+| `.ctaTapped` | The user tapped the main CTA button to begin checkout. |
+| `.checkoutCompleted` | The web checkout completed successfully. The user now has a web entitlement, but their Apple subscription is still active. |
+| `.appleSubscriptionManagementOpened` | The user opened Apple's subscription-management sheet to cancel their Apple billing. |
+| `.migrationCompleted` | The full migration flow is finished — web checkout succeeded **and** the Apple subscription-management sheet was shown. |
+| `.dismissed` | The view was dismissed (close button, auto-dismiss after completion, or the user became ineligible). |
+
+Events fire in lifecycle order: `ctaTapped` → `checkoutCompleted` → `appleSubscriptionManagementOpened` → `migrationCompleted` → `dismissed`. Not every event is guaranteed — for example, a user who dismisses the view before completing checkout will only trigger `ctaTapped` then `dismissed`.
+
+<Note>
+  `onDismiss` is deprecated but still works. It maps to `onEvent` and only fires on `.dismissed`. Migrate to `onEvent` for full visibility into the flow.
+</Note>
 
 ## Experimentation
 
