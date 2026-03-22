@@ -1,0 +1,271 @@
+---
+title: 'Troubleshooting'
+description: 'Solutions for common issues during ZeroSettle integration'
+icon: 'wrench'
+---
+
+Use this guide to diagnose and fix common issues with ZeroSettle integration. Each section includes the symptom, likely causes, and step-by-step solutions.
+
+## Products Not Loading
+
+**Symptom:** `fetchProducts()` returns an empty array or throws an error.
+
+<AccordionGroup>
+  <Accordion title="Wrong API key prefix">
+    Verify you're using the correct key for your environment:
+    - **Sandbox:** `zs_pk_test_...`
+    - **Live:** `zs_pk_live_...`
+
+    Check in your app code:
+    ```swift
+    ZeroSettle.shared.configure(.init(
+        publishableKey: "zs_pk_test_..."  // Must match your environment
+    ))
+    ```
+  </Accordion>
+
+  <Accordion title="No products created in the current environment">
+    Products exist separately in sandbox and live modes. If you created products in live mode, they won't appear in sandbox unless you sync them.
+
+    **Fix:** Go to the ZeroSettle dashboard, toggle to the correct mode (Sandbox/Live) in the top bar, and verify products exist under the **Products** tab.
+  </Accordion>
+
+  <Accordion title="Products not checkout-ready">
+    A product must have an active Stripe price mapping to appear in the SDK. If you created a product but didn't set up pricing, it won't be returned by `fetchProducts()`.
+
+    **Fix:** On the dashboard, check that each product has a web price configured. For BYOS users, ensure your Stripe catalog mapping is complete — see [Stripe Catalog](/iap/stripe-catalog).
+  </Accordion>
+
+  <Accordion title="Network or authentication error">
+    Check the console for error logs. Common causes:
+    - Invalid or expired API key
+    - Network connectivity issues
+    - Backend server temporarily unavailable
+
+    **Fix:** Regenerate your API key from the dashboard under **Settings > API Keys** if needed.
+  </Accordion>
+</AccordionGroup>
+
+## Payment Sheet Not Appearing
+
+**Symptom:** Calling `checkoutSheet` or triggering a purchase does nothing — no payment UI is shown.
+
+<AccordionGroup>
+  <Accordion title="Web checkout disabled for jurisdiction">
+    ZeroSettle respects jurisdiction configurations set on your dashboard. If web checkout is disabled for the user's region, the SDK won't present a payment sheet.
+
+    **Fix:** Check `isWebCheckoutEnabled` on the product or call `fetchProducts()` and inspect the `jurisdictionConfig`. Enable web checkout for the target jurisdiction on the dashboard.
+  </Accordion>
+
+  <Accordion title="Missing product selection">
+    The `checkoutSheet` modifier requires a non-nil `item` binding. If `selectedProduct` is never set, the sheet won't present.
+
+    ```swift
+    // Ensure selectedProduct is set before the sheet can appear
+    Button("Buy") {
+        selectedProduct = product  // This must happen
+    }
+    .checkoutSheet(item: $selectedProduct, userId: user.id) { result in
+        // ...
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="PaymentIntent creation failed">
+    Check the console for errors from the SDK. The PaymentIntent may fail to create if:
+    - The product doesn't have a valid Stripe price mapping
+    - The Stripe account isn't fully onboarded
+    - The API key doesn't match the product's environment
+
+    **Fix:** Verify your Stripe integration status on the dashboard. For BYOS, ensure your connected account is fully verified.
+  </Accordion>
+</AccordionGroup>
+
+## Apple Pay Not Working
+
+**Symptom:** The payment sheet appears but Apple Pay is not available as a payment option.
+
+<AccordionGroup>
+  <Accordion title="Payment method domain not registered">
+    Apple Pay on web requires the checkout domain to be registered with Stripe for your account.
+
+    **For Managed accounts:** This is handled automatically.
+
+    **For BYOS accounts:** Domain registration happens during OAuth onboarding. If Apple Pay still isn't working, contact support@zerosettle.io.
+  </Accordion>
+
+  <Accordion title="Device or simulator limitations">
+    Apple Pay requires:
+    - A real device (not the iOS Simulator for web-based Apple Pay)
+    - Apple Pay configured with at least one card in Wallet
+    - A supported region
+
+    **Fix:** Test on a physical device with Apple Pay set up.
+  </Accordion>
+
+  <Accordion title="Country mismatch">
+    The `merchant_country` parameter must match the Stripe connected account's country. A mismatch will cause Apple Pay to silently fail.
+
+    **Fix:** This is handled automatically by ZeroSettle — the backend resolves the country from your Stripe account. If you suspect an issue, check your Stripe account country in the Stripe dashboard.
+  </Accordion>
+</AccordionGroup>
+
+## Entitlements Not Updating
+
+**Symptom:** After a successful purchase, `restoreEntitlements()` doesn't return the new entitlement.
+
+<AccordionGroup>
+  <Accordion title="Webhook not yet delivered">
+    Entitlements are created when ZeroSettle's backend processes the Stripe webhook for `payment_intent.succeeded`. There can be a short delay (usually under 5 seconds).
+
+    **Fix:** Call `restoreEntitlements()` again after a brief delay, or use the delegate callback `zeroSettleEntitlementsDidUpdate` for real-time updates.
+  </Accordion>
+
+  <Accordion title="User ID mismatch">
+    Entitlements are tied to the `userId` passed during checkout. If you use a different user ID when restoring, the entitlements won't match.
+
+    **Fix:** Ensure the same `userId` is used consistently across `bootstrap()`, `checkoutSheet`, and `restoreEntitlements()`.
+  </Accordion>
+
+  <Accordion title="Sandbox/Live environment mismatch">
+    A purchase made with a sandbox key creates sandbox entitlements. Restoring with a live key (or vice versa) won't find them.
+
+    **Fix:** Ensure your API key environment matches where the purchase was made.
+  </Accordion>
+</AccordionGroup>
+
+## Checkout URL Not Loading
+
+**Symptom:** The payment sheet opens but shows a blank page or loading error.
+
+<AccordionGroup>
+  <Accordion title="Network connectivity">
+    The checkout page is hosted by ZeroSettle and requires internet access. Ensure the device has connectivity.
+  </Accordion>
+
+  <Accordion title="WKWebView restrictions">
+    Some enterprise MDM profiles or content blockers can interfere with WKWebView loading. Test on a device without restrictions.
+  </Accordion>
+
+  <Accordion title="Stripe account not fully onboarded">
+    If your Stripe Express or Standard account onboarding is incomplete, PaymentIntent creation will fail silently.
+
+    **Fix:** Check the dashboard under **Payouts** — your Stripe account status should show as "Active" with charges enabled.
+  </Accordion>
+</AccordionGroup>
+
+## Universal Links Not Working
+
+**Symptom:** After completing checkout in Safari, the app doesn't reopen or the transaction result is lost.
+
+<AccordionGroup>
+  <Accordion title="apple-app-site-association not configured">
+    Universal links require a valid `apple-app-site-association` file hosted at your domain.
+
+    **Fix:** Follow the complete [Universal Links setup guide](/iap/universal-links).
+  </Accordion>
+
+  <Accordion title="App not installed from App Store or TestFlight">
+    During development, universal links only work if the app was installed via Xcode with the Associated Domains entitlement properly configured.
+
+    **Fix:** Ensure your app's `Associated Domains` capability includes `applinks:yourdomain.com`.
+  </Accordion>
+
+  <Accordion title="Missing .zeroSettleHandler()">
+    The SDK needs to intercept the universal link callback. Without the handler, the link opens but the transaction result is lost.
+
+    ```swift
+    // Add to your root view
+    ContentView()
+        .zeroSettleHandler()
+    ```
+
+    For UIKit, handle it in your SceneDelegate:
+    ```swift
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        guard let url = userActivity.webpageURL else { return }
+        ZeroSettle.shared.handleUniversalLink(url)
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="iOS caching">
+    iOS caches the apple-app-site-association file aggressively. Changes can take up to 24 hours to propagate.
+
+    **Fix:** During development, use the Apple [Associated Domains diagnostics](https://developer.apple.com/documentation/xcode/supporting-associated-domains) to verify your configuration. You can also use `swcutil` on a Mac to clear the cache.
+  </Accordion>
+</AccordionGroup>
+
+## Delegate Not Called
+
+**Symptom:** Purchase succeeds but `zeroSettleCheckoutDidComplete` is never called.
+
+<AccordionGroup>
+  <Accordion title="Delegate not set">
+    The delegate must be assigned before triggering the purchase:
+
+    ```swift
+    // Set this early — e.g., in your App init or first view's onAppear
+    ZeroSettle.shared.delegate = self
+    ```
+  </Accordion>
+
+  <Accordion title="Delegate object deallocated">
+    If the delegate is a view model or coordinator, ensure it stays in memory throughout the checkout flow. Use `@StateObject` or a singleton pattern to prevent deallocation.
+  </Accordion>
+
+  <Accordion title="Using Safari checkout without universal links">
+    For Safari-based checkout modes, the result returns via universal link. If universal links aren't set up, the delegate callback can't fire.
+
+    **Fix:** Set up [Universal Links](/iap/universal-links) or switch to the embedded payment sheet mode on the dashboard.
+  </Accordion>
+</AccordionGroup>
+
+## StoreKit Sync Issues
+
+**Symptom:** StoreKit purchases aren't being tracked in the ZeroSettle dashboard.
+
+<AccordionGroup>
+  <Accordion title="syncStoreKitTransactions disabled">
+    If you set `syncStoreKitTransactions: false` during configuration (e.g., because you're using RevenueCat), StoreKit transactions won't be forwarded to ZeroSettle.
+
+    **Fix:** If you want ZeroSettle to track StoreKit purchases, set `syncStoreKitTransactions: true` (the default).
+  </Accordion>
+
+  <Accordion title="JWS verification failure">
+    The backend verifies the StoreKit transaction's JWS signature against Apple's root CA. If verification fails (e.g., due to a tampered transaction), the sync will be rejected.
+
+    **Fix:** This typically indicates a security issue. Check the server logs for details.
+  </Accordion>
+</AccordionGroup>
+
+## Debug Logging
+
+Enable verbose SDK logging to diagnose issues:
+
+```swift
+ZeroSettle.shared.configure(.init(
+    publishableKey: "zs_pk_test_...",
+))
+```
+
+The SDK logs key events to the console with these prefixes:
+- `[ZeroSettle]` — General SDK events (configure, bootstrap, product fetch)
+- `[ZSCheckout]` — Checkout flow events (PaymentIntent creation, sheet presentation, callbacks)
+- `[ZSMigrateTipView Business Logic]` — Switch & Save visibility decisions
+- `[ZSStoreKit]` — StoreKit sync events (transaction forwarding, verification)
+
+<Tip>
+  Filter your Xcode console by `ZeroSettle` to see all SDK logs in one view.
+</Tip>
+
+## Still Stuck?
+
+<CardGroup cols={2}>
+  <Card title="Testing Guide" icon="flask-vial" href="/iap/testing">
+    Walk through a complete end-to-end test flow
+  </Card>
+  <Card title="Contact Support" icon="envelope" href="mailto:support@zerosettle.io">
+    Reach out with your issue details and any relevant logs
+  </Card>
+</CardGroup>

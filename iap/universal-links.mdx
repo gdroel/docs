@@ -6,6 +6,10 @@ icon: 'link'
 
 After a user completes (or cancels) checkout in a browser, ZeroSettle redirects them back to your app via a universal link (iOS) or deep link (Android). This guide covers the setup required to receive these callbacks.
 
+<Note>
+  Universal links are **required** for Safari-based checkout flows to return the purchase result to your app. If you're using the embedded payment sheet (`checkoutSheet`) exclusively, universal links are optional but recommended for deep linking.
+</Note>
+
 ## How It Works
 
 1. User initiates purchase via `.checkoutSheet()` (iOS) or the platform-specific purchase API

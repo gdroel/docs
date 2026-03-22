@@ -1,216 +1,2427 @@
 {
-  "openapi": "3.1.0",
+  "openapi": "3.0.3",
   "info": {
-    "title": "OpenAPI Plant Store",
-    "description": "A sample API that uses a plant store as an example to demonstrate features in the OpenAPI specification",
-    "license": {
-      "name": "MIT"
-    },
-    "version": "1.0.0"
+    "title": "ZeroSettle IAP API",
+    "description": "The ZeroSettle IAP API powers the iOS, Android, and Flutter SDKs. It enables product catalog fetching, web checkout, entitlement management, subscription lifecycle operations, and StoreKit transaction syncing. All endpoints are authenticated via the `X-ZeroSettle-Key` header.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "ZeroSettle Support",
+      "email": "support@zerosettle.io",
+      "url": "https://zerosettle.io"
+    }
   },
   "servers": [
     {
-      "url": "http://sandbox.mintlify.com"
+      "url": "https://api.zerosettle.io/v1",
+      "description": "Production"
+    },
+    {
+      "url": "https://api-staging.zerosettle.io/v1",
+      "description": "Staging"
     }
   ],
   "security": [
     {
-      "bearerAuth": []
+      "ApiKeyAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Products",
+      "description": "Fetch the product catalog for your app"
+    },
+    {
+      "name": "Checkout",
+      "description": "Create checkout sessions and payment intents for web purchases"
+    },
+    {
+      "name": "Transactions",
+      "description": "Query transaction status and history"
+    },
+    {
+      "name": "Entitlements",
+      "description": "Query user entitlements (active purchases and subscriptions)"
+    },
+    {
+      "name": "StoreKit",
+      "description": "Sync and query StoreKit transactions"
+    },
+    {
+      "name": "Subscriptions",
+      "description": "Manage subscription lifecycle (cancel, pause, resume)"
+    },
+    {
+      "name": "Cancel Flow",
+      "description": "Configurable cancel flow with retention offers"
+    },
+    {
+      "name": "Upgrade Offers",
+      "description": "Subscription upgrade/downgrade offers"
+    },
+    {
+      "name": "Migration",
+      "description": "Switch & Save migration tracking"
+    },
+    {
+      "name": "Events",
+      "description": "Track SDK analytics events"
+    },
+    {
+      "name": "Restore",
+      "description": "Restore purchases for a user"
     }
   ],
   "paths": {
-    "/plants": {
+    "/iap/products": {
       "get": {
-        "description": "Returns all plants from the system that the user has access to",
+        "operationId": "getProducts",
+        "summary": "Get Products",
+        "description": "Fetches the product catalog for your app, including web and StoreKit prices, checkout configuration, trial eligibility, and any active migration campaign. Pass `user_id` to get per-user trial eligibility.",
+        "tags": [
+          "Products"
+        ],
         "parameters": [
           {
-            "name": "limit",
+            "name": "user_id",
             "in": "query",
-            "description": "The maximum number of results to return",
+            "required": false,
+            "description": "The user's external ID. When provided, the response includes per-user `is_trial_eligible` on each product.",
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Plant response",
+            "description": "Product catalog with checkout configuration",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Plant"
+                  "type": "object",
+                  "required": [
+                    "products",
+                    "checkout_config"
+                  ],
+                  "properties": {
+                    "products": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Product"
+                      }
+                    },
+                    "checkout_config": {
+                      "$ref": "#/components/schemas/CheckoutConfig"
+                    },
+                    "migration_campaign": {
+                      "description": "Active Switch & Save migration campaign, or null if none is configured.",
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/MigrationCampaign"
+                        }
+                      ],
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/iap/payment-intents": {
+      "post": {
+        "operationId": "createPaymentIntent",
+        "summary": "Create Payment Intent",
+        "description": "Creates a Stripe PaymentIntent for native checkout (Apple Pay / Google Pay payment sheet). Returns a `client_secret` for confirming the payment on the client side and a `checkout_url` for fallback browser checkout.",
+        "tags": [
+          "Checkout"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "product_id"
+                ],
+                "properties": {
+                  "product_id": {
+                    "type": "string",
+                    "description": "The product's `reference_id` (e.g., `com.app.premium`)."
+                  },
+                  "external_user_id": {
+                    "type": "string",
+                    "description": "The user's external ID. Either this or `user_id` is required."
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "Alias for `external_user_id`. Either this or `external_user_id` is required."
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "ios",
+                      "android",
+                      "web"
+                    ],
+                    "description": "The platform the purchase is being made from."
+                  },
+                  "stripe_customer_id": {
+                    "type": "string",
+                    "description": "Existing Stripe customer ID to attach the payment to."
+                  },
+                  "checkout_domain": {
+                    "type": "string",
+                    "description": "Custom domain for the checkout page URL."
+                  },
+                  "checkout_mode": {
+                    "type": "string",
+                    "enum": [
+                      "native",
+                      "browser"
+                    ],
+                    "description": "Preferred checkout mode. `native` uses the in-app payment sheet; `browser` opens a web checkout page."
+                  },
+                  "storekit_subscription_end": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO 8601 datetime of the current StoreKit subscription's expiry. Used for Switch & Save migrations to align the trial period."
+                  },
+                  "storekit_original_transaction_id": {
+                    "type": "string",
+                    "description": "The StoreKit original transaction ID for the subscription being migrated."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment intent created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "$ref": "#/components/responses/UpstreamError"
+          }
+        }
+      }
+    },
+    "/iap/payment-intents/batch": {
+      "post": {
+        "operationId": "createPaymentIntentBatch",
+        "summary": "Create Payment Intent Batch",
+        "description": "Creates Stripe PaymentIntents for multiple products in a single request. Reduces N sequential requests to 1, with shared Stripe customer/account resolution. Products that fail validation return an error entry instead of failing the entire batch. Maximum 25 products per request.",
+        "tags": [
+          "Checkout"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "products"
+                ],
+                "properties": {
+                  "products": {
+                    "type": "array",
+                    "description": "Array of products to create payment intents for. Maximum 25 items.",
+                    "maxItems": 25,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "product_id"
+                      ],
+                      "properties": {
+                        "product_id": {
+                          "type": "string",
+                          "description": "The product's `reference_id` (e.g., `com.app.premium`)."
+                        },
+                        "storekit_subscription_end": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "ISO 8601 datetime of the current StoreKit subscription's expiry. Used for Switch & Save migrations."
+                        },
+                        "storekit_original_transaction_id": {
+                          "type": "string",
+                          "description": "The StoreKit original transaction ID for the subscription being migrated."
+                        }
+                      }
+                    }
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  },
+                  "external_user_id": {
+                    "type": "string",
+                    "description": "Alias for `user_id`."
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "ios",
+                      "android",
+                      "web"
+                    ],
+                    "description": "The platform the purchase is being made from."
+                  },
+                  "checkout_mode": {
+                    "type": "string",
+                    "enum": [
+                      "native",
+                      "browser"
+                    ],
+                    "description": "Preferred checkout mode."
+                  },
+                  "stripe_customer_id": {
+                    "type": "string",
+                    "description": "Existing Stripe customer ID to attach payments to."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch results with per-product success or error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "results"
+                  ],
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "description": "Array of results, one per requested product. Each entry is either a successful PaymentIntent response or an error object.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "string",
+                            "description": "The product's `reference_id`."
+                          },
+                          "client_secret": {
+                            "type": "string",
+                            "description": "Stripe PaymentIntent client secret. Present on success."
+                          },
+                          "transaction_id": {
+                            "type": "string",
+                            "description": "ZeroSettle transaction ID. Present on success."
+                          },
+                          "amount": {
+                            "type": "integer",
+                            "description": "Charge amount in cents. Present on success."
+                          },
+                          "currency": {
+                            "type": "string",
+                            "description": "ISO 4217 currency code. Present on success."
+                          },
+                          "product_name": {
+                            "type": "string",
+                            "description": "Display name of the product. Present on success."
+                          },
+                          "original_amount": {
+                            "type": "integer",
+                            "description": "Full price before discounts/trials. Present on success."
+                          },
+                          "checkout_url": {
+                            "type": "string",
+                            "description": "Fallback URL for browser-based checkout. Present on success."
+                          },
+                          "publishable_key": {
+                            "type": "string",
+                            "description": "Stripe publishable key for confirming the payment. Present on success."
+                          },
+                          "stripe_account": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Connected Stripe account ID for BYOS. Null for managed mode."
+                          },
+                          "merchant_country": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "ISO 3166-1 alpha-2 country code for Apple Pay."
+                          },
+                          "is_subscription": {
+                            "type": "boolean",
+                            "description": "Whether this product is a subscription. Present on success."
+                          },
+                          "subscription_interval": {
+                            "type": "string",
+                            "description": "Subscription billing interval (e.g., `month`, `week`). Present for subscriptions."
+                          },
+                          "trial_type": {
+                            "type": "string",
+                            "enum": [
+                              "free_trial",
+                              "migration"
+                            ],
+                            "nullable": true,
+                            "description": "Type of trial applied. Omitted when no trial."
+                          },
+                          "trial_end": {
+                            "type": "integer",
+                            "nullable": true,
+                            "description": "Unix timestamp when trial ends. Only present with active trial."
+                          },
+                          "pending_amount": {
+                            "type": "integer",
+                            "nullable": true,
+                            "description": "Amount billed when trial ends. Only present with active trial."
+                          },
+                          "error": {
+                            "type": "string",
+                            "description": "Error message. Present when this product failed validation."
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "description": "Creates a new plant in the store",
-        "requestBody": {
-          "description": "Plant to add to the store",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NewPlant"
-              }
-            }
+            "$ref": "#/components/responses/BadRequest"
           },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "plant response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Plant"
-                }
-              }
-            }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           },
-          "400": {
-            "description": "unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "502": {
+            "$ref": "#/components/responses/UpstreamError"
           }
         }
       }
     },
-    "/plants/{id}": {
-      "delete": {
-        "description": "Deletes a single plant based on the ID supplied",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "ID of plant to delete",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Plant deleted",
-            "content": {}
-          },
-          "400": {
-            "description": "unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "webhooks": {
-    "/plant/webhook": {
+    "/iap/checkout-sessions": {
       "post": {
-        "description": "Information about a new plant added to the store",
+        "operationId": "createCheckoutSession",
+        "summary": "Create Checkout Session",
+        "description": "Creates a Stripe Checkout Session for browser-based checkout. Returns a URL to redirect the user to Stripe's hosted checkout page.",
+        "tags": [
+          "Checkout"
+        ],
         "requestBody": {
-          "description": "Plant added to the store",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NewPlant"
+                "type": "object",
+                "required": [
+                  "product_id"
+                ],
+                "properties": {
+                  "product_id": {
+                    "type": "string",
+                    "description": "The product's `reference_id` (e.g., `com.app.premium`)."
+                  },
+                  "external_user_id": {
+                    "type": "string",
+                    "description": "The user's external ID. Either this or `user_id` is required."
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "Alias for `external_user_id`. Either this or `external_user_id` is required."
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "ios",
+                      "android",
+                      "web"
+                    ],
+                    "description": "The platform the purchase is being made from."
+                  },
+                  "stripe_customer_id": {
+                    "type": "string",
+                    "description": "Existing Stripe customer ID to attach the payment to."
+                  },
+                  "rc_app_user_id": {
+                    "type": "string",
+                    "description": "RevenueCat app user ID, if using RevenueCat integration."
+                  }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Return a 200 status to indicate that the data was received successfully"
+            "description": "Checkout session created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "$ref": "#/components/responses/UpstreamError"
+          }
+        }
+      }
+    },
+    "/iap/transactions/{transaction_id}": {
+      "get": {
+        "operationId": "getTransaction",
+        "summary": "Get Transaction",
+        "description": "Retrieves the status and details of a specific transaction by its ID.",
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "description": "The transaction ID (UUID returned from checkout).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Transaction"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iap/transactions/{transaction_id}/storekit-status": {
+      "patch": {
+        "operationId": "updateStorekitStatus",
+        "summary": "Update StoreKit Status",
+        "description": "Updates the StoreKit finish status for a transaction. Called by the SDK after `transaction.finish()` succeeds (status `1`) or if finishing is pending (status `2`).",
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "description": "The transaction ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "storekit_status"
+                ],
+                "properties": {
+                  "storekit_status": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      2
+                    ],
+                    "description": "`1` = finished successfully, `2` = pending finish."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "The transaction ID."
+                    },
+                    "storekit_status": {
+                      "type": "integer",
+                      "description": "The updated StoreKit status."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iap/transaction-history": {
+      "get": {
+        "operationId": "getTransactionHistory",
+        "summary": "Get Transaction History",
+        "description": "Returns a paginated list of transactions for a given user, ordered by most recent first.",
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "description": "The user's external ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of transactions to return. Default: 50, Max: 100.",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "transactions"
+                  ],
+                  "properties": {
+                    "transactions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TransactionHistoryItem"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iap/entitlements": {
+      "get": {
+        "operationId": "getEntitlements",
+        "summary": "Get Entitlements",
+        "description": "Returns all entitlements for a user, including active subscriptions, one-time purchases, and expired items. Use this to determine what the user has access to.",
+        "tags": [
+          "Entitlements"
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "description": "The user's external ID. Required unless `email` is provided.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "deprecated": true,
+            "description": "The user's email address. Deprecated -- use `user_id` instead.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User entitlements",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "entitlements"
+                  ],
+                  "properties": {
+                    "entitlements": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Entitlement"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iap/storekit-transactions": {
+      "post": {
+        "operationId": "syncStorekitTransaction",
+        "summary": "Sync StoreKit Transaction",
+        "description": "Forwards a StoreKit 2 JWS (JSON Web Signature) transaction to ZeroSettle for verification and recording. The backend verifies the JWS against Apple's root certificate chain, creates a `Transaction` and `Entitlement`, and returns success. The SDK should call `transaction.finish()` only after receiving a success response.",
+        "tags": [
+          "StoreKit"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "jws_representation",
+                  "user_id"
+                ],
+                "properties": {
+                  "jws_representation": {
+                    "type": "string",
+                    "description": "The StoreKit 2 transaction's JWS representation string."
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaction synced successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iap/storekit-subscription-status": {
+      "get": {
+        "operationId": "getStorekitSubscriptionStatus",
+        "summary": "Get StoreKit Subscription Status",
+        "description": "Returns the current status of a StoreKit subscription by its original transaction ID. Useful for checking renewal state and expiry.",
+        "tags": [
+          "StoreKit"
+        ],
+        "parameters": [
+          {
+            "name": "original_transaction_id",
+            "in": "query",
+            "required": true,
+            "description": "The StoreKit original transaction ID for the subscription.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorekitSubscriptionStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iap/migration-converted": {
+      "post": {
+        "operationId": "migrationConverted",
+        "summary": "Report Migration Conversion",
+        "description": "Reports that a Switch & Save migration was shown or converted. Used to track migration campaign analytics.",
+        "tags": [
+          "Migration"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "variant_id": {
+                    "type": "integer",
+                    "description": "The experiment variant ID, if the migration campaign is part of an A/B test."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Conversion recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "conversions": {
+                      "type": "integer",
+                      "description": "Total number of conversions for this campaign."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iap/subscriptions/cancel": {
+      "post": {
+        "operationId": "cancelSubscription",
+        "summary": "Cancel Subscription",
+        "description": "Cancels a user's active web checkout subscription. By default, access continues until the end of the current billing period (`immediate: false`). Set `immediate: true` to revoke access immediately.",
+        "tags": [
+          "Subscriptions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_id"
+                ],
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  },
+                  "product_id": {
+                    "type": "string",
+                    "description": "Specific product to cancel. If omitted, cancels the user's active subscription."
+                  },
+                  "immediate": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "If `true`, cancels immediately and revokes access. If `false`, cancels at end of billing period."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iap/subscriptions/pause": {
+      "post": {
+        "operationId": "pauseSubscription",
+        "summary": "Pause Subscription",
+        "description": "Pauses a user's active web checkout subscription. The subscription will automatically resume after the pause duration expires.",
+        "tags": [
+          "Subscriptions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_id"
+                ],
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  },
+                  "product_id": {
+                    "type": "string",
+                    "description": "Specific product to pause. If omitted, pauses the user's active subscription."
+                  },
+                  "pause_duration_days": {
+                    "type": "integer",
+                    "description": "Number of days to pause the subscription. If omitted, uses the default configured in the cancel flow."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription paused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PauseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iap/subscriptions/resume": {
+      "post": {
+        "operationId": "resumeSubscription",
+        "summary": "Resume Subscription",
+        "description": "Resumes a previously paused web checkout subscription.",
+        "tags": [
+          "Subscriptions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_id"
+                ],
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  },
+                  "product_id": {
+                    "type": "string",
+                    "description": "Specific product to resume. If omitted, resumes the user's paused subscription."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription resumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iap/customer-portal-sessions": {
+      "post": {
+        "operationId": "createCustomerPortalSession",
+        "summary": "Create Customer Portal Session",
+        "description": "Creates a Stripe Customer Portal session URL. The portal lets users manage their subscriptions, update payment methods, and view billing history.",
+        "tags": [
+          "Subscriptions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_id"
+                ],
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  },
+                  "return_url": {
+                    "type": "string",
+                    "description": "URL to redirect the user to after they leave the portal."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portal session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "portal_url": {
+                      "type": "string",
+                      "description": "URL to redirect the user to the Stripe Customer Portal."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iap/cancel-flow": {
+      "get": {
+        "operationId": "getCancelFlow",
+        "summary": "Get Cancel Flow",
+        "description": "Returns the configured cancel flow for the app, including survey questions, retention offers, and pause options. The SDK uses this to render a multi-step cancellation experience.",
+        "tags": [
+          "Cancel Flow"
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "description": "The user's external ID. Used to personalize offers.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cancel flow configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelFlow"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iap/cancel-flow/respond": {
+      "post": {
+        "operationId": "submitCancelFlowResponse",
+        "summary": "Submit Cancel Flow Response",
+        "description": "Submits the user's responses from the cancel flow, including survey answers and the final outcome (cancelled, retained, dismissed, or paused). Used for cancel flow analytics.",
+        "tags": [
+          "Cancel Flow"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_id",
+                  "outcome"
+                ],
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  },
+                  "product_id": {
+                    "type": "string",
+                    "description": "The product being cancelled."
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "cancelled",
+                      "retained",
+                      "dismissed",
+                      "paused"
+                    ],
+                    "description": "The final outcome of the cancel flow."
+                  },
+                  "offer_shown": {
+                    "type": "boolean",
+                    "description": "Whether a retention offer was shown to the user."
+                  },
+                  "offer_accepted": {
+                    "type": "boolean",
+                    "description": "Whether the user accepted the retention offer."
+                  },
+                  "pause_shown": {
+                    "type": "boolean",
+                    "description": "Whether a pause option was shown."
+                  },
+                  "pause_accepted": {
+                    "type": "boolean",
+                    "description": "Whether the user chose to pause."
+                  },
+                  "pause_duration_days": {
+                    "type": "integer",
+                    "description": "Number of days the user chose to pause, if applicable."
+                  },
+                  "last_step_seen": {
+                    "type": "string",
+                    "description": "The last step of the cancel flow the user saw."
+                  },
+                  "variant_id": {
+                    "type": "integer",
+                    "description": "Experiment variant ID, if the cancel flow is part of an A/B test."
+                  },
+                  "answers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "question_id": {
+                          "type": "string"
+                        },
+                        "answer": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "description": "Array of survey question answers."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iap/cancel-flow/accept-offer": {
+      "post": {
+        "operationId": "acceptCancelFlowOffer",
+        "summary": "Accept Cancel Flow Offer",
+        "description": "Accepts the retention offer shown during the cancel flow, applying a discount to the user's subscription.",
+        "tags": [
+          "Cancel Flow"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_id",
+                  "product_id"
+                ],
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  },
+                  "product_id": {
+                    "type": "string",
+                    "description": "The product the offer applies to."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Offer accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "discount_applied": {
+                      "type": "boolean",
+                      "description": "Whether the discount was successfully applied."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iap/upgrade-offer": {
+      "get": {
+        "operationId": "getUpgradeOffer",
+        "summary": "Get Upgrade Offer",
+        "description": "Checks if a user is eligible for a subscription upgrade and returns available upgrade options.",
+        "tags": [
+          "Upgrade Offers"
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "description": "The user's external ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "required": false,
+            "description": "Specific product to check upgrade eligibility for.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Upgrade offer details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpgradeOffer"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iap/upgrade-offer/execute": {
+      "post": {
+        "operationId": "executeUpgradeOffer",
+        "summary": "Execute Upgrade Offer",
+        "description": "Executes a subscription upgrade, creating a new payment intent or checkout session for the target product. The old subscription is cancelled with proration when the new payment succeeds.",
+        "tags": [
+          "Upgrade Offers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_id",
+                  "current_product_id",
+                  "target_product_id"
+                ],
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  },
+                  "current_product_id": {
+                    "type": "string",
+                    "description": "The reference ID of the user's current subscription product."
+                  },
+                  "target_product_id": {
+                    "type": "string",
+                    "description": "The reference ID of the product to upgrade to."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upgrade initiated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpgradeExecuteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/iap/upgrade-offer/respond": {
+      "post": {
+        "operationId": "respondUpgradeOffer",
+        "summary": "Respond to Upgrade Offer",
+        "description": "Records the user's response to an upgrade offer for analytics purposes.",
+        "tags": [
+          "Upgrade Offers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_id"
+                ],
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  },
+                  "accepted": {
+                    "type": "boolean",
+                    "description": "Whether the user accepted the upgrade offer."
+                  },
+                  "variant_id": {
+                    "type": "integer",
+                    "description": "Experiment variant ID, if the upgrade offer is part of an A/B test."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iap/events": {
+      "post": {
+        "operationId": "trackEvent",
+        "summary": "Track Event",
+        "description": "Tracks an analytics event from the SDK. Used for funnel analysis, screen views, and custom events.",
+        "tags": [
+          "Events"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event_type",
+                  "user_id"
+                ],
+                "properties": {
+                  "event_type": {
+                    "type": "string",
+                    "description": "The event type identifier (e.g., `paywall_shown`, `purchase_started`, `checkout_completed`)."
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's external ID."
+                  },
+                  "product_id": {
+                    "type": "string",
+                    "description": "The product related to this event, if applicable."
+                  },
+                  "screen_name": {
+                    "type": "string",
+                    "description": "The screen or view where the event occurred."
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "description": "Additional key-value metadata for the event."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iap/restore-purchases": {
+      "post": {
+        "operationId": "restorePurchases",
+        "summary": "Restore Purchases",
+        "description": "Restores purchases for a user by linking entitlements from a previous identity (matched by email) to the current user ID. Useful when a user reinstalls the app or signs in on a new device.",
+        "tags": [
+          "Restore"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "user_id"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "description": "The user's email address to match against previous purchases."
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "The user's current external ID to restore purchases to."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Purchases restored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "restored_count": {
+                      "type": "integer",
+                      "description": "Number of entitlements restored."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
     }
   },
   "components": {
-    "schemas": {
-      "Plant": {
-        "required": [
-          "name"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "description": "The name of the plant",
-            "type": "string"
-          },
-          "tag": {
-            "description": "Tag to specify the type",
-            "type": "string"
-          }
-        }
-      },
-      "NewPlant": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/Plant"
-          },
-          {
-            "required": [
-              "id"
-            ],
-            "type": "object",
-            "properties": {
-              "id": {
-                "description": "Identification number of the plant",
-                "type": "integer",
-                "format": "int64"
-              }
-            }
-          }
-        ]
-      },
-      "Error": {
-        "required": [
-          "error",
-          "message"
-        ],
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "message": {
-            "type": "string"
-          }
-        }
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-ZeroSettle-Key",
+        "description": "Your publishable API key. Use `zs_pk_test_*` for sandbox or `zs_pk_live_*` for production."
       }
     },
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer"
+    "schemas": {
+      "Product": {
+        "type": "object",
+        "description": "A product in the catalog.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The product's reference ID (e.g., `com.app.premium.monthly`)."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Human-readable product name."
+          },
+          "product_description": {
+            "type": "string",
+            "description": "Product description text."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "consumable",
+              "non_consumable",
+              "non_renewing_subscription",
+              "auto_renewable_subscription"
+            ],
+            "description": "The product type."
+          },
+          "web_price": {
+            "description": "The web checkout price, or null if not available for web purchase.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Price"
+              }
+            ],
+            "nullable": true
+          },
+          "storekit_price": {
+            "description": "The StoreKit price from App Store Connect, or null if not synced.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Price"
+              }
+            ],
+            "nullable": true
+          },
+          "subscription_group_id": {
+            "description": "The subscription group this product belongs to, or null for non-subscription products.",
+            "type": "integer",
+            "nullable": true
+          },
+          "free_trial_duration": {
+            "description": "ISO 8601 duration for the free trial period (e.g., `P7D` for 7 days), or null if no trial is configured.",
+            "type": "string",
+            "nullable": true
+          },
+          "is_trial_eligible": {
+            "description": "Whether the current user is eligible for a free trial on this product. Null if `user_id` was not provided in the request.",
+            "type": "boolean",
+            "nullable": true
+          }
+        }
+      },
+      "Price": {
+        "type": "object",
+        "description": "A price in micros (1/1,000,000 of the currency unit).",
+        "properties": {
+          "amount_micros": {
+            "type": "integer",
+            "description": "Price in micros. For example, $4.99 = 4990000."
+          },
+          "currency_code": {
+            "type": "string",
+            "description": "ISO 4217 currency code (e.g., `USD`)."
+          }
+        }
+      },
+      "CheckoutConfig": {
+        "type": "object",
+        "description": "Configuration for how the SDK should present checkout.",
+        "properties": {
+          "sheet_type": {
+            "type": "string",
+            "enum": [
+              "webview",
+              "native"
+            ],
+            "description": "Default checkout presentation: `native` for Apple Pay / Google Pay payment sheet, `webview` for embedded web checkout."
+          },
+          "is_enabled": {
+            "type": "boolean",
+            "description": "Whether web checkout is enabled for this app."
+          },
+          "jurisdictions": {
+            "type": "object",
+            "description": "Per-jurisdiction checkout overrides.",
+            "properties": {
+              "us": {
+                "$ref": "#/components/schemas/JurisdictionConfig"
+              },
+              "eu": {
+                "$ref": "#/components/schemas/JurisdictionConfig"
+              },
+              "other": {
+                "$ref": "#/components/schemas/JurisdictionConfig"
+              }
+            }
+          },
+          "apple_merchant_id": {
+            "description": "Apple Merchant ID for Apple Pay, if configured.",
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "JurisdictionConfig": {
+        "type": "object",
+        "description": "Checkout configuration for a specific jurisdiction.",
+        "properties": {
+          "sheet_type": {
+            "type": "string",
+            "enum": [
+              "webview",
+              "native"
+            ],
+            "description": "Checkout presentation type for this jurisdiction."
+          },
+          "is_enabled": {
+            "type": "boolean",
+            "description": "Whether web checkout is enabled in this jurisdiction."
+          }
+        }
+      },
+      "MigrationCampaign": {
+        "type": "object",
+        "description": "An active Switch & Save migration campaign.",
+        "properties": {
+          "should_show": {
+            "type": "boolean",
+            "description": "Whether the migration offer should be displayed to the user."
+          },
+          "product_id": {
+            "type": "string",
+            "description": "The product the migration offer applies to."
+          },
+          "discount_percent": {
+            "type": "integer",
+            "description": "Discount percentage offered (e.g., 20 for 20% off)."
+          },
+          "min_subscription_days": {
+            "type": "integer",
+            "description": "Minimum number of days the user must have been subscribed to be eligible."
+          },
+          "max_subscription_days": {
+            "type": "integer",
+            "description": "Maximum number of subscription days for eligibility."
+          },
+          "free_trial_days": {
+            "type": "integer",
+            "description": "Number of free trial days offered in the migration."
+          },
+          "title": {
+            "type": "string",
+            "description": "Title text for the migration offer UI."
+          },
+          "message": {
+            "type": "string",
+            "description": "Body text for the migration offer UI."
+          },
+          "variant_id": {
+            "description": "Experiment variant ID if the campaign is part of an A/B test.",
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "PaymentIntentResponse": {
+        "type": "object",
+        "description": "Response from creating a payment intent.",
+        "properties": {
+          "client_secret": {
+            "type": "string",
+            "description": "Stripe PaymentIntent client secret. Use this to confirm the payment on the client side."
+          },
+          "payment_intent_id": {
+            "type": "string",
+            "description": "Stripe PaymentIntent ID."
+          },
+          "transaction_id": {
+            "type": "string",
+            "description": "ZeroSettle transaction ID. Use this to poll for transaction status."
+          },
+          "amount_cents": {
+            "type": "integer",
+            "description": "The charge amount in cents."
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code (e.g., `usd`)."
+          },
+          "product_name": {
+            "type": "string",
+            "description": "Display name of the product being purchased."
+          },
+          "checkout_url": {
+            "type": "string",
+            "description": "Fallback URL for browser-based checkout."
+          },
+          "merchant_country": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country code of the merchant's Stripe account. Required for Apple Pay `paymentRequest()` country parameter."
+          },
+          "original_amount_cents": {
+            "type": "integer",
+            "description": "The original price before any discounts or prorations."
+          },
+          "trial_type": {
+            "type": "string",
+            "enum": [
+              "free_trial",
+              "migration"
+            ],
+            "nullable": true,
+            "description": "The type of trial applied to this checkout. `free_trial` for standard free trials, `migration` for Switch & Save aligned trials. Omitted when no trial is active."
+          },
+          "trial_end": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Unix timestamp when the trial period ends. Only present when a trial is active."
+          },
+          "pending_amount": {
+            "type": "integer",
+            "nullable": true,
+            "description": "The charge amount in cents that will be billed when the trial ends. Only present when a trial is active."
+          }
+        }
+      },
+      "CheckoutSessionResponse": {
+        "type": "object",
+        "description": "Response from creating a checkout session.",
+        "properties": {
+          "checkout_session_id": {
+            "type": "string",
+            "description": "Stripe Checkout Session ID."
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to redirect the user to for checkout."
+          },
+          "client_secret": {
+            "type": "string",
+            "description": "Client secret for embedded checkout."
+          },
+          "transaction_id": {
+            "type": "string",
+            "description": "ZeroSettle transaction ID."
+          }
+        }
+      },
+      "Transaction": {
+        "type": "object",
+        "description": "A purchase transaction.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Transaction ID (UUID)."
+          },
+          "product_id": {
+            "type": "string",
+            "description": "The product's reference ID."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "succeeded",
+              "failed",
+              "refunded",
+              "disputed"
+            ],
+            "description": "Current transaction status."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "web_checkout",
+              "store_kit"
+            ],
+            "description": "Where the transaction originated."
+          },
+          "purchased_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of when the purchase was made."
+          },
+          "storekit_status": {
+            "description": "StoreKit finish status: `1` = finished, `2` = pending. Null for web checkout transactions.",
+            "type": "integer",
+            "nullable": true
+          },
+          "expires_at": {
+            "description": "ISO 8601 expiry timestamp for subscription transactions. Null for one-time purchases.",
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "TransactionHistoryItem": {
+        "type": "object",
+        "description": "A transaction in the user's history.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Transaction ID."
+          },
+          "product_id": {
+            "type": "string",
+            "description": "The product's reference ID."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "succeeded",
+              "failed",
+              "refunded",
+              "disputed"
+            ],
+            "description": "Transaction status."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "web_checkout",
+              "store_kit"
+            ],
+            "description": "Transaction source."
+          },
+          "purchased_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Purchase timestamp."
+          },
+          "amount_cents": {
+            "type": "integer",
+            "description": "Transaction amount in cents."
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code."
+          },
+          "product_name": {
+            "type": "string",
+            "description": "Display name of the product."
+          },
+          "expires_at": {
+            "description": "Subscription expiry timestamp, or null.",
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "Entitlement": {
+        "type": "object",
+        "description": "A user's entitlement to a product.",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Entitlement ID."
+          },
+          "product_id": {
+            "type": "string",
+            "description": "The product's reference ID."
+          },
+          "product_type": {
+            "type": "string",
+            "enum": [
+              "consumable",
+              "non_consumable",
+              "non_renewing_subscription",
+              "auto_renewable_subscription"
+            ],
+            "description": "The type of product."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "web_checkout",
+              "store_kit",
+              "play_store"
+            ],
+            "description": "Where the entitlement originated."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "expired",
+              "cancelled",
+              "paused",
+              "revoked",
+              "billing_retry",
+              "billing_grace_period"
+            ],
+            "description": "Current entitlement status."
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Whether the user currently has access to this product."
+          },
+          "expires_at": {
+            "description": "When the entitlement expires, or null for lifetime purchases.",
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "purchased_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the entitlement was originally purchased."
+          },
+          "will_renew": {
+            "type": "boolean",
+            "description": "Whether the subscription will auto-renew at the end of the current period."
+          },
+          "is_trial": {
+            "type": "boolean",
+            "description": "Whether the entitlement is currently in a free trial period."
+          },
+          "trial_ends_at": {
+            "description": "When the trial period ends, or null if not on trial.",
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancelled_at": {
+            "description": "When the subscription was cancelled, or null if not cancelled.",
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "StorekitSubscriptionStatus": {
+        "type": "object",
+        "description": "Status of a StoreKit subscription.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "expired",
+              "billing_retry",
+              "billing_grace_period"
+            ],
+            "description": "Current subscription status."
+          },
+          "auto_renew_status": {
+            "type": "boolean",
+            "description": "Whether auto-renewal is enabled."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the subscription expires or renews."
+          }
+        }
+      },
+      "CancelResponse": {
+        "type": "object",
+        "description": "Response from cancelling a subscription.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Result status."
+          },
+          "cancelled_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the cancellation was processed."
+          },
+          "access_until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the user will lose access (end of billing period for non-immediate cancellations)."
+          }
+        }
+      },
+      "PauseResponse": {
+        "type": "object",
+        "description": "Response from pausing a subscription.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Result status."
+          },
+          "paused_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the subscription was paused."
+          },
+          "resumes_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the subscription will automatically resume."
+          }
+        }
+      },
+      "ResumeResponse": {
+        "type": "object",
+        "description": "Response from resuming a subscription.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Result status."
+          },
+          "resumed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the subscription was resumed."
+          }
+        }
+      },
+      "CancelFlow": {
+        "type": "object",
+        "description": "Cancel flow configuration.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the cancel flow is enabled for this app."
+          },
+          "questions": {
+            "type": "array",
+            "description": "Survey questions to show during the cancel flow.",
+            "items": {
+              "$ref": "#/components/schemas/CancelFlowQuestion"
+            }
+          },
+          "offer": {
+            "description": "Retention offer to show, or null if none is configured.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CancelFlowOffer"
+              }
+            ],
+            "nullable": true
+          },
+          "pause": {
+            "description": "Pause option configuration, or null if pause is not enabled.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CancelFlowPause"
+              }
+            ],
+            "nullable": true
+          },
+          "variant_id": {
+            "description": "Experiment variant ID if the cancel flow is part of an A/B test.",
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "CancelFlowQuestion": {
+        "type": "object",
+        "description": "A survey question in the cancel flow.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Question identifier."
+          },
+          "text": {
+            "type": "string",
+            "description": "Question text to display."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "single_choice",
+              "multiple_choice",
+              "free_text"
+            ],
+            "description": "Question type."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Option identifier."
+                },
+                "text": {
+                  "type": "string",
+                  "description": "Option text."
+                }
+              }
+            },
+            "description": "Available answer options (for choice questions)."
+          }
+        }
+      },
+      "CancelFlowOffer": {
+        "type": "object",
+        "description": "A retention offer in the cancel flow.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "discount",
+              "extension"
+            ],
+            "description": "Type of retention offer."
+          },
+          "discount_percent": {
+            "type": "integer",
+            "description": "Discount percentage (for discount-type offers)."
+          },
+          "duration_months": {
+            "type": "integer",
+            "description": "How many billing cycles the discount lasts."
+          },
+          "title": {
+            "type": "string",
+            "description": "Offer title text."
+          },
+          "message": {
+            "type": "string",
+            "description": "Offer body text."
+          }
+        }
+      },
+      "CancelFlowPause": {
+        "type": "object",
+        "description": "Pause option in the cancel flow.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the pause option is available."
+          },
+          "duration_days": {
+            "type": "integer",
+            "description": "Default pause duration in days."
+          },
+          "max_duration_days": {
+            "type": "integer",
+            "description": "Maximum allowed pause duration."
+          },
+          "title": {
+            "type": "string",
+            "description": "Pause option title text."
+          },
+          "message": {
+            "type": "string",
+            "description": "Pause option body text."
+          }
+        }
+      },
+      "UpgradeOffer": {
+        "type": "object",
+        "description": "Upgrade offer eligibility and options.",
+        "properties": {
+          "eligible": {
+            "type": "boolean",
+            "description": "Whether the user is eligible for an upgrade."
+          },
+          "current_product_id": {
+            "type": "string",
+            "description": "The user's current subscription product ID."
+          },
+          "eligible_upgrades": {
+            "type": "array",
+            "description": "Products the user can upgrade to.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "product_id": {
+                  "type": "string",
+                  "description": "The upgrade target product's reference ID."
+                },
+                "display_name": {
+                  "type": "string",
+                  "description": "Product display name."
+                },
+                "price": {
+                  "$ref": "#/components/schemas/Price"
+                },
+                "savings_percent": {
+                  "type": "integer",
+                  "description": "Percentage savings compared to the current plan (annualized)."
+                }
+              }
+            }
+          },
+          "variant_id": {
+            "description": "Experiment variant ID if the upgrade offer is part of an A/B test.",
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "UpgradeExecuteResponse": {
+        "type": "object",
+        "description": "Response from executing an upgrade.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "web_to_web",
+              "storekit_to_web"
+            ],
+            "description": "The type of upgrade being performed."
+          },
+          "client_secret": {
+            "type": "string",
+            "description": "Stripe PaymentIntent client secret for confirming the upgrade payment."
+          },
+          "checkout_url": {
+            "type": "string",
+            "description": "Fallback checkout URL."
+          },
+          "transaction_id": {
+            "type": "string",
+            "description": "ZeroSettle transaction ID for the upgrade."
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "description": "Error response.",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message."
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code (not always present)."
+          }
+        },
+        "required": [
+          "error"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request -- missing or malformed parameters.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Invalid or missing API key.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Account disabled or insufficient permissions.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "UpstreamError": {
+        "description": "Upstream service error (Stripe, Apple).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
       }
     }
   }

@@ -1,0 +1,137 @@
+---
+title: 'Sample App: JustOne'
+description: 'A production habit tracker showing real-world ZeroSettle integration'
+icon: 'mobile'
+---
+
+[JustOne](https://github.com/RyanElliott10/JustOne) is a production iOS habit-tracking app that demonstrates every major ZeroSettle feature. Use it as a reference for how to structure your own integration.
+
+<Info>
+  JustOne is a real app on the App Store, not a toy example. The patterns shown here are battle-tested in production.
+</Info>
+
+## What It Demonstrates
+
+| Feature | File | What to look at |
+|---------|------|-----------------|
+| SDK configuration | `JustOneApp.swift` | `ZeroSettle.shared.configure()` with preloading enabled |
+| Bootstrap & catalog | `JustOneApp.swift` | Single `bootstrap()` call on authentication |
+| Real-time entitlements | `JustOneApp.swift` | `entitlementUpdates` async stream |
+| Product models | `ZeroSettleProduct.swift` | Subscription tiers, consumables, pricing with fallbacks |
+| Purchase manager | `PurchaseManager.swift` | State resolution, billing source preference, consumable crediting |
+| Paywall UI | `PremiumUpsellView.swift` | Dual pricing (StoreKit vs web), checkout sheet with custom headers |
+| Consumable shop | `ConsumableShopView.swift` | One-time purchases with `.checkoutSheet` |
+| Subscription status | `SettingsView.swift` | Active plan display, billing provider, cancel flow |
+| Switch & Save | `SettingsView.swift` | Migration banner for StoreKit → web |
+
+## Key Patterns
+
+### SDK Initialization
+
+JustOne configures ZeroSettle in the app entry point with preloading enabled for instant checkout:
+
+```swift
+// JustOneApp.swift
+ZeroSettle.shared.configure(.init(
+    publishableKey: key,
+    preloadCheckout: true,
+    maxPreloadedWebViews: nil
+))
+ZeroSettle.shared.delegate = purchaseManager
+```
+
+### Single Bootstrap Call
+
+Instead of calling `fetchProducts()` and `restoreEntitlements()` separately, JustOne uses the single `bootstrap()` call:
+
+```swift
+// JustOneApp.swift
+.task(id: authViewModel.isAuthenticated) {
+    if authViewModel.isAuthenticated, let userId = authViewModel.appleUserID {
+        let catalog = try await ZeroSettle.shared.bootstrap(userId: userId)
+    }
+}
+```
+
+### Real-Time Entitlement Updates
+
+JustOne subscribes to entitlement updates to credit consumable tokens when web purchases complete:
+
+```swift
+// JustOneApp.swift
+.task {
+    for await _ in ZeroSettle.shared.entitlementUpdates {
+        purchaseManager.creditNewConsumableTokens()
+    }
+}
+```
+
+### Billing Source Preference
+
+When a user has both StoreKit and web entitlements (e.g., after Switch & Save), JustOne prefers the web checkout entitlement:
+
+```swift
+// PurchaseManager.swift
+var billingProvider: BillingProvider? {
+    let matching = candidates.first(where: { $0.source == .webCheckout })
+        ?? candidates.first
+    // ...
+}
+```
+
+### Checkout Sheet with Custom Header
+
+JustOne's paywall shows a branded header above the payment sheet:
+
+```swift
+// PremiumUpsellView.swift
+.checkoutSheet(
+    item: $webCheckoutProduct,
+    userId: authViewModel.appleUserID ?? "",
+    preload: .all
+) {
+    CheckoutSheetHeader(product: product)
+} onComplete: { result in
+    let error = await purchaseManager.processWebCheckout(result)
+    if case .success = result { dismiss() }
+}
+```
+
+### Price Resolution with Fallbacks
+
+JustOne resolves live pricing from the SDK catalog but falls back to hardcoded prices if the catalog isn't loaded yet:
+
+```swift
+// ZeroSettleProduct.swift
+var formattedPrice: String {
+    ZeroSettle.shared.product(for: productId)?
+        .storeKitPrice?.formatted ?? fallbackPrice
+}
+```
+
+## Get the Code
+
+```bash
+git clone https://github.com/RyanElliott10/JustOne.git
+cd JustOne
+open JustOne.xcodeproj
+```
+
+Configure with your sandbox key to test purchases.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/iap/quickstart">
+    Step-by-step guide to your first integration
+  </Card>
+  <Card title="Payment Sheet" icon="credit-card" href="/iap/payment-sheet">
+    Full payment sheet reference
+  </Card>
+  <Card title="Best Practices" icon="star" href="/iap/best-practices">
+    Production-ready patterns and recommendations
+  </Card>
+  <Card title="Testing" icon="flask-vial" href="/iap/testing">
+    Test your integration in sandbox mode
+  </Card>
+</CardGroup>

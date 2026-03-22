@@ -4,6 +4,17 @@ description: 'Get started with ZeroSettle In-App Purchase for Swift'
 icon: 'rocket'
 ---
 
+## What You'll Build
+
+In this quickstart, you'll integrate ZeroSettle into a SwiftUI app and make your first test purchase. By the end, your app will:
+
+- Fetch your product catalog from ZeroSettle
+- Display products with web checkout pricing
+- Present a payment sheet with Apple Pay and card support
+- Verify the purchase via entitlements
+
+**Time to complete:** ~10 minutes (assumes you've completed [Account Setup](/iap/account-setup) and [Installation](/iap/installation))
+
 <Note>
   Requires **iOS 17.0+**, **Swift 5.9+**, and **Xcode 15.0+**. See [Installation](/iap/installation) if you haven't added the package yet.
 </Note>
@@ -12,7 +23,21 @@ icon: 'rocket'
   Using Android? See the [Android Quickstart](/iap/quickstart-android). Using Flutter? See the [Flutter Quickstart](/iap/quickstart-flutter).
 </Tip>
 
-## Configuration
+<Tip>
+  **Want to see a complete integration?** The [JustOne habit tracker](/iap/sample-app) is a production app that demonstrates every pattern in this quickstart. Clone it and follow along.
+</Tip>
+
+## Prerequisites
+
+Before starting, make sure you have:
+
+<Check>A ZeroSettle account with at least one product created ([Account Setup](/iap/account-setup))</Check>
+<Check>ZeroSettleKit added to your Xcode project ([Installation](/iap/installation))</Check>
+<Check>Your sandbox API key (`zs_pk_test_...`) from the dashboard</Check>
+<Check>Xcode 15.0+ with an iOS 17.0+ target</Check>
+
+<Steps>
+<Step title="Configure the SDK (~1 min)">
 
 Configure the SDK early in your app's lifecycle. `configure()` is synchronous. Then call `bootstrap()` to fetch products and restore entitlements:
 
@@ -36,28 +61,34 @@ struct YourApp: App {
 }
 ```
 
-After configuring, call `bootstrap()` to automatically:
+After configuring, `bootstrap()` automatically:
+
 1. Fetches your product catalog
-2. Warms up the first product's `PaymentIntent` for instant sheet opens
-3. Restores entitlements
+2. Restores entitlements
+3. Pre-creates PaymentIntents for all products (when `preloadCheckout: true`)
 
 All automatic steps are non-fatal — failures are logged but won't prevent the SDK from working.
 
-### Configuration Options
+**Configuration Options**
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `publishableKey` | Required | Your publishable key from the dashboard |
 | `syncStoreKitTransactions` | `true` | Set to `false` if using RevenueCat |
+| `preloadCheckout` | `false` | Pre-create PaymentIntents on bootstrap for instant checkout. See [Preloading](/iap/preloading) |
+| `maxPreloadedWebViews` | `nil` (no limit) | Cap WebView pre-rendering pool (iOS only). See [Preloading](/iap/preloading) |
 
-### Sandbox vs Live Mode
+**Sandbox vs Live Mode**
 
 Your publishable key prefix determines the mode:
 
-- **Sandbox** (`zs_pk_test_`): Use for development. No real charges.
-- **Live** (`zs_pk_live_`): Real payments processed.
+| Prefix | Mode | Description |
+|--------|------|-------------|
+| `zs_pk_test_` | Sandbox | Use for development. No real charges. |
+| `zs_pk_live_` | Live | Real payments processed. |
 
-### Manual Product Fetch
+</Step>
+<Step title="Fetch and display products (~2 min)">
 
 If you need to refresh products later, you can fetch them manually:
 
@@ -71,9 +102,8 @@ for product in catalog.products {
 
 `fetchProducts()` returns a ``ProductCatalog`` containing both the product list and remote configuration. Products are also cached in `ZeroSettle.shared.products` for convenience.
 
-## Make a Purchase
-
-### Payment Sheet
+</Step>
+<Step title="Present the payment sheet (~2 min)">
 
 Present a checkout sheet with Apple Pay and card support. The checkout mode (embedded webview, Safari VC, or external Safari) is controlled by your remote config on the dashboard — `checkoutSheet` handles all modes automatically.
 
@@ -103,7 +133,8 @@ struct PaywallView: View {
 
 See [Payment Sheet](/iap/payment-sheet) for the full guide on `checkoutSheet`, including preloading, custom headers, and UIKit usage.
 
-## Handle Universal Link Callback
+</Step>
+<Step title="Handle the callback (~1 min)">
 
 For Safari-based checkout modes, the result comes back via universal link. Add the `.zeroSettleHandler()` modifier to your root view:
 
@@ -131,7 +162,8 @@ func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
 }
 ```
 
-## Listen for Events
+</Step>
+<Step title="Listen for events (~2 min)">
 
 Use the delegate to respond to checkout events:
 
@@ -162,7 +194,8 @@ class PurchaseManager: ZeroSettleDelegate {
 }
 ```
 
-## Check Entitlements
+</Step>
+<Step title="Check entitlements (~1 min)">
 
 Restore and check entitlements on app launch:
 
@@ -175,6 +208,13 @@ let hasPremium = entitlements.contains {
     $0.productId == "premium_monthly" && $0.isActive
 }
 ```
+
+</Step>
+</Steps>
+
+<Tip>
+  **First purchase?** Use test card `4242 4242 4242 4242` with any future expiry and CVC. See [Testing & Sandbox](/iap/testing) for more test cards and debugging tips.
+</Tip>
 
 ## Complete Example
 

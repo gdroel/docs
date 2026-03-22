@@ -49,6 +49,65 @@ Both modes share the same SDK integration — no code differences. The only setu
 
 When a user taps "Buy" in your app, ZeroSettle presents a checkout experience powered by Stripe. The user pays with Apple Pay or a card, and your app gets a verified transaction back.
 
+### Payment Flow
+
+```mermaid
+sequenceDiagram
+    participant App as Your App
+    participant SDK as ZeroSettle SDK
+    participant API as ZeroSettle API
+    participant Stripe as Stripe
+    participant User as User
+
+    App->>SDK: purchase(product, userId)
+    SDK->>API: Create PaymentIntent
+    API->>API: Check jurisdiction &amp; compliance
+    API->>Stripe: Create PaymentIntent
+    Stripe-->>API: PaymentIntent + client_secret
+    API-->>SDK: Checkout URL
+    SDK->>User: Present payment sheet
+    User->>Stripe: Pay (Apple Pay / Card)
+    Stripe-->>API: Webhook: payment_intent.succeeded
+    API->>API: Create Transaction + Entitlement
+    API-->>SDK: Transaction confirmed
+    SDK-->>App: .success(transaction)
+```
+
+### Integration Architecture
+
+```mermaid
+graph TB
+    subgraph YourApp["Your App"]
+        SDK["ZeroSettle SDK"]
+        SK["StoreKit 2"]
+    end
+
+    subgraph ZeroSettle["ZeroSettle Platform"]
+        API["ZeroSettle API"]
+        Dashboard["Dashboard"]
+    end
+
+    subgraph Payments["Payment Processing"]
+        Stripe["Stripe"]
+        ApplePay["Apple Pay"]
+    end
+
+    subgraph Stores["App Stores"]
+        ASC["App Store Connect"]
+        GP["Google Play Console"]
+    end
+
+    SDK -->|Web checkout| API
+    SDK -->|Native purchases| SK
+    SK -->|StoreKit sync| API
+    API -->|Process payments| Stripe
+    Stripe -->|Apple Pay on web| ApplePay
+    API -->|Sync products| ASC
+    API -->|Sync products| GP
+    Dashboard -->|Configure| API
+    API -->|Webhooks| Stripe
+```
+
 There are three checkout modes, controlled server-side via remote config:
 
 ### Embedded Payment Sheet (Recommended)
@@ -106,30 +165,33 @@ Opens the checkout URL in the user's default browser. The result returns to your
   The checkout mode is controlled by your remote config on the ZeroSettle dashboard. You can switch modes without an app update.
 </Tip>
 
-## What ZeroSettle Handles
+## What's Included
 
-### Payment Processing
-- Stripe-powered checkout
-- Apple Pay on the web
-- Credit/debit cards
-- Multiple currencies
+<CardGroup cols={2}>
+  <Card title="ZeroSettle Handles" icon="shield-check">
+    - **Payment processing** — Stripe-powered, Apple Pay + cards
+    - **Tax compliance** — US sales tax, EU VAT, AU GST
+    - **Tax remittance** — Filed and paid to authorities
+    - **Merchant of Record** — ZeroSettle is the legal seller
+    - **Disputes & chargebacks** — Handled automatically
+    - **Refunds** — Processed automatically
+    - **Receipts** — Sent to customers automatically
+    - **Apple compliance** — US geofencing, required disclosures
+    - **PCI compliance** — All card data handled by Stripe
+  </Card>
+  <Card title="You Handle" icon="code">
+    - **SDK integration** — Add ZeroSettle to your app
+    - **Paywall UI** — Design your purchase screens
+    - **Entitlement gating** — Check access in your app logic
+    - **User authentication** — Your user identity system
+    - **Product catalog** — Define what you sell on the dashboard
+    - **Universal links** — Required for Safari checkout flows
+  </Card>
+</CardGroup>
 
-### Tax Compliance
-- Automatic sales tax calculation (US)
-- VAT handling (EU)
-- GST handling (AU, etc.)
-- Tax remittance to authorities
-
-### Merchant of Record
-- ZeroSettle is the legal seller
-- Disputes and chargebacks are handled automatically
-- Refunds are processed automatically
-- Receipts are sent automatically
-
-### Apple Compliance
-- Compliant with Apple's external purchase guidelines
-- US geofencing (as required by Apple)
-- Required disclosure before leaving app (for Safari flows)
+<Tip>
+  Wondering how much you'd save? Try the [fee savings calculator](https://zerosettle.io/worth-the-squeeze/) to compare your revenue under Apple IAP vs ZeroSettle.
+</Tip>
 
 ## What You Can Sell
 
@@ -137,6 +199,29 @@ Opens the checkout URL in the user's default browser. The result returns to your
 - **One-time purchases** — Premium features, content packs
 - **Consumables** — Credits, tokens, virtual items
 - **Non-consumables** — Permanent unlocks
+
+### Product Architecture
+
+Each product in ZeroSettle has a canonical identity with storefront-specific pricing:
+
+```mermaid
+graph LR
+    P["Product<br/>(canonical)"]
+    SK["StorekitProduct<br/>Apple price"]
+    SP["StripePrice<br/>Web price"]
+    GP["GooglePlayProduct<br/>Play price"]
+
+    P --> SK
+    P --> SP
+    P --> GP
+
+    style P fill:#34C759,color:#000
+    style SK fill:#007AFF,color:#fff
+    style SP fill:#635BFF,color:#fff
+    style GP fill:#34A853,color:#fff
+```
+
+Prices are set per storefront — your Apple price and web price can differ. The SDK shows the appropriate price based on the checkout route.
 
 ## Platform Support
 
@@ -183,5 +268,8 @@ ZeroSettle includes a full subscription lifecycle toolkit — all configured fro
   </Card>
   <Card title="Quickstart (Flutter)" icon="rocket" href="/iap/quickstart-flutter">
     Cross-platform Flutter integration
+  </Card>
+  <Card title="Sample App" icon="mobile" href="/iap/sample-app">
+    See a production app built with ZeroSettle
   </Card>
 </CardGroup>

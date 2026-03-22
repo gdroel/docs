@@ -171,10 +171,24 @@ The SDK handles two upgrade scenarios automatically:
 
 | Type | Description |
 |------|-------------|
-| `web_to_web` | User has an existing web checkout subscription. The SDK modifies the Stripe subscription in place with proration — the user pays the difference immediately and switches to the new billing cycle. |
-| `storekit_to_web` | User has a StoreKit subscription. The SDK creates a new web checkout subscription and shows Apple cancel instructions so the user can stop their App Store billing. |
+| `web_to_web` | User has an existing web checkout subscription. A new subscription is created at the full price of the new plan. The old subscription is cancelled with proration, and the unused time is credited to the customer's Stripe balance. |
+| `storekit_to_web` | User has a StoreKit subscription. The SDK creates a new web checkout subscription with a free trial aligned to the remaining StoreKit period, and shows Apple cancel instructions so the user can stop their App Store billing. |
 
 The upgrade type is determined automatically based on the user's current entitlement source. No code changes needed.
+
+### Web-to-web proration
+
+When a user upgrades from one web checkout plan to another (e.g., weekly → monthly), the flow works as follows:
+
+1. The user confirms the new plan via the payment sheet and is charged the **full price** of the new plan immediately.
+2. The old subscription is cancelled with proration. Any unused time on the old plan becomes a **credit on the customer's Stripe balance**.
+3. On the **next renewal** of the new subscription, the credit is automatically applied — reducing the amount charged.
+
+For example, if a user upgrades from a $1.69/week plan to a $5.59/month plan with 4 days remaining on the weekly plan, they pay $5.59 immediately. The ~$0.97 of unused weekly time is credited to their balance and deducted from the next $5.59 monthly renewal.
+
+<Note>
+  The proration credit applies on the **next renewal**, not the first charge. The first charge is always the full price of the new plan. Your dashboard will show the reduced renewal amount when it occurs.
+</Note>
 
 ## Dashboard Configuration
 

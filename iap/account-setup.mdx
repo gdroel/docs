@@ -45,6 +45,10 @@ Connect your existing Stripe standard account via OAuth. Keep your products, pri
   Start with **Managed** to get up and running quickly. You can switch to BYOS at any time from your tenant settings — existing Stripe Catalog mappings are preserved.
 </Tip>
 
+<Frame caption="Stripe connection panel showing BYOS (Self-Managed) account status">
+  <img src="/images/account-setup-stripe.png" alt="Stripe settings showing Connected Self-Managed status with 0.5% fee and wallet payments registered" />
+</Frame>
+
 ## Add Your App
 
 After connecting Stripe, add the app that will use ZeroSettle. There are two paths:
@@ -93,6 +97,10 @@ For subscriptions, you'll also configure:
   If you connected App Store Connect, you can sync products directly from your ASC catalog. The dashboard will pre-fill product details and keep them in sync.
 </Note>
 
+<Frame caption="New product creation form with type selection, pricing, and region availability">
+  <img src="/images/dashboard-create-product.png" alt="New Product form showing product type selector, name, ID, and pricing fields" style={{ maxWidth: '500px' }} />
+</Frame>
+
 ## Your API Keys
 
 The dashboard provides publishable keys for sandbox and live environments:
@@ -133,6 +141,10 @@ await ZeroSettle.instance.configure(
 );
 ```
 </CodeGroup>
+
+<Frame caption="API keys panel with publishable and secret keys">
+  <img src="/images/dashboard-api-keys.png" alt="API keys showing publishable key and secret key with copy and rotate buttons" />
+</Frame>
 
 ## Next Steps
 

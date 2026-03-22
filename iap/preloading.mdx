@@ -1,0 +1,196 @@
+---
+title: 'Preloading & Prefetching'
+description: 'Pre-create PaymentIntents and pre-render WebViews for instant checkout'
+icon: 'bolt'
+---
+
+Preloading eliminates checkout latency by doing the work **before** the user taps "Buy":
+
+1. **PaymentIntent/SetupIntent caching** — pre-creates Stripe objects so the checkout URL is ready immediately
+2. **WebView pre-rendering** — loads the checkout page into off-screen `WKWebView` instances so it appears instantly
+
+The result: checkout opens with zero network delay.
+
+<Note>
+  Preloaded PaymentIntents are **never charged** unless the user explicitly confirms payment through the checkout sheet.
+</Note>
+
+## Configuration
+
+Two options in `Configuration` control preloading behavior:
+
+```swift
+ZeroSettle.shared.configure(.init(
+    publishableKey: "your_live_key",
+    preloadCheckout: true,          // Pre-create PIs for all products on bootstrap
+    maxPreloadedWebViews: 3         // Cap WebView pool to 3 (nil = no limit)
+))
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `preloadCheckout` | `false` | When `true`, `bootstrap()` calls `warmUpAll()` for every product |
+| `maxPreloadedWebViews` | `nil` (no limit) | Caps the WebView pre-rendering pool. Set to `0` to disable WebView pre-rendering entirely (PI caching still works) |
+
+## How It Works
+
+Preloading is a two-layer system:
+
+### Layer 1 — PaymentIntent/SetupIntent Caching (API Layer)
+
+When preloading fires:
+
+1. The SDK calls `POST /v1/iap/payment-intents/` for each product
+2. The backend creates a **pending** `Transaction` and a Stripe `PaymentIntent` (or `SetupIntent` for migration trials with a $0 trial period)
+3. The response (checkout URL, transaction ID, client secret) is cached in `CheckoutResponseCache` with a **5-minute TTL**
+4. Concurrent requests for the same product are **coalesced** — only one network call is made, and all callers receive the same result
+
+### Layer 2 — WebView Pre-Rendering (UI Layer)
+
+After PI caching completes:
+
+1. For `.webView` and `.nativePay` checkout types only (skipped for `.browser`)
+2. Loads the checkout URL into off-screen `WKWebView` instances
+3. All WebViews share a **single `WKProcessPool`**, reducing per-view overhead
+4. Each WebView waits for a JavaScript "ready" signal (8-second timeout fallback)
+5. Respects `maxPreloadedWebViews` — when set, only the first N products are pre-rendered
+
+<Note>
+  WebView pre-rendering is iOS-only. On Android, `ZeroSettle.purchase()` creates the PaymentIntent at call time.
+</Note>
+
+## What Happens in Stripe
+
+Different product types create different Stripe objects:
+
+| Product Type | Stripe Object | When Created | Lifecycle |
+|-------------|---------------|--------------|-----------|
+| Consumable / Non-consumable | `PaymentIntent` | On preload | Pending until user confirms or Stripe auto-cancels after 24h |
+| Subscription (new) | `Subscription` + `PaymentIntent` | On preload | Same as above |
+| Subscription (migration w/ trial) | `Subscription` + `SetupIntent` | On preload | $0 trial period; SI pending until user confirms |
+
+### Backend Deduplication (1-Hour Window)
+
+The backend deduplicates pending PaymentIntents to avoid creating unnecessary Stripe objects:
+
+- **Same user + same product** within 1 hour → reuses the existing PI's `client_secret`
+- Reuse requires: **price match**, **trial state match**, and **age < 1 hour**
+- If any condition fails → the old Transaction is marked `FAILED`, the old Stripe subscription (if any) is cancelled, and a new PI is created
+
+### Cleanup
+
+- **User never confirms** → Stripe auto-cancels the PI after 24 hours → the `payment_intent.canceled` webhook marks the Transaction as `FAILED`
+- **SDK cache expires** (5 minutes) → the next checkout open creates a fresh PI; the old one is eventually cleaned up by Stripe
+
+## Preloading Methods
+
+There are several ways to trigger preloading, from automatic to fully manual:
+
+### 1. Automatic via `bootstrap()`
+
+When `preloadCheckout: true`, `bootstrap()` warms up **all** products after fetching the catalog:
+
+```swift
+ZeroSettle.shared.configure(.init(
+    publishableKey: "your_live_key",
+    preloadCheckout: true
+))
+try? await ZeroSettle.shared.bootstrap(userId: currentUser.id)
+// All products are now preloaded
+```
+
+### 2. Declarative `.checkoutSheet(preload:)`
+
+Control preloading per-modifier with the `preload:` parameter:
+
+```swift
+// Preload all products
+.checkoutSheet(item: $selectedProduct, userId: currentUser.id, preload: .all) { result in
+    handleResult(result)
+}
+
+// Preload specific products
+.checkoutSheet(
+    item: $selectedProduct,
+    userId: currentUser.id,
+    preload: .specified(topProducts)
+) { result in
+    handleResult(result)
+}
+
+// Default: preloads only the bound product
+.checkoutSheet(item: $selectedProduct, userId: currentUser.id) { result in
+    handleResult(result)
+}
+```
+
+| Strategy | Behavior |
+|----------|----------|
+| `.all` | Preloads PaymentIntents for all fetched products |
+| `.specified([ZSProduct])` | Preloads only the specified products |
+| `nil` (default) | Preloads only the bound product |
+
+### 3. `CheckoutSheet.warmUp()`
+
+Manually warm up a single product:
+
+```swift
+await CheckoutSheet.warmUp(
+    productId: product.id,
+    userId: currentUser.id
+)
+```
+
+### 4. `CheckoutSheet.warmUpAll()`
+
+Warm up all products at once:
+
+```swift
+await CheckoutSheet.warmUpAll(userId: currentUser.id)
+```
+
+### 5. `CheckoutSheet.preload()`
+
+Returns the checkout URL and transaction ID for manual presentation (e.g., UIKit):
+
+```swift
+let preloaded = await CheckoutSheet.preload(
+    productId: product.id,
+    userId: currentUser.id
+)
+
+// Later, pass to CheckoutSheet or present()
+CheckoutSheet.present(
+    from: self,
+    product: product,
+    userId: currentUser.id,
+    checkoutURL: preloaded?.checkoutURL,
+    transactionId: preloaded?.transactionId
+) { result in
+    handleResult(result)
+}
+```
+
+## Performance & Memory
+
+| Resource | Cost | Notes |
+|----------|------|-------|
+| PI cache entry | ~1-2 KB | JSON metadata, negligible |
+| Pre-rendered WebView | ~3-7 MB | Shares `WKProcessPool`; use `maxPreloadedWebViews` to cap |
+| Network call (preload) | ~200-500ms | Eliminated at presentation time |
+
+### Recommendations
+
+- **Apps with fewer than 5 products**: `preloadCheckout: true` with no cap is fine
+- **Apps with many products**: Use `maxPreloadedWebViews: 3` or `.specified([topProducts])` to cap memory
+- **Memory-sensitive apps**: Set `maxPreloadedWebViews: 0` to get PI caching without WebView overhead
+
+## Defaults Summary
+
+| Feature | Default | Opt-in |
+|---------|---------|--------|
+| PI preload on bootstrap | **OFF** | `preloadCheckout: true` |
+| PI caching (5-min TTL) | **ON** | Built-in, no config needed |
+| Request coalescing | **ON** | Built-in, no config needed |
+| WebView pre-rendering | **ON** (no limit) | Cap with `maxPreloadedWebViews` |
+| Backend deduplication (1-hour) | **ON** | Built-in, no config needed |

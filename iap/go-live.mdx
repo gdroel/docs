@@ -56,18 +56,12 @@ if (ZeroSettle.isWebCheckoutEnabled) {
 
 ## App Store / Play Store Checklist
 
-- [ ] External Purchase Link entitlement approved by Apple (required for US)
-- [ ] Disclosure modal implemented (Apple requires showing a modal before link-out in Safari flows)
-- [ ] Google Play alternative billing option configured
+- [ ] Google Play alternative billing option configured (if targeting Android)
 - [ ] App review submitted with external purchase flow documented
 
-<Warning>
-  Apple requires the External Purchase Link entitlement for US apps that link out to web checkout via Safari. Apps without this entitlement may be rejected during review. The payment sheet (`webview`) flow does not require this entitlement.
-</Warning>
-
-<Note>
-  The disclosure modal is only required for the Safari checkout flow. If you're using the payment sheet (`webview`) exclusively, you can skip this step.
-</Note>
+<Tip>
+  Per Apple's updated App Review Guidelines following the *Epic v. Apple* contempt ruling, no special entitlement is required for US apps to link to external payment methods. See [Compliance](/iap/compliance) for details.
+</Tip>
 
 ## Final Testing
 

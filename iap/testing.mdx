@@ -13,6 +13,10 @@ ZeroSettle uses separate sandbox and live environments, determined entirely by y
 
 All SDK behavior is identical between sandbox and live — the only difference is which Stripe environment processes the payment. The dashboard has a **Sandbox** toggle in the top nav to switch between viewing sandbox and live data.
 
+<Frame caption="Sandbox/Live toggle in the dashboard top nav">
+  <img src="/images/dashboard-sandbox-toggle.png" alt="Dashboard top navigation showing the Sandbox toggle in orange" style={{ maxWidth: '300px' }} />
+</Frame>
+
 ## Test Cards
 
 Stripe provides test card numbers for simulating different payment outcomes. Use any future expiry date and any 3-digit CVC.
@@ -39,6 +43,10 @@ Walk through a complete purchase cycle in sandbox:
 5. **Verify the transaction callback** — confirm your delegate receives `zeroSettleCheckoutDidComplete`
 6. **Check entitlements** — call `restoreEntitlements()` and verify the product is active
 7. **Verify in the dashboard** — switch to sandbox mode, open the **Transactions** tab, and confirm the transaction appears
+
+<Frame caption="Transactions tab showing completed sandbox purchases">
+  <img src="/images/dashboard-transactions.png" alt="Dashboard transactions list showing completed test purchases with dates, products, amounts, and sources" />
+</Frame>
 
 <CodeGroup>
 ```swift Swift

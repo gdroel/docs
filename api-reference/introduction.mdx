@@ -1,33 +1,51 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: 'API Reference'
+description: 'ZeroSettle IAP SDK API endpoints'
+icon: 'code'
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
-
-## Welcome
-
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
-
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+The ZeroSettle IAP API powers the SDK and enables server-side integration. All SDK-facing endpoints are authenticated via the `X-ZeroSettle-Key` header.
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+Include your publishable API key in every request:
+
+```bash
+curl -H "X-ZeroSettle-Key: zs_pk_test_..." https://api.zerosettle.io/v1/iap/products
+```
+
+| Key Prefix | Environment |
+|---|---|
+| `zs_pk_test_` | Sandbox (no real charges) |
+| `zs_pk_live_` | Production (real payments) |
+
+Your API keys are available on the [ZeroSettle dashboard](https://app.zerosettle.io) under **Settings > API Keys**.
+
+## Base URL
+
+| Environment | URL |
+|---|---|
+| Production | `https://api.zerosettle.io` |
+| Staging | `https://api-staging.zerosettle.io` |
+
+## Rate Limits
+
+The API currently does not enforce rate limits, but please be reasonable with request volume. If you need high-throughput access, contact support@zerosettle.io.
+
+## Error Handling
+
+All error responses follow this format:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "error": "Human-readable error message"
+}
 ```
+
+| Status Code | Meaning |
+|---|---|
+| `400` | Invalid request (missing/malformed parameters) |
+| `401` | Invalid or missing API key |
+| `403` | Account disabled or insufficient permissions |
+| `404` | Resource not found |
+| `502` | Upstream service error (Stripe, Apple) |

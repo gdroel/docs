@@ -1,0 +1,436 @@
+---
+title: 'Webhooks & Server-Side'
+description: 'How ZeroSettle processes purchase events and how to verify purchases on your backend'
+icon: 'webhook'
+---
+
+ZeroSettle acts as your Merchant of Record, which means **you never need to set up your own Stripe webhook endpoints** or handle raw payment events. ZeroSettle receives all payment lifecycle events from Stripe (and Apple), processes them automatically, and keeps your Transactions and Entitlements up to date.
+
+Your app interacts with this system in two ways:
+
+1. **Client-side** -- the SDK receives real-time updates via delegate callbacks
+2. **Server-side** -- your backend queries the Entitlements API to verify purchase status
+
+## How It Works
+
+<Steps>
+  <Step title="User completes checkout">
+    The user pays via Apple Pay or card through the ZeroSettle checkout sheet. The SDK creates a PaymentIntent on ZeroSettle's backend.
+  </Step>
+  <Step title="Stripe sends a webhook to ZeroSettle">
+    Stripe fires `payment_intent.succeeded` (or `checkout.session.completed` for session-based flows). ZeroSettle receives this at its webhook endpoint with signature verification.
+  </Step>
+  <Step title="ZeroSettle creates Transaction + Entitlement">
+    The webhook handler creates an immutable `Transaction` record (the payment ledger entry) and an `Entitlement` (the user's access grant). For subscriptions, it also creates the Stripe subscription and tracks renewal state.
+  </Step>
+  <Step title="SDK updates client-side">
+    The SDK polls for transaction completion and updates the local entitlement cache. Your delegate callback fires with the updated entitlements.
+  </Step>
+  <Step title="Your backend verifies via API">
+    At any point, your backend can query `GET /v1/iap/entitlements` to verify a user's purchase status server-side.
+  </Step>
+</Steps>
+
+<Tip>
+  Because ZeroSettle is the Merchant of Record, all webhook signature verification, idempotency handling, and retry logic is managed for you. Every webhook event is logged with an idempotency key to prevent duplicate processing.
+</Tip>
+
+## Server-Side Verification
+
+For server-side purchase verification (e.g., unlocking content from your API, validating access in a game server, or gating API features), query the Entitlements API.
+
+### Query by User ID
+
+```bash
+curl --request GET \
+  --url 'https://api.zerosettle.io/v1/iap/entitlements?user_id=your_user_id' \
+  --header 'X-ZeroSettle-Key: zs_pk_live_...'
+```
+
+### Query by Email
+
+For [anonymous users](/iap/user-identity#option-3-anonymous-users) who purchased without a user account:
+
+```bash
+curl --request GET \
+  --url 'https://api.zerosettle.io/v1/iap/entitlements?email=user@example.com' \
+  --header 'X-ZeroSettle-Key: zs_pk_live_...'
+```
+
+### Response Format
+
+```json
+{
+  "entitlements": [
+    {
+      "id": "txn_abc123",
+      "product_id": "premium_monthly",
+      "product_type": "auto_renewable",
+      "source": "web_checkout",
+      "status": "active",
+      "is_active": true,
+      "expires_at": null,
+      "purchased_at": "2025-03-14T12:00:00Z",
+      "will_renew": true,
+      "is_trial": false,
+      "trial_ends_at": null,
+      "cancelled_at": null
+    }
+  ]
+}
+```
+
+### Server-Side Verification Examples
+
+<CodeGroup>
+
+```javascript Node.js
+const response = await fetch(
+  `https://api.zerosettle.io/v1/iap/entitlements?user_id=${userId}`,
+  {
+    headers: {
+      'X-ZeroSettle-Key': process.env.ZEROSETTLE_KEY,
+    },
+  }
+);
+
+const { entitlements } = await response.json();
+const hasPremium = entitlements.some(
+  (e) => e.product_id === 'premium_monthly' && e.is_active
+);
+
+if (!hasPremium) {
+  return res.status(403).json({ error: 'Premium subscription required' });
+}
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "https://api.zerosettle.io/v1/iap/entitlements",
+    params={"user_id": user_id},
+    headers={"X-ZeroSettle-Key": os.environ["ZEROSETTLE_KEY"]},
+)
+
+entitlements = response.json()["entitlements"]
+has_premium = any(
+    e["product_id"] == "premium_monthly" and e["is_active"]
+    for e in entitlements
+)
+
+if not has_premium:
+    raise PermissionError("Premium subscription required")
+```
+
+```go Go
+req, _ := http.NewRequest("GET",
+    "https://api.zerosettle.io/v1/iap/entitlements?user_id="+userID, nil)
+req.Header.Set("X-ZeroSettle-Key", os.Getenv("ZEROSETTLE_KEY"))
+
+resp, err := http.DefaultClient.Do(req)
+// parse resp.Body for entitlements...
+```
+
+</CodeGroup>
+
+<Note>
+  All API endpoints authenticate with your **publishable key** (`zs_pk_live_...` or `zs_pk_test_...`) via the `X-ZeroSettle-Key` header -- the same key you use in the SDK. Use `zs_pk_test_...` for sandbox queries and `zs_pk_live_...` for production.
+</Note>
+
+### Transaction History
+
+For a full history of all transactions (including failed, refunded, and expired), use the transaction history endpoint:
+
+```bash
+curl --request GET \
+  --url 'https://api.zerosettle.io/v1/iap/transaction-history?user_id=your_user_id&limit=50' \
+  --header 'X-ZeroSettle-Key: zs_pk_live_...'
+```
+
+This returns all transactions regardless of status, including consumed consumables, expired subscriptions, and refunds. The `limit` parameter defaults to 50 (max 100).
+
+## Client-Side Updates
+
+The SDK provides real-time delegate callbacks when entitlements change. These fire after purchases, restores, refunds, and subscription renewals.
+
+### Delegate Callbacks
+
+<CodeGroup>
+
+```swift Swift
+class PurchaseManager: ZeroSettleDelegate {
+    init() {
+        ZeroSettle.shared.delegate = self
+    }
+
+    func zeroSettleEntitlementsDidUpdate(_ entitlements: [Entitlement]) {
+        // Fires after any entitlement change:
+        // - Purchase completed
+        // - Subscription renewed
+        // - Refund processed
+        // - Restore completed
+        for entitlement in entitlements {
+            if entitlement.isActive {
+                unlockFeature(entitlement.productId)
+            } else {
+                lockFeature(entitlement.productId)
+            }
+        }
+    }
+}
+```
+
+```kotlin Kotlin
+class PurchaseManager : ZeroSettleDelegate {
+    init {
+        ZeroSettle.delegate = this
+    }
+
+    override fun zeroSettleEntitlementsDidUpdate(entitlements: List<Entitlement>) {
+        for (entitlement in entitlements) {
+            if (entitlement.isActive) {
+                unlockFeature(entitlement.productId)
+            } else {
+                lockFeature(entitlement.productId)
+            }
+        }
+    }
+}
+```
+
+```tsx React Native
+import { ZeroSettle } from 'react-native-zerosettle-kit';
+
+ZeroSettle.onEntitlementUpdate((entitlements) => {
+  for (const entitlement of entitlements) {
+    if (entitlement.isActive) {
+      unlockFeature(entitlement.productId);
+    } else {
+      lockFeature(entitlement.productId);
+    }
+  }
+});
+```
+
+```dart Flutter
+ZeroSettle.instance.entitlementUpdates.listen((entitlements) {
+  for (final entitlement in entitlements) {
+    if (entitlement.isActive) {
+      unlockFeature(entitlement.productId);
+    } else {
+      lockFeature(entitlement.productId);
+    }
+  }
+});
+```
+
+</CodeGroup>
+
+<Note>
+  Entitlement updates are triggered by SDK operations (purchases, restores). They are **not** pushed from the backend in real-time via WebSocket or push notification. For server-authoritative access control, use the Entitlements API on your backend.
+</Note>
+
+### Reactive UI Observation
+
+You can also observe entitlements reactively in your UI framework:
+
+<CodeGroup>
+
+```swift SwiftUI
+struct ContentView: View {
+    @ObservedObject var iap = ZeroSettle.shared
+
+    var body: some View {
+        if iap.entitlements.contains(where: { $0.isActive }) {
+            PremiumContent()
+        } else {
+            UpgradePrompt()
+        }
+    }
+}
+```
+
+```kotlin Jetpack Compose
+@Composable
+fun ContentScreen() {
+    val entitlements by ZeroSettle.entitlements.collectAsState()
+
+    if (entitlements.any { it.isActive }) {
+        PremiumContent()
+    } else {
+        UpgradePrompt()
+    }
+}
+```
+
+```tsx React Native
+import { useEntitlements } from 'react-native-zerosettle-kit';
+
+function ContentScreen() {
+  const entitlements = useEntitlements();
+  const hasAccess = entitlements.some(e => e.isActive);
+
+  return hasAccess ? <PremiumContent /> : <UpgradePrompt />;
+}
+```
+
+```dart Flutter
+StreamBuilder<List<Entitlement>>(
+  stream: ZeroSettle.instance.entitlementUpdates,
+  builder: (context, snapshot) {
+    final hasAccess = snapshot.data?.any((e) => e.isActive) ?? false;
+    return hasAccess ? PremiumContent() : UpgradePrompt();
+  },
+)
+```
+
+</CodeGroup>
+
+## Stripe Webhook Events
+
+ZeroSettle processes the following Stripe webhook events automatically. You do **not** need to handle these yourself.
+
+<AccordionGroup>
+  <Accordion title="Payment Events">
+    | Event | What ZeroSettle Does |
+    |-------|---------------------|
+    | `payment_intent.succeeded` | Marks transaction as succeeded, creates Identity + Entitlement. For subscriptions, creates the Stripe subscription and handles plan upgrades (cancels old subscription with proration). |
+    | `payment_intent.processing` | Moves transaction from `pending` to `processing`, freeing the deduplication slot so the user can retry if needed. |
+    | `payment_intent.payment_failed` | Marks the pending transaction as `failed`. |
+    | `payment_intent.canceled` | Marks the pending transaction as `failed` to free the dedup slot. |
+  </Accordion>
+
+  <Accordion title="Checkout Session Events">
+    | Event | What ZeroSettle Does |
+    |-------|---------------------|
+    | `checkout.session.completed` | Routes to IAP checkout handler if `payment_status=paid`. Creates Transaction + Entitlement. |
+    | `checkout.session.expired` | Marks pending transaction as `failed` when the checkout session expires without payment. |
+  </Accordion>
+
+  <Accordion title="Subscription Lifecycle Events">
+    | Event | What ZeroSettle Does |
+    |-------|---------------------|
+    | `customer.subscription.updated` | Handles cancellation (`cancel_at_period_end`), pause/resume, and status changes. Entitlement stays active until period end on cancellation. |
+    | `customer.subscription.deleted` | Deactivates the entitlement when the subscription is fully terminated. |
+    | `customer.subscription.paused` | Marks entitlement as paused. Access is suspended until resumed. |
+    | `customer.subscription.resumed` | Reactivates a paused entitlement. |
+    | `customer.subscription.trial_will_end` | Logs upcoming trial expiration (~3 days before). Used for Switch & Save migrations with aligned trial periods. |
+  </Accordion>
+
+  <Accordion title="Invoice Events">
+    | Event | What ZeroSettle Does |
+    |-------|---------------------|
+    | `invoice.paid` | Creates Transaction records for subscription renewals and proration charges. Extends entitlement expiry on renewal. Skips initial `subscription_create` invoices (handled by checkout flow). |
+    | `invoice.payment_failed` | Logs renewal failure context. Entitlement status is handled by `customer.subscription.updated` (moves to `past_due`). |
+    | `invoice.voided` | Handles voided invoices for paused subscriptions. |
+  </Accordion>
+
+  <Accordion title="Refund & Dispute Events">
+    | Event | What ZeroSettle Does |
+    |-------|---------------------|
+    | `charge.refunded` | Marks transaction as `refunded`, deactivates all linked entitlements. |
+    | `charge.dispute.created` | Marks transaction as `disputed`, revokes all linked entitlements. ZeroSettle handles evidence submission as MoR. |
+    | `charge.dispute.updated` | Logs dispute status changes. |
+    | `charge.dispute.closed` | Records dispute outcome (won/lost). |
+    | `charge.dispute.funds_withdrawn` | Logs fund withdrawal. |
+    | `charge.dispute.funds_reinstated` | Re-activates entitlements if dispute is won and funds are returned. |
+  </Accordion>
+
+  <Accordion title="Setup & Account Events">
+    | Event | What ZeroSettle Does |
+    |-------|---------------------|
+    | `setup_intent.succeeded` | Confirms trial subscription card setup. Finalizes the trial transaction. |
+    | `setup_intent.setup_failed` | Marks trial transaction as failed if card setup fails. |
+    | `account.application.deauthorized` | Clears stale Stripe references when a connected account revokes platform access. |
+  </Accordion>
+</AccordionGroup>
+
+### BYOS (Bring Your Own Stripe)
+
+If you use [BYOS mode](/iap/stripe-catalog) with your own Stripe account connected via OAuth, ZeroSettle still receives and processes all webhook events through the same endpoint. Stripe routes Connect webhooks to the platform automatically. You do not need to configure a separate webhook endpoint on your connected account.
+
+<Warning>
+  Do not configure your own webhook endpoint for the same events on your connected Stripe account. Duplicate processing can cause entitlement conflicts.
+</Warning>
+
+## App Store Server Notifications
+
+ZeroSettle also handles Apple's **App Store Server Notifications V2** (ASSN v2) for StoreKit subscription lifecycle events. If your app uses StoreKit purchases alongside web checkout, these notifications keep entitlements in sync automatically.
+
+### Setting Up ASSN v2
+
+Configure the webhook URL in App Store Connect:
+
+<Steps>
+  <Step title="Open App Store Connect">
+    Navigate to your app in [App Store Connect](https://appstoreconnect.apple.com).
+  </Step>
+  <Step title="Go to App Information">
+    Select **App Information** from the sidebar under **General**.
+  </Step>
+  <Step title="Configure the webhook URL">
+    Under **App Store Server Notifications**, set:
+
+    **Production URL:**
+    ```
+    https://api.zerosettle.io/v1/webhooks/appstore-notifications/
+    ```
+
+    **Sandbox URL:**
+    ```
+    https://api.zerosettle.io/v1/webhooks/appstore-notifications/?sandbox=true
+    ```
+
+    Select **Version 2** for the notification version.
+  </Step>
+</Steps>
+
+### Handled Apple Notifications
+
+ZeroSettle processes the following ASSN v2 notification types:
+
+| Notification | What ZeroSettle Does |
+|---|---|
+| `REFUND` | Deactivates entitlement, marks transaction as refunded |
+| `REVOKE` | Deactivates entitlement (family sharing revocation) |
+| `DID_RENEW` | Extends entitlement expiry to new period end. Applies pending product changes from plan switches. |
+| `EXPIRED` | Marks entitlement as expired and deactivates access |
+| `DID_FAIL_TO_RENEW` | Marks entitlement as grace period or past due depending on subtype |
+| `DID_CHANGE_RENEWAL_STATUS` | Handles auto-renew toggle (marks cancelled or reactivated) |
+| `DID_CHANGE_RENEWAL_PREF` | Records pending product change for next renewal |
+| `GRACE_PERIOD_EXPIRED` | Deactivates access after billing grace period ends |
+| `RENEWAL_EXTENDED` | Extends entitlement expiry when Apple grants an extension |
+| `SUBSCRIBED` | Creates transaction and entitlement for new subscriptions |
+| `ONE_TIME_CHARGE` | Creates transaction and entitlement for one-time purchases |
+| `OFFER_REDEEMED` | Records offer metadata on the entitlement |
+| `REFUND_REVERSED` | Re-activates entitlement after a refund reversal |
+| `REFUND_DECLINED` | Logged only (refund request was declined by Apple) |
+
+<Note>
+  All Apple notifications are verified using JWS signature verification against Apple's Root CA certificate chain before processing. Duplicate notifications are automatically skipped via idempotency checks on the `notificationUUID`.
+</Note>
+
+### Notification Forwarding
+
+If your app needs to receive ASSN v2 notifications on your own server (e.g., for analytics or custom logic), you can configure **notification forwarding** in the ZeroSettle dashboard. When enabled, ZeroSettle processes the notification first, then forwards the original signed payload to your URL.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use server-side verification for access control">
+    For content gating on your backend (API access, downloadable content, server-side features), always verify entitlements via the REST API rather than trusting client-side state. The SDK cache is convenient for UI but should not be the source of truth for authorization decisions.
+  </Accordion>
+
+  <Accordion title="Call restoreEntitlements() on app launch">
+    The SDK's entitlement cache is in-memory only and is cleared when the app process terminates. Call `restoreEntitlements()` on every app launch to rehydrate the user's entitlements from the server.
+  </Accordion>
+
+  <Accordion title="Handle the empty entitlements case">
+    Entitlements will be empty if no purchases have been made. Always handle this case gracefully in your UI and server-side logic.
+  </Accordion>
+
+  <Accordion title="Don't build your own Stripe webhook handler">
+    ZeroSettle handles all Stripe webhook processing, including signature verification, idempotency, and retry logic. Building a parallel webhook handler will cause duplicate entitlement creation and state conflicts.
+  </Accordion>
+</AccordionGroup>

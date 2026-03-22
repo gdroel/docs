@@ -8,6 +8,10 @@ icon: 'credit-card'
 
 This is the recommended way to accept payments with ZeroSettle.
 
+<Frame caption="ZeroSettle payment sheet with Apple Pay and card entry">
+  <img src="/images/payment-sheet-ios.png" alt="Payment sheet showing Apple Pay button, product name, and card entry option" style={{ maxWidth: '350px' }} />
+</Frame>
+
 ## SwiftUI
 
 ### Basic Usage
@@ -531,6 +535,10 @@ The modifier shares the same caching and preloading behavior described below.
 </Note>
 
 ## Performance & Caching
+
+<Tip>
+  For a deep dive on how preloading works — including what gets created in Stripe, deduplication, memory usage, and configuration — see [Preloading & Prefetching](/iap/preloading).
+</Tip>
 
 ### Automatic Preloading
 
@@ -1186,6 +1194,10 @@ final transaction = await ZeroSettle.instance.presentPaymentSheet(
 <Note>
   The `freeTrialDays` parameter defaults to `0` (no trial). When set, the payment sheet displays the trial period and the user is not charged until the trial expires.
 </Note>
+
+<Tip>
+  **Production example:** See how [JustOne](/iap/sample-app) implements its paywall with dual StoreKit/web pricing and custom checkout headers in `PremiumUpsellView.swift`.
+</Tip>
 
 ## Next Steps
 

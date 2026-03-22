@@ -31,6 +31,10 @@ The mapping ensures:
 
 Each mapping links a ZeroSettle product (identified by its App Store product ID) to a Stripe `Product` and `Price` pair.
 
+<Frame caption="AI-suggested product mapping with price mismatch warning and match confidence indicator">
+  <img src="/images/stripe-catalog-mapping.png" alt="Stripe catalog mapping showing AI-suggested match between StoreKit and Stripe products with price mismatch warning" style={{ maxWidth: '500px' }} />
+</Frame>
+
 <Tip>
 Make sure your Stripe prices use the same currency and amount as your ZeroSettle web prices. Mismatched prices will cause checkout errors.
 </Tip>
