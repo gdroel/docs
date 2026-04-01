@@ -18,7 +18,7 @@ https://github.com/zerosettle/ZeroSettleKit
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/zerosettle/ZeroSettleKit", from: "0.13.0")
+    .package(url: "https://github.com/zerosettle/ZeroSettleKit", from: "1.0.31")
 ]
 ```
 
@@ -50,7 +50,7 @@ Add the ZeroSettle SDK from [Maven Central](https://central.sonatype.com/artifac
 ```kotlin
 // build.gradle.kts (app module)
 dependencies {
-    implementation("io.zerosettle:zerosettle-android:0.10.0")
+    implementation("io.zerosettle:zerosettle-android:0.15.0")
 }
 ```
 
@@ -59,7 +59,7 @@ dependencies {
 ```toml
 # gradle/libs.versions.toml
 [versions]
-zerosettle = "0.10.0"
+zerosettle = "0.15.0"
 
 [libraries]
 zerosettle = { module = "io.zerosettle:zerosettle-android", version.ref = "zerosettle" }
@@ -106,7 +106,7 @@ flutter pub add zerosettle
 
 ```yaml
 dependencies:
-  zerosettle: ^0.8.0
+  zerosettle: ^1.0.0
 ```
 
 Then run `flutter pub get`.
@@ -133,9 +133,31 @@ final zs = ZeroSettle.instance;
 
 ## React Native
 
-<Info>
-  React Native support is coming soon. Join the waitlist at [zerosettle.io](https://zerosettle.io) to be notified.
-</Info>
+Install via npm or yarn:
+
+```bash
+npm install react-native-zerosettle
+# or
+yarn add react-native-zerosettle
+```
+
+Then run `cd ios && pod install`.
+
+<Note>
+  Requires **React Native 0.76+** (New Architecture / TurboModules), **iOS 17.0+**. The SDK wraps the native ZeroSettleKit iOS SDK via CocoaPods. Android support is not yet available.
+</Note>
+
+### Verify Installation
+
+```typescript
+import { ZeroSettleKit } from 'react-native-zerosettle';
+
+ZeroSettleKit.configure({ publishableKey: 'zs_pk_live_...' });
+```
+
+**Resources:**
+- [npm: react-native-zerosettle](https://www.npmjs.com/package/react-native-zerosettle)
+- [GitHub: ZeroSettle-ReactNative](https://github.com/ZeroSettle/ZeroSettle-ReactNative)
 
 ---
 
