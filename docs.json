@@ -78,6 +78,7 @@
                 "icon": "users",
                 "pages": [
                   "iap/user-identity",
+                  "iap/entitlement-ownership",
                   "iap/subscription-state",
                   "iap/customer-portal",
                   "iap/custom-cancel-flow",

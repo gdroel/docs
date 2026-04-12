@@ -193,6 +193,10 @@ final entitlements = await ZeroSettle.instance.restoreEntitlements(
 
 **Restoration**: Call `restoreEntitlements(userId:)` after login or on app launch. Works across devices.
 
+<Info>
+  StoreKit purchases are tied to the account that was logged in when the purchase was made. If multiple accounts share the same Apple ID, each only sees its own purchases. See [Entitlement Ownership](/iap/entitlement-ownership).
+</Info>
+
 ## Option 3: Anonymous Users
 
 No user system? Users are identified by their email from checkout:

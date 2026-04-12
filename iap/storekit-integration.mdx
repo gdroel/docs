@@ -165,6 +165,10 @@ for entitlement in entitlements {
 
 Both sources are merged into a single entitlements list. Your app doesn't need to treat them differently.
 
+<Info>
+  When multiple app accounts share the same Apple ID, StoreKit entitlements are filtered by ownership — each account only sees the purchases it made. See [Entitlement Ownership](/iap/entitlement-ownership) for details.
+</Info>
+
 ## Error Types
 
 ### StoreKitPurchaseError

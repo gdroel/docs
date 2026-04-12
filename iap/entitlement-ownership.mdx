@@ -1,0 +1,226 @@
+---
+title: 'Entitlement Ownership'
+description: 'How ZeroSettle determines which account owns a StoreKit purchase'
+icon: 'shield-check'
+---
+
+When your app uses both StoreKit and ZeroSettle web checkout, multiple app accounts can exist on the same Apple ID. ZeroSettle's entitlement ownership model ensures purchases are attributed to the correct account and never silently transferred.
+
+## The Ownership Rule
+
+<Note>
+  **An entitlement belongs to the account that was active when it was purchased. It never transfers automatically.**
+</Note>
+
+When a user makes a StoreKit purchase, the SDK syncs the Apple-signed transaction (JWS) to the ZeroSettle backend. The backend records which account (user ID) was logged in at the time of purchase. That account permanently owns the entitlement.
+
+If a different account later logs in on the same device (same Apple ID), the SDK syncs the same StoreKit transactions during bootstrap. The backend recognizes each transaction's `originalTransactionId` and returns `owned: false` for transactions that belong to another account. The SDK filters these out — the new account never sees them.
+
+## How It Works
+
+### During Bootstrap
+
+When you call `bootstrap(userId:)`, the SDK:
+
+1. **Syncs StoreKit transactions** — sends each active Apple transaction to the backend
+2. **Backend checks ownership** — for each transaction, returns `owned: true` (this account's) or `owned: false` (another account's)
+3. **Filters locally** — `restoreEntitlements()` combines backend entitlements with local StoreKit entitlements, excluding any the backend marked as unowned
+
+This happens automatically — no developer action required.
+
+<CodeGroup>
+
+```swift Swift
+// This is all you need. Ownership filtering is internal.
+let catalog = try await ZeroSettle.shared.bootstrap(userId: currentUser.id)
+
+// activeEntitlements only includes entitlements owned by currentUser
+let isPremium = ZeroSettle.shared.activeEntitlements.contains {
+    $0.productId == "premium_monthly" && $0.isActive
+}
+```
+
+```kotlin Kotlin
+// Bootstrap handles ownership automatically
+val catalog = ZeroSettle.bootstrap(userId = currentUser.id)
+
+// Only this user's entitlements are returned
+val isPremium = ZeroSettle.activeEntitlements.value.any {
+    it.productId == "premium_monthly" && it.isActive
+}
+```
+
+```tsx React Native
+// Ownership filtering is handled internally
+const catalog = await ZeroSettle.bootstrap(currentUser.id);
+
+const entitlements = ZeroSettle.getActiveEntitlements();
+const isPremium = entitlements.some(
+  e => e.productId === 'premium_monthly' && e.isActive
+);
+```
+
+```dart Flutter
+// No special handling needed
+final catalog = await ZeroSettle.instance.bootstrap(userId: currentUser.id);
+
+final entitlements = await ZeroSettle.instance.getActiveEntitlements();
+final isPremium = entitlements.any(
+  (e) => e.productId == 'premium_monthly' && e.isActive,
+);
+```
+
+</CodeGroup>
+
+### During Real-Time Purchases
+
+When a user makes a new StoreKit purchase while logged in:
+
+1. The SDK's StoreKit listener receives the transaction
+2. Syncs it to the backend with the current user ID — backend returns `owned: true`
+3. The entitlement immediately appears in `activeEntitlements`
+
+New purchases always belong to the currently logged-in account.
+
+### What Users See
+
+| Scenario | Result |
+|----------|--------|
+| User A buys premium on Apple ID X | User A owns the entitlement |
+| User B logs in (same Apple ID X) | User B does **not** see User A's premium |
+| User B buys their own premium | User B gets their own entitlement |
+| User A logs back in | User A still has their original entitlement |
+
+## Explicit Entitlement Claiming
+
+For cases where you need to transfer an entitlement between accounts — testing, account migration, or support — the SDK provides an explicit claim API:
+
+<CodeGroup>
+
+```swift Swift
+// Transfer a StoreKit entitlement to the current account
+try await ZeroSettle.shared.claimEntitlement(
+    productId: "premium_monthly",
+    userId: currentUser.id
+)
+```
+
+```kotlin Kotlin
+ZeroSettle.claimEntitlement(
+    productId = "premium_monthly",
+    userId = currentUser.id,
+)
+```
+
+```tsx React Native
+await ZeroSettle.claimEntitlement('premium_monthly', currentUser.id);
+```
+
+```dart Flutter
+await ZeroSettle.instance.claimEntitlement(
+  productId: 'premium_monthly',
+  userId: currentUser.id,
+);
+```
+
+</CodeGroup>
+
+This:
+
+1. Finds the StoreKit transaction for this product on the current Apple ID
+2. Sends it to the backend's `/iap/claim-entitlement/` endpoint
+3. **Revokes** the entitlement from the previous owner
+4. **Grants** it to the current account
+5. Refreshes `activeEntitlements` automatically
+
+<Warning>
+  `claimEntitlement` is destructive — it revokes the entitlement from whoever currently owns it. Use it intentionally, not as part of your normal app flow.
+</Warning>
+
+### Limitations
+
+- **Subscriptions and non-consumables only** — consumables cannot be claimed (they're single-use)
+- **Requires an active StoreKit transaction** — if the subscription has expired on the Apple ID, there's nothing to claim
+- **Atomic** — the revoke and grant happen in a single database transaction. If the grant fails, the revoke rolls back too
+
+### Use Cases
+
+<AccordionGroup>
+  <Accordion title="Testing with sandbox accounts">
+    When testing with multiple ZeroSettle accounts on the same Apple sandbox account, use `claimEntitlement` to move subscriptions between test accounts without creating new purchases.
+  </Accordion>
+  <Accordion title="Account migration">
+    If a user needs to move their subscription to a new account (e.g., they created a duplicate account by mistake), call `claimEntitlement` from the new account.
+  </Accordion>
+  <Accordion title="Customer support">
+    Build a support tool that lets agents transfer entitlements between accounts. Wire `claimEntitlement` to a "Transfer Subscription" button in your admin interface.
+  </Accordion>
+</AccordionGroup>
+
+## StoreKit Subscription Groups
+
+When a user upgrades within a StoreKit subscription group (e.g., weekly to monthly), Apple reuses the same `originalTransactionId`. ZeroSettle handles this correctly:
+
+- The upgrade transaction is synced to the backend
+- The backend detects the plan change (same `originalTransactionId`, different product)
+- The old subscription is **superseded** (cancelled but active until period end)
+- The new subscription is granted
+
+This works the same regardless of whether the upgrade was initiated through StoreKit's subscription management UI or through your app.
+
+### Supersession States
+
+After an in-group upgrade, both entitlements may briefly appear in `activeEntitlements`:
+
+| Entitlement | Status | Meaning |
+|------------|--------|---------|
+| Old (weekly) | `cancelled` | Superseded by upgrade, active until Apple period end |
+| New (monthly) | `active` | Current subscription |
+
+Use `entitlement.isCancelled` to distinguish superseded entitlements from active ones:
+
+```swift
+let activeSubscription = ZeroSettle.shared.activeEntitlements.first {
+    $0.productId == "premium_monthly" && !$0.isCancelled
+}
+```
+
+## How This Interacts with Web Checkout
+
+Web checkout entitlements (purchased through Stripe via ZeroSettle) are **not affected** by the ownership model. They don't have a StoreKit `originalTransactionId`, so the ownership check doesn't apply.
+
+| Purchase Source | Ownership Model |
+|----------------|-----------------|
+| **StoreKit** | Tied to the account active at purchase time. Filtered by ownership. |
+| **Web checkout** | Tied to the `userId` passed at checkout. Always returned for that user. |
+| **Play Store** | Same as StoreKit — tied to the account active at purchase time. |
+
+When `restoreEntitlements()` runs, it merges both sources:
+- **Backend entitlements** (web checkout + synced StoreKit) — always included for the current user
+- **Local StoreKit entitlements** — filtered by the ownership set from the sync response
+
+## Backward Compatibility
+
+The ownership model was introduced in SDK version 1.1.3. Older SDK versions that don't parse the `owned` flag continue to work — they include all local StoreKit entitlements unfiltered (the pre-1.1.3 behavior).
+
+| SDK Version | Behavior |
+|-------------|----------|
+| < 1.1.3 | All StoreKit entitlements included (no ownership filter) |
+| >= 1.1.3 | Ownership-filtered StoreKit entitlements |
+| >= 1.1.4 | `claimEntitlement()` API available |
+
+The backend is backward compatible — the `owned` field is additional, not breaking.
+
+## Related
+
+<CardGroup cols={3}>
+  <Card title="User Identity" icon="user" href="/iap/user-identity">
+    How users are identified across purchases
+  </Card>
+  <Card title="Subscription Status" icon="arrows-rotate" href="/iap/subscription-state">
+    Checking subscription and entitlement status
+  </Card>
+  <Card title="StoreKit Integration" icon="apple" href="/iap/storekit-integration">
+    Using StoreKit alongside web checkout
+  </Card>
+</CardGroup>
