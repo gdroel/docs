@@ -136,6 +136,29 @@ Wipes all sandbox data — transactions, entitlements, and game sessions. Produc
   **Clear All** is irreversible. You'll be asked to confirm before the reset is applied.
 </Warning>
 
+## StoreKit Sandbox + Live Key Mismatch
+
+<Warning>
+  **Using a sandbox Apple account with a live publishable key will cause StoreKit transactions to appear in sandbox mode on the dashboard, not live mode.**
+</Warning>
+
+When you make a StoreKit purchase using a sandbox Apple ID, Apple's transaction receipt includes `environment: "sandbox"`. ZeroSettle uses this to determine the transaction's environment — regardless of which publishable key the SDK is configured with.
+
+This means if your SDK is configured with a **live** key (`zs_pk_live_...`) but you're signed into a **sandbox** Apple account, the StoreKit transaction will be:
+- **Stored** in sandbox mode (`is_sandbox=true`)
+- **Invisible** on the live dashboard
+- **Visible** on the sandbox dashboard (toggle to sandbox mode to see it)
+
+The backend will return a `warning: "environment_mismatch"` in the StoreKit sync response when this happens.
+
+**To avoid this during testing:**
+- Use a **sandbox publishable key** (`zs_pk_test_...`) when testing with sandbox Apple accounts
+- Or switch to **sandbox mode** on the dashboard to view the transactions
+
+<Note>
+  This only affects developer testing. Real users with production Apple accounts will always match the live publishable key, and their transactions will appear correctly in live mode.
+</Note>
+
 ## Common Issues
 
 | Symptom | Likely Cause | Fix |
@@ -145,3 +168,4 @@ Wipes all sandbox data — transactions, entitlements, and game sessions. Produc
 | Entitlements not updating after purchase | Webhook not delivered | Call `restoreEntitlements()` to force a refresh; check webhook delivery in the Stripe dashboard |
 | "Web checkout disabled" error | Web checkout not enabled | Enable web checkout for the target jurisdiction on the dashboard |
 | Transaction succeeds but delegate not called | Delegate not set | Ensure `ZeroSettle.shared.delegate = self` is set before triggering the purchase |
+| StoreKit purchase not showing on dashboard | Sandbox Apple account with live key | Switch to sandbox mode on the dashboard, or use a sandbox publishable key |
