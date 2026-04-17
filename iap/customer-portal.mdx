@@ -10,7 +10,7 @@ ZeroSettle provides a customer portal powered by Stripe where your customers can
 
 ### SwiftUI Modifier
 
-The simplest way to add subscription management is the `.zsManageSubscription()` modifier:
+The simplest way to add subscription management is the `.retentionSheet(isPresented:onResult:)` modifier:
 
 <CodeGroup>
 
@@ -20,7 +20,9 @@ The simplest way to add subscription management is the `.zsManageSubscription()`
 Button("Manage Subscription") {
     showManageSubscription = true
 }
-.zsManageSubscription(isPresented: $showManageSubscription, userId: currentUser.id)
+.retentionSheet(isPresented: $showManageSubscription) { result in
+    // Handle the retention result (cancelled, retained, paused, dismissed)
+}
 ```
 
 ```kotlin Kotlin
@@ -187,7 +189,7 @@ The questionnaire and retention offer are configured on the [ZeroSettle dashboar
 Button("Cancel Subscription") {
     showCancelFlow = true
 }
-.zsCancelFlow(
+.cancelFlow(
     isPresented: $showCancelFlow,
     productId: "premium_monthly",
     userId: currentUser.id

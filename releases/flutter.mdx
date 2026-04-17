@@ -4,7 +4,7 @@ description: 'Release notes for the ZeroSettle Flutter plugin'
 icon: 'mobile'
 ---
 
-**Current version:** `0.12.0`
+**Current version:** `1.1.0`
 **Package:** pub.dev (`zerosettle`)
 **Minimum requirements:** Flutter 3.3.0+, Dart 3.10+
 
@@ -12,9 +12,32 @@ icon: 'mobile'
   Add to your `pubspec.yaml`:
   ```yaml
   dependencies:
-    zerosettle: ^0.12.0
+    zerosettle: ^1.1.0
   ```
 </Tip>
+
+---
+
+## April 2026
+
+<Update label="1.1.0" description="2026-04-07">
+### Aligned with ZeroSettleKit 1.1.x
+
+Bumped to 1.1.0 to align with the ZeroSettleKit 1.1.x release line. The plugin now pins ZeroSettleKit `>= 1.1.0` and inherits everything that shipped in ZeroSettleKit 1.1.0.
+
+- **Unified offer system** — Inherits `OfferTipView` and `ZSOfferManager` for migration + upgrade offers in a single component (iOS canonical; Flutter still ships `MigrationTipView` for now)
+- **Checkout hardening** — Sheet waits for payment buttons before presenting; JS handler safety prevents false "Payment failed" errors
+</Update>
+
+<Update label="1.0.0 — 1.0.3" description="2026-04-01 — 2026-04-07">
+### Initial 1.x stable releases
+
+Initial 1.x stable releases for the Flutter plugin. Bridges ZeroSettleKit 1.0.32–1.0.34 native APIs and aligns the public Dart API with the iOS 1.x surface.
+
+- Stable 1.0 baseline for production deployments
+- Native iOS dependency pinned to ZeroSettleKit 1.0.x
+- Internal cleanup and minor bug fixes
+</Update>
 
 ---
 

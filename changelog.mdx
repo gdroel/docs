@@ -50,12 +50,16 @@ See [Entitlement Ownership](/iap/entitlement-ownership) for the full guide.
 
 - Checkout failure alerts now include the product ID and actionable guidance: *"Failed to create payment for \<productId\>. Check that the product has a valid web price configured in the ZeroSettle dashboard."*
 - PI creation errors are logged with the actual server error instead of being silently swallowed.
+
+Includes patch tags 1.1.1, 1.1.2, 1.1.3, 1.1.4 with internal fixes.
 </Update>
 
 <Update label="1.1.0" description="2026-04-07">
 ### Unified offer system
 
 New `OfferTipView` and `ZSOfferManager` unify migration and upgrade offers into a single component. The server determines which offer to show based on the user's subscription state — no app update needed to switch between offer types.
+
+Note: patch tags 1.0.32, 1.0.33, and 1.0.34 shipped between 1.0.31 and 1.1.0 with internal fixes.
 
 - **`OfferTipView`** — Drop-in replacement for `MigrationTipView` that handles migration, storekit-to-web upgrades, and web-to-web upgrades
 - **`ZSOfferManager`** — Headless state machine for custom offer UI (replaces `ZSMigrationManager` for new integrations)

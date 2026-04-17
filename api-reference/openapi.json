@@ -186,9 +186,17 @@
                     "type": "string",
                     "description": "Existing Stripe customer ID to attach the payment to."
                   },
+                  "customer_name": {
+                    "type": "string",
+                    "description": "Optional customer display name to attach to the Stripe customer for this checkout. Also accepts the camelCase alias `customerName`."
+                  },
+                  "customer_email": {
+                    "type": "string",
+                    "description": "Optional customer email to attach to the Stripe customer for this checkout. Also accepts the camelCase alias `customerEmail`."
+                  },
                   "checkout_domain": {
                     "type": "string",
-                    "description": "Custom domain for the checkout page URL."
+                    "description": "Verified custom subdomain for the app's checkout (e.g., `checkout.example.com`). Configure via the dashboard — see the Custom Checkout Domains guide."
                   },
                   "checkout_mode": {
                     "type": "string",
@@ -307,6 +315,14 @@
                   "stripe_customer_id": {
                     "type": "string",
                     "description": "Existing Stripe customer ID to attach payments to."
+                  },
+                  "customer_name": {
+                    "type": "string",
+                    "description": "Optional customer display name to attach to the Stripe customer for this batch. Also accepts the camelCase alias `customerName`."
+                  },
+                  "customer_email": {
+                    "type": "string",
+                    "description": "Optional customer email to attach to the Stripe customer for this batch. Also accepts the camelCase alias `customerEmail`."
                   }
                 }
               }
@@ -733,6 +749,104 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/iap/claim-entitlement/": {
+      "post": {
+        "operationId": "claimEntitlement",
+        "summary": "Claim Entitlement",
+        "description": "Transfers an existing StoreKit entitlement to the calling user. Used when an Apple ID's StoreKit subscription is owned by a different ZeroSettle account and needs to be moved to the current account (account migration, support flows, sandbox testing). The backend verifies the supplied JWS, revokes the entitlement from the previous owner, and grants it to `user_id` in a single atomic transaction.",
+        "tags": [
+          "Entitlements"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "jws_representation",
+                  "user_id"
+                ],
+                "properties": {
+                  "jws_representation": {
+                    "type": "string",
+                    "description": "The StoreKit 2 transaction's JWS representation string for the entitlement being claimed."
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "The external user ID that should receive the entitlement."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Claim processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "claimed"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "claimed": {
+                      "type": "boolean",
+                      "description": "True if the entitlement was transferred to the current user. False when the entitlement already belonged to the current user (no-op)."
+                    },
+                    "product_id": {
+                      "type": "string",
+                      "description": "Reference ID of the claimed product. Present when `claimed` is true."
+                    },
+                    "original_transaction_id": {
+                      "type": "string",
+                      "description": "StoreKit `originalTransactionId` of the claimed entitlement. Present when `claimed` is true."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — missing required field, or the entitlement is a consumable and cannot be claimed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWS verification failed against Apple's root certificate chain, or API key invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No entitlement to claim — the JWS does not correspond to a known ZeroSettle entitlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -2001,8 +2115,8 @@
         "description": "A user's entitlement to a product.",
         "properties": {
           "id": {
-            "type": "integer",
-            "description": "Entitlement ID."
+            "type": "string",
+            "description": "Stable transaction-derived identifier in the form `txn_<uuid>`. Older entitlements may still return the legacy `txn_<db_pk>` format."
           },
           "product_id": {
             "type": "string",

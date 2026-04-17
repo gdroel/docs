@@ -110,7 +110,7 @@ Present a checkout sheet with Apple Pay and card support. The checkout mode (emb
 ```swift
 struct PaywallView: View {
     @State private var selectedProduct: Product?
-    let product: ZSProduct
+    let product: Product
 
     var body: some View {
         Button("Subscribe — \(product.webPrice.formatted)") {
@@ -173,7 +173,7 @@ class PurchaseManager: ZeroSettleDelegate {
         ZeroSettle.shared.delegate = self
     }
 
-    func zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
+    func zeroSettleCheckoutDidComplete(transaction: CheckoutTransaction) {
         // Unlock content
         unlockProduct(transaction.productId)
     }
@@ -242,7 +242,7 @@ struct MyApp: App {
 
 struct ContentView: View {
     @ObservedObject var iap = ZeroSettle.shared
-    @State private var selectedProduct: ZSProduct?
+    @State private var selectedProduct: Product?
 
     var body: some View {
         VStack {

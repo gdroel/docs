@@ -51,7 +51,7 @@ try {
         userId = currentUser.id,
     )
     // Purchase flow started — result delivered via delegate
-} catch (e: ZSError.ProductNotFound) {
+} catch (e: ZeroSettleError.ProductNotFound) {
     showError("Product not found in Play Store")
 } catch (e: PlayBillingPurchaseError) {
     when (e) {
@@ -71,7 +71,7 @@ A common pattern is to offer web checkout as the primary option with Play Billin
 
 ```kotlin
 @Composable
-fun ProductView(product: ZSProduct) {
+fun ProductView(product: Product) {
     val scope = rememberCoroutineScope()
     val activity = LocalContext.current as Activity
 
@@ -81,7 +81,7 @@ fun ProductView(product: ZSProduct) {
             scope.launch {
                 try {
                     ZeroSettle.purchase(activity, product.id, currentUser.id)
-                } catch (e: ZSError.Cancelled) { /* cancelled */ }
+                } catch (e: ZeroSettleError.Cancelled) { /* cancelled */ }
             }
         }) {
             Text("Buy — ${product.webPrice.formatted}")
@@ -101,7 +101,7 @@ fun ProductView(product: ZSProduct) {
 }
 ```
 
-The `ZSProduct` model tells you whether a Play Store product is available:
+The `Product` model tells you whether a Play Store product is available:
 - `product.playStoreAvailable` — `true` if the product is configured in Google Play Console
 - `product.playStorePrice` — the Google Play price (may differ from `webPrice`)
 

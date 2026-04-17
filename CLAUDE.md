@@ -18,7 +18,6 @@ docs/
 ├── iap/                    # In-App Purchase documentation (~28 pages)
 ├── api-reference/          # OpenAPI spec + endpoint MDX pages
 ├── ai-tools/               # AI editor integration guides
-├── skill-escrow/           # Escrow services docs
 ├── images/                 # Screenshots and diagrams
 ├── logo/                   # Brand logos
 ├── docs.json               # Mintlify configuration

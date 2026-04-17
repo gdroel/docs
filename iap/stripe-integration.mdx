@@ -138,6 +138,10 @@ When you connect your Stripe account to ZeroSettle via OAuth, Stripe automatical
 
 If you have an existing webhook endpoint for your own Stripe activity, use the `application` field filtering shown above to skip ZeroSettle-originated events. This lets both integrations coexist safely on the same Stripe account.
 
+<Note>
+  If you manually configure Stripe webhooks for ZeroSettle (BYOS only), include `price.deleted` and `price.updated` events. The backend invalidates cached price metadata when Stripe disables or removes a price, preventing stale `stripe_price_id` reuse during checkout.
+</Note>
+
 ## What's Visible in Your Stripe Dashboard
 
 In BYOS mode, all ZeroSettle-created resources appear in your Stripe dashboard:

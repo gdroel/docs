@@ -5,11 +5,14 @@ icon: 'gift'
 ---
 
 <Note>
-  If your code uses `ZSMigrateTipView`, it still works — it's a type alias for `MigrationTipView`.
-  For new integrations supporting both migration and upgrade offers, see [Offer Tip View](/iap/offer-tip-view).
+  **`OfferTipView` is the recommended view for new integrations.** It supersedes `MigrationTipView` and handles migration, StoreKit-to-web upgrades, and web-to-web upgrades from a single component. See [Offer Tip View](/iap/offer-tip-view).
+
+  `MigrationTipView` is `@available(*, deprecated)` as of ZeroSettleKit 1.1.5. The legacy `ZSMigrateTipView` typealias still resolves to `MigrationTipView` for source compatibility.
 </Note>
 
-`MigrationTipView` is a self-contained view that prompts eligible users to switch from Apple billing to direct billing at a discount. It manages its own visibility, checkout flow, and dismissal state. You just add it to your layout.
+`OfferTipView` is the canonical drop-in view going forward — it prompts eligible users to switch from Apple billing to direct billing at a discount, and additionally surfaces upgrade offers when configured. It manages its own visibility, checkout flow, and dismissal state. You just add it to your layout.
+
+`MigrationTipView` (documented below for reference) continues to work for legacy integrations but new code should prefer `OfferTipView`.
 
 <Frame caption="MigrationTipView embedded in a settings screen">
   <img src="/images/switchandsavedocs.png" alt="Switch & Save tip view showing a 15% discount offer" style={{ maxWidth: '400px' }} />
@@ -87,9 +90,9 @@ MigrationTipView(
 ```
 
 ```tsx React Native
-import { ZSMigrateTipView } from 'react-native-zerosettle-kit';
+import { OfferTipView } from 'react-native-zerosettle';
 
-<ZSMigrateTipView
+<OfferTipView
   userId={currentUser.id}
   stripeCustomerId="cus_abc123"            // optional
   backgroundColorHex="#1E1E1E"
@@ -100,15 +103,17 @@ import { ZSMigrateTipView } from 'react-native-zerosettle-kit';
 ```dart Flutter
 import 'package:zerosettle/zerosettle.dart';
 
-ZSMigrateTipView(
+MigrationTipView(
   userId: currentUser.id,
   backgroundColor: Color(0xFF1E1E1E),
 )
 ```
 
 ```kotlin Kotlin
-// ZSMigrateTipView is currently iOS-only (StoreKit → web checkout switch and save).
-// Android switch and save from Play Billing is not yet supported by this component.
+// The Android SDK does not yet ship a built-in migration widget. Use the headless
+// `MigrationPrompt` model from the SDK to drive your own UI — fetch the prompt via
+// `ZeroSettle.getMigrationPrompt(...)`, then render it however your app design dictates.
+// A built-in component is on the roadmap.
 ```
 
 </CodeGroup>
@@ -173,7 +178,7 @@ ScrollView {
 ```tsx React Native Settings
 <ScrollView>
   {/* your existing content... */}
-  <ZSMigrateTipView
+  <OfferTipView
     userId={user.id}
     backgroundColorHex="#0000FF"
     style={{ marginHorizontal: 16 }}
@@ -185,7 +190,7 @@ ScrollView {
 ListView(
   children: [
     // your existing rows...
-    ZSMigrateTipView(
+    MigrationTipView(
       userId: user.id,
       backgroundColor: Color(0xFF0000FF),
     ),
@@ -199,7 +204,7 @@ Column(
     // your existing content...
     Padding(
       padding: EdgeInsets.symmetric(horizontal: 16),
-      child: ZSMigrateTipView(
+      child: MigrationTipView(
         userId: user.id,
         backgroundColor: Color(0xFF3F00B5),
       ),
@@ -209,8 +214,10 @@ Column(
 ```
 
 ```kotlin Kotlin
-// ZSMigrateTipView is currently iOS-only (StoreKit → web checkout switch and save).
-// Android switch and save from Play Billing is not yet supported by this component.
+// The Android SDK does not yet ship a built-in migration widget. Use the headless
+// `MigrationPrompt` model from the SDK to drive your own UI — fetch the prompt via
+// `ZeroSettle.getMigrationPrompt(...)`, then render it however your app design dictates.
+// A built-in component is on the roadmap.
 ```
 
 </CodeGroup>
@@ -282,7 +289,7 @@ ZSMigrationManager.resetDismissedState()
 ```
 
 ```tsx React Native
-import { resetMigrateTipState } from 'react-native-zerosettle-kit';
+import { resetMigrateTipState } from 'react-native-zerosettle';
 
 resetMigrateTipState();
 ```
@@ -316,7 +323,7 @@ ZSMigrationManager.resetRegionOverride()
 ```
 
 ```tsx React Native
-import { forceUSARegion, resetRegionOverride } from 'react-native-zerosettle-kit';
+import { forceUSARegion, resetRegionOverride } from 'react-native-zerosettle';
 
 forceUSARegion();
 

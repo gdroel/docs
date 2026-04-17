@@ -22,8 +22,8 @@ Use the `.checkoutSheet()` view modifier to present the checkout sheet:
 
 ```swift Swift
 struct PaywallView: View {
-    @State private var selectedProduct: ZSProduct?
-    let product: ZSProduct
+    @State private var selectedProduct: Product?
+    let product: Product
 
     var body: some View {
         Button("Subscribe — \(product.webPrice.formatted)") {
@@ -43,7 +43,7 @@ struct PaywallView: View {
 
 ```kotlin Kotlin
 @Composable
-fun PaywallScreen(product: ZSProduct) {
+fun PaywallScreen(product: Product) {
     val context = LocalContext.current
     val activity = context as Activity
     val scope = rememberCoroutineScope()
@@ -57,7 +57,7 @@ fun PaywallScreen(product: ZSProduct) {
                     userId = currentUser.id,
                 )
                 unlockContent(transaction.productId)
-            } catch (e: ZSError.Cancelled) {
+            } catch (e: ZeroSettleError.Cancelled) {
                 // User dismissed — no action needed
             } catch (e: Exception) {
                 showError(e)
@@ -153,14 +153,14 @@ final transaction = await ZeroSettle.instance.presentPaymentSheet(
 
 ### Item-Based Presentation
 
-The `checkoutSheet` modifier uses an item-based binding by default. Pass an optional `ZSProduct?` binding — the sheet presents when the binding is non-nil and automatically sets it back to `nil` on dismiss:
+The `checkoutSheet` modifier uses an item-based binding by default. Pass an optional `Product?` binding — the sheet presents when the binding is non-nil and automatically sets it back to `nil` on dismiss:
 
 <CodeGroup>
 
 ```swift Swift
 struct PaywallView: View {
     @ObservedObject var iap = ZeroSettle.shared
-    @State private var selectedProduct: ZSProduct?
+    @State private var selectedProduct: Product?
 
     var body: some View {
         ForEach(iap.products) { product in
@@ -440,7 +440,7 @@ On Android, `ZeroSettle.purchase()` is a single suspend function that handles cr
 
 ```kotlin Compose
 @Composable
-fun PaywallScreen(product: ZSProduct) {
+fun PaywallScreen(product: Product) {
     val context = LocalContext.current
     val activity = context as Activity
     val scope = rememberCoroutineScope()
@@ -454,9 +454,9 @@ fun PaywallScreen(product: ZSProduct) {
                     userId = currentUser.id,
                 )
                 unlockContent(transaction.productId)
-            } catch (e: ZSError.Cancelled) {
+            } catch (e: ZeroSettleError.Cancelled) {
                 // User dismissed — no action needed
-            } catch (e: ZSError.CheckoutFailed) {
+            } catch (e: ZeroSettleError.CheckoutFailed) {
                 showError(e.message)
             } catch (e: Exception) {
                 showError(e.message ?: "Unknown error")
@@ -471,7 +471,7 @@ fun PaywallScreen(product: ZSProduct) {
 ```kotlin Activity / Fragment
 class PaywallActivity : AppCompatActivity() {
 
-    private fun purchaseProduct(product: ZSProduct) {
+    private fun purchaseProduct(product: Product) {
         lifecycleScope.launch {
             try {
                 val transaction = ZeroSettle.purchase(
@@ -480,9 +480,9 @@ class PaywallActivity : AppCompatActivity() {
                     userId = currentUser.id,
                 )
                 unlockContent(transaction.productId)
-            } catch (e: ZSError.Cancelled) {
+            } catch (e: ZeroSettleError.Cancelled) {
                 // User dismissed — no action needed
-            } catch (e: ZSError.CheckoutFailed) {
+            } catch (e: ZeroSettleError.CheckoutFailed) {
                 showError(e.message)
             } catch (e: Exception) {
                 showError(e.message ?: "Unknown error")
@@ -524,7 +524,7 @@ try {
 
 ## Presentation API
 
-The `checkoutSheet` modifier uses an `item:` binding (`Binding<ZSProduct?>`) that mirrors SwiftUI's `.sheet(item:)` pattern. Set the binding to a product to present the sheet, and it automatically resets to `nil` on dismiss.
+The `checkoutSheet` modifier uses an `item:` binding (`Binding<Product?>`) that mirrors SwiftUI's `.sheet(item:)` pattern. Set the binding to a product to present the sheet, and it automatically resets to `nil` on dismiss.
 
 This works for both single-product paywalls (set `selectedProduct = product` on a "Buy" button) and multi-product stores (set `selectedProduct` from a list selection).
 
@@ -601,7 +601,7 @@ For advanced scenarios — such as warming up multiple products or a specific pr
 ```swift Swift
 struct StoreView: View {
     @ObservedObject var iap = ZeroSettle.shared
-    @State private var selectedProduct: ZSProduct?
+    @State private var selectedProduct: Product?
 
     var body: some View {
         ProductList(products: iap.products, selection: $selectedProduct)
@@ -742,7 +742,7 @@ For the `.checkoutSheet()` modifier, you can pass a `preload:` parameter to auto
 | Strategy | Behavior |
 |----------|----------|
 | `.all` | Preloads PaymentIntents for all fetched products |
-| `.specified([ZSProduct])` | Preloads only the specified products |
+| `.specified([Product])` | Preloads only the specified products |
 | `nil` (default) | Preloads only the bound product |
 
 <Note>
@@ -759,7 +759,7 @@ On Android, the checkout sheet is presented as a `ZSPaymentSheetActivity` — a 
 
 ```kotlin Kotlin
 @Composable
-fun PaywallScreen(product: ZSProduct) {
+fun PaywallScreen(product: Product) {
     val context = LocalContext.current
     val activity = context as Activity
     val scope = rememberCoroutineScope()
@@ -773,15 +773,15 @@ fun PaywallScreen(product: ZSProduct) {
                     userId = currentUser.id,
                 )
                 unlockContent(transaction.productId)
-            } catch (e: ZSError.Cancelled) {
+            } catch (e: ZeroSettleError.Cancelled) {
                 // User dismissed — no action needed
-            } catch (e: ZSError.CheckoutFailed) {
+            } catch (e: ZeroSettleError.CheckoutFailed) {
                 when (e.reason) {
                     is CheckoutFailure.NetworkUnavailable -> showRetry("No internet connection")
                     is CheckoutFailure.StripeError -> showError(e.reason.message)
                     else -> showError(e.message)
                 }
-            } catch (e: ZSError.NotConfigured) {
+            } catch (e: ZeroSettleError.NotConfigured) {
                 // SDK not configured — call ZeroSettle.configure() first
             } catch (e: Exception) {
                 showError(e.message ?: "Unknown error")
@@ -830,7 +830,7 @@ try {
 ```kotlin Kotlin
 class PaywallActivity : AppCompatActivity() {
 
-    private fun purchaseProduct(product: ZSProduct) {
+    private fun purchaseProduct(product: Product) {
         lifecycleScope.launch {
             try {
                 val transaction = ZeroSettle.purchase(
@@ -839,15 +839,15 @@ class PaywallActivity : AppCompatActivity() {
                     userId = currentUser.id,
                 )
                 unlockContent(transaction.productId)
-            } catch (e: ZSError.Cancelled) {
+            } catch (e: ZeroSettleError.Cancelled) {
                 // User dismissed — no action needed
-            } catch (e: ZSError.CheckoutFailed) {
+            } catch (e: ZeroSettleError.CheckoutFailed) {
                 when (e.reason) {
                     is CheckoutFailure.NetworkUnavailable -> showRetry("No internet connection")
                     is CheckoutFailure.StripeError -> showError(e.reason.message)
                     else -> showError(e.message)
                 }
-            } catch (e: ZSError.NotConfigured) {
+            } catch (e: ZeroSettleError.NotConfigured) {
                 // SDK not configured — call ZeroSettle.configure() first
             } catch (e: Exception) {
                 showError(e.message ?: "Unknown error")
@@ -901,7 +901,7 @@ You do not need to specify the checkout mode in code — `purchase()` reads it f
 
 ### Android Error Handling
 
-`ZeroSettle.purchase()` is a suspend function that throws on failure. Errors are thrown as subtypes of `ZSError`:
+`ZeroSettle.purchase()` is a suspend function that throws on failure. Errors are thrown as subtypes of `ZeroSettleError`:
 
 <CodeGroup>
 
@@ -909,9 +909,9 @@ You do not need to specify the checkout mode in code — `purchase()` reads it f
 try {
     val transaction = ZeroSettle.purchase(activity, productId, userId)
     unlockContent(transaction.productId)
-} catch (e: ZSError.Cancelled) {
+} catch (e: ZeroSettleError.Cancelled) {
     // User dismissed — no action needed
-} catch (e: ZSError.CheckoutFailed) {
+} catch (e: ZeroSettleError.CheckoutFailed) {
     when (e.reason) {
         is CheckoutFailure.NetworkUnavailable -> showRetry("No internet connection")
         is CheckoutFailure.StripeError -> showError(e.reason.message)
@@ -920,9 +920,9 @@ try {
         is CheckoutFailure.MerchantNotOnboarded -> showError("Payment setup incomplete")
         is CheckoutFailure.Other -> showError(e.reason.message)
     }
-} catch (e: ZSError.NotConfigured) {
+} catch (e: ZeroSettleError.NotConfigured) {
     // SDK not configured — call ZeroSettle.configure() first
-} catch (e: ZSError.UserIdRequired) {
+} catch (e: ZeroSettleError.UserIdRequired) {
     // A userId is required for subscriptions and non-consumable products
 } catch (e: Exception) {
     showError(e.message ?: "Unknown error")
@@ -983,7 +983,7 @@ The user sees a native-looking sheet with Apple Pay as the primary option and a 
 
 ## Error Handling
 
-The completion handler receives a `Result<CheckoutTransaction, Error>`. Payment-specific errors are of type `PaymentSheetError` (iOS) or `ZSError` (Android):
+The completion handler receives a `Result<CheckoutTransaction, Error>`. Payment-specific errors are of type `PaymentSheetError` (iOS) or `ZeroSettleError` (Android):
 
 <CodeGroup>
 
@@ -1026,15 +1026,15 @@ The completion handler receives a `Result<CheckoutTransaction, Error>`. Payment-
 try {
     val transaction = ZeroSettle.purchase(activity, productId, userId)
     unlockContent(transaction.productId)
-} catch (e: ZSError.Cancelled) {
+} catch (e: ZeroSettleError.Cancelled) {
     // User dismissed — no action needed
-} catch (e: ZSError.CheckoutFailed) {
+} catch (e: ZeroSettleError.CheckoutFailed) {
     when (e.reason) {
         is CheckoutFailure.NetworkUnavailable -> showRetry("No internet connection")
         is CheckoutFailure.StripeError -> showError(e.reason.message)
         else -> showError(e.message)
     }
-} catch (e: ZSError.NotConfigured) {
+} catch (e: ZeroSettleError.NotConfigured) {
     // SDK not configured
 } catch (e: Exception) {
     showError(e.message ?: "Unknown error")
@@ -1100,15 +1100,15 @@ try {
 | `.checkoutError` | Checkout flow error |
 | `.unknown` | Unclassified failure |
 
-#### Android (`ZSError`)
+#### Android (`ZeroSettleError`)
 
 | Error | Description |
 |-------|-------------|
-| `ZSError.Cancelled` | User dismissed the payment sheet |
-| `ZSError.NotConfigured` | SDK hasn't been configured yet — call `configure()` first |
-| `ZSError.CheckoutFailed(reason)` | Checkout failed — inspect `reason` for details (see `CheckoutFailure` below) |
-| `ZSError.UserIdRequired(productId)` | A `userId` is required for subscriptions and non-consumable products |
-| `ZSError.TransactionVerificationFailed(detail)` | Transaction completed but server-side verification failed |
+| `ZeroSettleError.Cancelled` | User dismissed the payment sheet |
+| `ZeroSettleError.NotConfigured` | SDK hasn't been configured yet — call `configure()` first |
+| `ZeroSettleError.CheckoutFailed(reason)` | Checkout failed — inspect `reason` for details (see `CheckoutFailure` below) |
+| `ZeroSettleError.UserIdRequired(productId)` | A `userId` is required for subscriptions and non-consumable products |
+| `ZeroSettleError.TransactionVerificationFailed(detail)` | Transaction completed but server-side verification failed |
 
 #### Android `CheckoutFailure` reasons
 
@@ -1122,12 +1122,12 @@ try {
 | `CheckoutFailure.Other(message)` | An unclassified error occurred |
 
 <Note>
-  `.cancelled` / `ZSError.Cancelled` is not a real error — it just means the user changed their mind. Don't show an error message for cancellations.
+  `.cancelled` / `ZeroSettleError.Cancelled` is not a real error — it just means the user changed their mind. Don't show an error message for cancellations.
 </Note>
 
 ## Promotions
 
-If a product has an active promotion, the payment sheet automatically shows the promotional price. The `ZSProduct.promotion` property contains the details:
+If a product has an active promotion, the payment sheet automatically shows the promotional price. The `Product.promotion` property contains the details:
 
 <CodeGroup>
 
@@ -1166,34 +1166,83 @@ Promotion types include:
 
 ### Free Trials
 
-Pass `freeTrialDays` to offer a trial period before the first charge:
+Free trials are configured **server-side per product** in the [ZeroSettle dashboard](https://dashboard.zerosettle.io). The SDK reads the trial configuration from your product catalog — there is no client-side trial parameter to pass.
+
+The catalog response exposes two fields you can read on each `Product`:
+
+| Field | Type | Description |
+|---|---|---|
+| `isTrialEligible` | `Bool` | Whether the current user is eligible for a trial on this product (server determines based on prior trial usage). |
+| `freeTrialDuration` | `String?` | Human-readable trial length (e.g., `"7 days"`) when a trial is configured. |
 
 <CodeGroup>
 
 ```swift Swift
-.checkoutSheet(item: $selectedProduct, userId: currentUser.id, freeTrialDays: 7) { result in
+if product.isTrialEligible {
+    // Show "Start Free Trial" instead of price
+    print("Trial: \(product.freeTrialDuration ?? "")")
+}
+
+// Just present the sheet — no trial parameter needed
+.checkoutSheet(item: $selectedProduct, userId: currentUser.id) { result in
     handleResult(result)
 }
 ```
 
 ```kotlin Kotlin
-// Free trial days are configured server-side for Android.
-// The payment sheet displays the trial automatically.
+// Free trial configuration is server-side. The payment sheet displays the trial automatically.
+if (product.isTrialEligible) {
+    // Update your CTA copy
+}
 ```
 
 ```dart Flutter
+if (product.isTrialEligible) {
+    // Show "Start Free Trial" instead of price
+}
+
 final transaction = await ZeroSettle.instance.presentPaymentSheet(
   productId: product.id,
   userId: currentUser.id,
-  freeTrialDays: 7,
 );
 ```
 
 </CodeGroup>
 
 <Note>
-  The `freeTrialDays` parameter defaults to `0` (no trial). When set, the payment sheet displays the trial period and the user is not charged until the trial expires.
+  As of ZeroSettleKit 1.1.5, the legacy `freeTrialDays:` parameter on `.checkoutSheet`, `CheckoutSheet.init`, `preload()`, `warmUp()`, and `warmUpAll()` is silently ignored. Configure trials in the dashboard instead.
 </Note>
+
+### Existing Stripe Customer
+
+To attach a checkout to an existing Stripe customer (for unified billing-portal use cases), pass `stripeCustomerId`:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `stripeCustomerId` | `String?` (Optional) | `nil` | Existing Stripe Customer ID (`cus_xxx`). When provided, the checkout PaymentIntent is attached to this customer instead of creating a new one. Useful for showing a consolidated [Stripe Billing Portal](https://docs.stripe.com/customer-management/integrate-customer-portal) view across all of the user's purchases. |
+
+<CodeGroup>
+
+```swift Swift
+.checkoutSheet(
+    item: $selectedProduct,
+    userId: currentUser.id,
+    stripeCustomerId: "cus_abc123"
+) { result in
+    handleResult(result)
+}
+```
+
+```kotlin Kotlin
+val transaction = ZeroSettle.purchase(
+    activity = this,
+    productId = product.id,
+    userId = currentUser.id,
+    stripeCustomerId = "cus_abc123",
+)
+```
+
+</CodeGroup>
 
 <Tip>
   **Production example:** See how [JustOne](/iap/sample-app) implements its paywall with dual StoreKit/web pricing and custom checkout headers in `PremiumUpsellView.swift`.

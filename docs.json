@@ -55,6 +55,7 @@
                 "pages": [
                   "iap/dashboard",
                   "iap/checkout-branding",
+                  "iap/custom-domains",
                   "iap/stripe-catalog",
                   "iap/cancel-flow",
                   "iap/campaigns"
@@ -120,15 +121,6 @@
             ]
           },
           {
-            "group": "Escrow Services",
-            "pages": [
-              "skill-escrow/overview",
-              "skill-escrow/quickstart",
-              "skill-escrow/sessions",
-              "skill-escrow/api-reference"
-            ]
-          },
-          {
             "group": "AI Tools",
             "pages": [
               "ai-tools/claude-code",
@@ -171,7 +163,8 @@
           {
             "group": "Entitlements",
             "pages": [
-              "api-reference/endpoint/get-entitlements"
+              "api-reference/endpoint/get-entitlements",
+              "api-reference/endpoint/claim-entitlement"
             ]
           },
           {
@@ -236,7 +229,8 @@
               "releases/index",
               "releases/ios",
               "releases/android",
-              "releases/flutter"
+              "releases/flutter",
+              "releases/react-native"
             ]
           }
         ]

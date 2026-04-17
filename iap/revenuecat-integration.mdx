@@ -155,8 +155,8 @@ Show both ZeroSettle (web checkout) and RevenueCat (StoreKit/Play Billing) purch
 <CodeGroup>
 ```swift Swift
 struct PaywallView: View {
-    @State private var selectedProduct: ZSProduct?
-    let zsProduct: ZSProduct      // From ZeroSettleKit
+    @State private var selectedProduct: Product?
+    let zsProduct: Product      // From ZeroSettleKit
     let rcPackage: Package        // From RevenueCat
 
     var body: some View {
@@ -189,7 +189,7 @@ struct PaywallView: View {
 
 ```kotlin Kotlin
 @Composable
-fun PaywallScreen(zsProduct: ZSProduct, rcPackage: Package) {
+fun PaywallScreen(zsProduct: Product, rcPackage: Package) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -207,7 +207,7 @@ fun PaywallScreen(zsProduct: ZSProduct, rcPackage: Package) {
                     Purchases.sharedInstance.getCustomerInfo(
                         object : ReceiveCustomerInfoCallback { /* ... */ }
                     )
-                } catch (_: ZSError.Cancelled) { }
+                } catch (_: ZeroSettleError.Cancelled) { }
             }
         }) {
             Text("Subscribe — ${zsProduct.webPrice?.formatted}")

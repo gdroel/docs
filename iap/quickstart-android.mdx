@@ -75,7 +75,7 @@ Present the payment sheet for a product. The user pays with a card via an embedd
 
 ```kotlin
 import com.zerosettle.sdk.ZeroSettle
-import com.zerosettle.sdk.error.ZSError
+import com.zerosettle.sdk.error.ZeroSettleError
 
 try {
     val transaction = ZeroSettle.purchase(
@@ -85,9 +85,9 @@ try {
     )
     println("Purchased: ${transaction.productId}")
     // Unlock content
-} catch (e: ZSError.Cancelled) {
+} catch (e: ZeroSettleError.Cancelled) {
     // User cancelled — do nothing
-} catch (e: ZSError.CheckoutFailed) {
+} catch (e: ZeroSettleError.CheckoutFailed) {
     println("Checkout failed: ${e.message}")
 }
 ```
@@ -98,7 +98,7 @@ The checkout mode (WebView, Custom Tab, or external browser) is controlled by yo
 
 ```kotlin
 @Composable
-fun PurchaseButton(product: ZSProduct) {
+fun PurchaseButton(product: Product) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -111,9 +111,9 @@ fun PurchaseButton(product: ZSProduct) {
                     userId = currentUser.id,
                 )
                 // Handle success
-            } catch (e: ZSError.Cancelled) {
+            } catch (e: ZeroSettleError.Cancelled) {
                 // User cancelled
-            } catch (e: ZSError) {
+            } catch (e: ZeroSettleError) {
                 // Handle error
             }
         }
@@ -170,7 +170,7 @@ class PurchaseManager : ZeroSettleDelegate {
         ZeroSettle.delegate = this
     }
 
-    override fun zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
+    override fun zeroSettleCheckoutDidComplete(transaction: CheckoutTransaction) {
         // Unlock content
         unlockProduct(transaction.productId)
     }
@@ -231,8 +231,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.zerosettle.sdk.ZeroSettle
-import com.zerosettle.sdk.error.ZSError
-import com.zerosettle.sdk.model.ZSProduct
+import com.zerosettle.sdk.error.ZeroSettleError
+import com.zerosettle.sdk.model.Product
 import kotlinx.coroutines.launch
 
 class StoreActivity : ComponentActivity() {
@@ -252,7 +252,7 @@ class StoreActivity : ComponentActivity() {
 
 @Composable
 fun StoreScreen(activity: ComponentActivity) {
-    var products by remember { mutableStateOf<List<ZSProduct>>(emptyList()) }
+    var products by remember { mutableStateOf<List<Product>>(emptyList()) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -282,7 +282,7 @@ fun StoreScreen(activity: ComponentActivity) {
                                     snackbarHostState.showSnackbar(
                                         "Purchased ${txn.productId}"
                                     )
-                                } catch (e: ZSError.Cancelled) {
+                                } catch (e: ZeroSettleError.Cancelled) {
                                     // User cancelled
                                 } catch (e: Exception) {
                                     snackbarHostState.showSnackbar(
@@ -307,13 +307,13 @@ The Android SDK uses sealed error types:
 
 | Exception | When |
 |-----------|------|
-| `ZSError.NotConfigured` | SDK not configured yet |
-| `ZSError.Cancelled` | User cancelled checkout |
-| `ZSError.ProductNotFound` | Product ID not found in catalog |
-| `ZSError.CheckoutFailed` | Payment failed |
-| `ZSError.UserIdRequired` | Method requires a userId |
-| `ZSError.WebCheckoutDisabledForJurisdiction` | Web checkout disabled for this region |
-| `ZSError.ApiError` | Network or API error |
+| `ZeroSettleError.NotConfigured` | SDK not configured yet |
+| `ZeroSettleError.Cancelled` | User cancelled checkout |
+| `ZeroSettleError.ProductNotFound` | Product ID not found in catalog |
+| `ZeroSettleError.CheckoutFailed` | Payment failed |
+| `ZeroSettleError.UserIdRequired` | Method requires a userId |
+| `ZeroSettleError.WebCheckoutDisabledForJurisdiction` | Web checkout disabled for this region |
+| `ZeroSettleError.ApiError` | Network or API error |
 
 ## Cancel Flow UI
 

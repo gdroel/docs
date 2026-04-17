@@ -251,7 +251,7 @@ class PurchaseManager: ZeroSettleDelegate {
         ZeroSettle.shared.delegate = self
     }
 
-    func zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
+    func zeroSettleCheckoutDidComplete(transaction: CheckoutTransaction) {
         // Purchase successful - unlock content
         unlockProduct(transaction.productId)
         showSuccessMessage()
@@ -270,7 +270,7 @@ class PurchaseManager: ZeroSettleDelegate {
 
 ```kotlin Kotlin
 class PurchaseManager : ZeroSettleDelegate {
-    override fun zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
+    override fun zeroSettleCheckoutDidComplete(transaction: CheckoutTransaction) {
         // Purchase successful - unlock content
         unlockProduct(transaction.productId)
         showSuccessMessage()

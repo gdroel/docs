@@ -420,7 +420,7 @@ On iOS, `checkoutSheet` provides the best conversion rates because the user stay
 ```swift Swift
 struct PurchaseButton: View {
     @State private var selectedProduct: Product?
-    let product: ZSProduct
+    let product: Product
 
     var body: some View {
         Button("Buy \(product.displayName) — \(product.webPrice.formatted)") {
@@ -448,7 +448,7 @@ struct PurchaseButton: View {
 
 ```kotlin Kotlin
 @Composable
-fun PurchaseButton(product: ZSProduct) {
+fun PurchaseButton(product: Product) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -461,7 +461,7 @@ fun PurchaseButton(product: ZSProduct) {
                     userId = auth.currentUser.id,
                 )
                 unlockProduct(transaction.productId)
-            } catch (e: ZSError.Cancelled) {
+            } catch (e: ZeroSettleError.Cancelled) {
                 // User dismissed — don't show error
             } catch (e: Exception) {
                 showError(e)
@@ -604,7 +604,7 @@ Show feedback immediately when a checkout is in progress:
 struct PurchaseButton: View {
     @ObservedObject var iap = ZeroSettle.shared
     @State private var selectedProduct: Product?
-    let product: ZSProduct
+    let product: Product
 
     var body: some View {
         Button {
@@ -636,7 +636,7 @@ struct PurchaseButton: View {
 
 ```kotlin Kotlin
 @Composable
-fun PurchaseButton(product: ZSProduct) {
+fun PurchaseButton(product: Product) {
     val pendingCheckout by ZeroSettle.pendingCheckout.collectAsState()
 
     Button(
@@ -679,7 +679,7 @@ function PurchaseButton({ product }) {
 
 ```dart Flutter
 class PurchaseButton extends StatefulWidget {
-  final ZSProduct product;
+  final Product product;
   const PurchaseButton({super.key, required this.product});
 
   @override
@@ -733,7 +733,7 @@ class PurchaseManager: ZeroSettleDelegate {
         Analytics.track("checkout_started", productId: productId)
     }
 
-    func zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
+    func zeroSettleCheckoutDidComplete(transaction: CheckoutTransaction) {
         // Unlock content immediately
         unlockProduct(transaction.productId)
 
@@ -778,7 +778,7 @@ class PurchaseManager : ZeroSettleDelegate {
         Analytics.track("checkout_started", productId)
     }
 
-    override fun zeroSettleCheckoutDidComplete(transaction: ZSTransaction) {
+    override fun zeroSettleCheckoutDidComplete(transaction: CheckoutTransaction) {
         unlockProduct(transaction.productId)
         showToast("Purchase complete!")
         Analytics.track("purchase_completed", transaction)
@@ -1024,7 +1024,7 @@ If your app supports logged-out usage, decide how to handle purchases:
 ```swift Swift
 struct PurchaseView: View {
     @State private var selectedProduct: Product?
-    let product: ZSProduct
+    let product: Product
 
     var body: some View {
         Button("Buy") {
@@ -1051,7 +1051,7 @@ struct PurchaseView: View {
 ```
 
 ```kotlin Kotlin
-suspend fun purchase(product: ZSProduct) {
+suspend fun purchase(product: Product) {
     val user = auth.currentUser
     if (user == null) {
         // Option 1: Require login first
@@ -1081,7 +1081,7 @@ async function purchase(product) {
 ```
 
 ```dart Flutter
-Future<void> purchase(ZSProduct product) async {
+Future<void> purchase(Product product) async {
   final user = auth.currentUser;
   if (user == null) {
     // Option 1: Require login first
@@ -1107,7 +1107,7 @@ ZeroSettle uses specific error types for different scenarios:
 
 | Error Type | When It's Thrown |
 |---|---|
-| `ZSError` | SDK configuration and general errors |
+| `ZeroSettleError` | SDK configuration and general errors |
 | `PaymentSheetError` | Payment sheet presentation and payment errors |
 | `StoreKitPurchaseError` | StoreKit purchase errors |
 | `CheckoutError` | Legacy checkout view errors (deprecated) |
@@ -1116,10 +1116,10 @@ ZeroSettle uses specific error types for different scenarios:
 
 | Error Type | When It's Thrown |
 |---|---|
-| `ZSError.NotConfigured` | SDK not configured before use |
-| `ZSError.ProductNotFound` | Product ID not found in catalog |
-| `ZSError.Cancelled` | User dismissed the checkout |
-| `ZSError.CheckoutFailed` | Payment failed (with `CheckoutFailure` reason) |
+| `ZeroSettleError.NotConfigured` | SDK not configured before use |
+| `ZeroSettleError.ProductNotFound` | Product ID not found in catalog |
+| `ZeroSettleError.Cancelled` | User dismissed the checkout |
+| `ZeroSettleError.CheckoutFailed` | Payment failed (with `CheckoutFailure` reason) |
 
 <CodeGroup>
 ```swift Swift
@@ -1129,7 +1129,7 @@ ZeroSettle uses specific error types for different scenarios:
     case .success(let transaction):
         unlockProduct(transaction.productId)
     case .failure(let error):
-        if let zsError = error as? ZSError {
+        if let zsError = error as? ZeroSettleError {
             switch zsError {
             case .notConfigured:
                 fatalError("SDK not configured")
@@ -1153,11 +1153,11 @@ ZeroSettle uses specific error types for different scenarios:
 ```kotlin Kotlin
 try {
     ZeroSettle.purchase(activity, productId, userId)
-} catch (e: ZSError) {
+} catch (e: ZeroSettleError) {
     when (e) {
-        is ZSError.NotConfigured -> error("SDK not configured")
-        is ZSError.ProductNotFound -> println("Product ${e.productId} not found")
-        is ZSError.CheckoutFailed -> {
+        is ZeroSettleError.NotConfigured -> error("SDK not configured")
+        is ZeroSettleError.ProductNotFound -> println("Product ${e.productId} not found")
+        is ZeroSettleError.CheckoutFailed -> {
             when (e.reason) {
                 is CheckoutFailure.NetworkUnavailable ->
                     showRetry("Network error")
@@ -1196,7 +1196,7 @@ try {
   );
 } on ZSNotConfiguredException {
   // SDK not configured
-} on ZSProductNotFoundException catch (e) {
+} on ProductNotFoundException catch (e) {
   print('Product ${e.productId} not found');
 } on ZSCheckoutFailedException catch (e) {
   showError(e.message);
@@ -1211,7 +1211,7 @@ If the SDK fails to initialize or fetch products, fall back gracefully:
 <CodeGroup>
 ```swift Swift
 struct PaywallView: View {
-    @State private var products: [ZSProduct] = []
+    @State private var products: [Product] = []
     @State private var loadError: Error?
 
     var body: some View {
@@ -1248,7 +1248,7 @@ struct PaywallView: View {
 ```kotlin Kotlin
 @Composable
 fun PaywallScreen() {
-    var products by remember { mutableStateOf<List<ZSProduct>>(emptyList()) }
+    var products by remember { mutableStateOf<List<Product>>(emptyList()) }
     var loadError by remember { mutableStateOf<Exception?>(null) }
 
     LaunchedEffect(Unit) { loadProducts() }
@@ -1306,7 +1306,7 @@ class PaywallScreen extends StatefulWidget {
 }
 
 class _PaywallScreenState extends State<PaywallScreen> {
-  List<ZSProduct> products = [];
+  List<Product> products = [];
   Object? loadError;
 
   @override
@@ -1363,7 +1363,7 @@ Before releasing, test these scenarios on a physical device:
 | Complete purchase (Custom Tab) | Android | Transaction returned, entitlements update |
 | Cancel checkoutSheet | iOS | `.cancelled` error, no entitlement change |
 | Cancel Safari fallback | iOS | No entitlement change, no error shown |
-| Cancel Custom Tab checkout | Android | `ZSError.Cancelled`, no entitlement change |
+| Cancel Custom Tab checkout | Android | `ZeroSettleError.Cancelled`, no entitlement change |
 | Restore purchases | Both | All previous purchases recovered |
 | App killed during checkout | Both | Entitlements sync on next launch |
 | Network offline | Both | Cached entitlements still work |

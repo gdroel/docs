@@ -80,7 +80,5 @@ Both views have identical init signatures and placement patterns. `OfferTipView`
 | **`.retentionSheet()`** | You want the legacy subscription management sheet |
 
 <Note>
-  `MigrationTipView` and `ZSMigrationManager` are **not deprecated**. They continue to work and are actively maintained.
-  `OfferTipView` and `ZSOfferManager` are the recommended path forward for new integrations because they handle
-  more flow types from a single component.
+  As of ZeroSettleKit 1.1.5, `MigrationTipView` is `@available(*, deprecated)` — migrate to `OfferTipView`. `ZSMigrationManager` is still active and is not deprecated. `OfferTipView` and `ZSOfferManager` are the recommended path forward for new integrations because they handle more flow types from a single component.
 </Note>

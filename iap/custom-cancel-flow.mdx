@@ -331,7 +331,7 @@ do {
     let resumesAt = try await ZeroSettle.shared.pauseSubscription(
         productId: "premium_monthly",
         userId: currentUser.id,
-        pauseOptionId: selectedPauseOption.id
+        pauseDurationDays: selectedPauseOption.durationDays
     )
     if let resumesAt {
         showConfirmation("Paused until \(resumesAt.formatted())")
@@ -340,6 +340,8 @@ do {
     showError(error.localizedDescription)
 }
 ```
+
+{/* Flutter still uses `pauseOptionId`; the iOS rename to `pauseDurationDays` will be mirrored in a future Flutter release. */}
 
 ```dart Flutter
 try {
@@ -361,7 +363,7 @@ try {
     const resumesAt = await pauseSubscription(
         'premium_monthly',
         currentUser.id,
-        selectedPauseOption.id
+        selectedPauseOption.durationDays
     );
     if (resumesAt) {
         showConfirmation(`Paused until ${resumesAt}`);

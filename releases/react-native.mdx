@@ -1,0 +1,52 @@
+---
+title: 'React Native (react-native-zerosettle)'
+description: 'Release notes for the React Native bridge to ZeroSettleKit'
+icon: 'react'
+---
+
+**Current version:** `1.1.0`
+**Package:** npm (`react-native-zerosettle`)
+**Minimum requirements:** React Native 0.76+ (New Architecture / TurboModules), iOS 17.0+
+
+<Tip>
+  Install with npm or yarn:
+  ```bash
+  npm install react-native-zerosettle@^1.1.0
+  # or
+  yarn add react-native-zerosettle@^1.1.0
+  ```
+
+  Then run `cd ios && pod install`.
+</Tip>
+
+---
+
+## April 2026
+
+<Update label="1.1.0" description="2026-04-08">
+### Aligned with ZeroSettleKit 1.1.x
+
+Bumped to 1.1.0 to align with the ZeroSettleKit 1.1.x release line. The bridge now pins ZeroSettleKit `>= 1.1.0` and inherits everything that shipped in ZeroSettleKit 1.1.5.
+
+- **Unified offer system** — Inherits `OfferTipView` and `ZSOfferManager` for migration + upgrade offers in a single component
+- **Entitlement ownership model** — StoreKit purchases are permanently tied to the purchasing account; no auto-transfer between accounts sharing an Apple ID
+- **`claimEntitlement` API** — Explicit API for deliberate entitlement transfers (testing, account migration, support)
+- **Checkout hardening** — Sheet waits for payment buttons before presenting; JS handler safety prevents false "Payment failed" errors; 409 retry for batch/individual PI races
+</Update>
+
+---
+
+## March 2026
+
+<Update label="1.0.0 — 1.0.3" description="2026-03-26 — 2026-04-07">
+### Initial 1.x stable releases
+
+Initial 1.x stable releases — bridges ZeroSettleKit 1.0.32–1.0.34 native APIs.
+</Update>
+
+---
+
+## Resources
+
+- [npm: react-native-zerosettle](https://www.npmjs.com/package/react-native-zerosettle)
+- [GitHub: ZeroSettle-ReactNative](https://github.com/ZeroSettle/ZeroSettle-ReactNative)

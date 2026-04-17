@@ -91,6 +91,10 @@ New purchases always belong to the currently logged-in account.
 | User B buys their own premium | User B gets their own entitlement |
 | User A logs back in | User A still has their original entitlement |
 
+### How transactions get attributed in multi-tenant apps
+
+When multiple ZeroSettle apps share the same iOS bundle ID — for example, two tenants both publish via the same parent App Store record — the backend uses each StoreKit transaction's `appAccountToken` to route App Store Server Notifications to the correct app. The SDK sets this token automatically (since ZeroSettleKit 1.1.5 / Android 0.15.0) when your `userId` is a valid UUID. Older SDK versions without this attribution should not be used in multi-tenant deployments.
+
 ## Explicit Entitlement Claiming
 
 For cases where you need to transfer an entitlement between accounts — testing, account migration, or support — the SDK provides an explicit claim API:

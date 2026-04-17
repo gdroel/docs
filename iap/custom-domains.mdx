@@ -1,0 +1,104 @@
+---
+title: 'Custom Checkout Domains'
+description: 'Serve ZeroSettle web checkout from your own subdomain'
+icon: 'globe'
+---
+
+## Overview
+
+A custom checkout domain replaces the default ZeroSettle host (e.g., `dashboard.zerosettle.io`) in the browser address bar with a subdomain you own — so users see `https://checkout.example.com/...` during browser-based checkout. This affects browser-mode checkout only; native WKWebView and other in-app checkout flows continue to use the default API domain.
+
+## Prerequisites
+
+- Active Stripe Connect account (Managed or BYOS) — onboarding must be complete and charges enabled
+- A subdomain you own — single-level only, e.g., `checkout.example.com`
+- Ability to add a CNAME record at your DNS provider
+
+## Setup
+
+<Steps>
+  <Step title="Add the domain in your dashboard">
+    Go to **App Settings > Checkout > Custom Domain** in the [ZeroSettle dashboard](https://dashboard.zerosettle.io). Enter your subdomain (e.g., `checkout.example.com`). The dashboard returns a CNAME target — by default this is `customers.zerosettle.io`.
+  </Step>
+  <Step title="Add the CNAME record">
+    At your DNS provider, create a CNAME record pointing your subdomain (the `checkout` host record) to `customers.zerosettle.io`. Wait for DNS propagation — usually a few minutes, but it can take longer depending on your provider's TTL.
+  </Step>
+  <Step title="Verify">
+    Click **Verify** in the dashboard. The domain transitions through these states automatically: `configuring` → `verifying` → `provisioning` → `active`. You can refresh the dashboard to poll the current state.
+  </Step>
+  <Step title="Confirm payment methods">
+    Once the status reaches `active`, the backend automatically registers the domain with Stripe as a `PaymentMethodDomain` so Apple Pay and Google Pay work on web checkout. No additional action is required on your end.
+  </Step>
+</Steps>
+
+## Status states
+
+| State | Meaning |
+|-------|---------|
+| `configuring` | Domain submitted; awaiting Cloudflare hostname provisioning |
+| `verifying` | Awaiting DNS propagation and HTTP DCV |
+| `provisioning` | DNS verified; SSL certificate being issued |
+| `active` | Domain live; checkout URLs route through it |
+| `failed` | Verification or health check failed; see dashboard error message |
+
+## What changes for your users
+
+Browser-mode checkouts — Stripe Hosted Checkout and embedded checkout via iframe — load from your custom subdomain once the status is `active`. The change is transparent to your SDK code: no parameters, configuration, or API calls change. Users simply see your branded URL (e.g., `https://checkout.example.com/...`) in the address bar instead of the default ZeroSettle host.
+
+## Native checkout caveat
+
+<Note>
+  Native (WKWebView) checkout sheets continue to use the default API domain regardless of your custom-domain configuration. This is intentional — embedding a Cloudflare-fronted domain inside WKWebView causes load failures in some configurations. The native experience is unaffected by your custom domain setup.
+</Note>
+
+## Health monitoring
+
+ZeroSettle runs a daily health check on every active custom domain. If Cloudflare reports that DNS or SSL has degraded — for example, your CNAME was removed or a certificate failed to renew — the domain transitions to `failed` and checkout falls back to the default host until you re-verify. You'll see the failure reason in the dashboard.
+
+## Constraints
+
+<AccordionGroup>
+  <Accordion title="Single subdomain level only">
+    `checkout.example.com` is allowed. `pay.checkout.example.com` (deeper nesting) is rejected. If you need a different subdomain name, register it as a separate custom domain.
+  </Accordion>
+  <Accordion title="No bare apex domains">
+    `example.com` is rejected — the domain must include a subdomain. Use a host like `checkout.example.com` or `pay.example.com`.
+  </Accordion>
+  <Accordion title="No ZeroSettle subdomains">
+    `*.zerosettle.io` and `*.zerosettle.com` are reserved. You must use a domain you own.
+  </Accordion>
+  <Accordion title="Globally unique">
+    A custom domain can be registered to only one ZeroSettle app at a time, across all tenants. If you try to claim a domain that's already in use, the request will be rejected.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Domain stuck in `verifying` for more than 30 minutes">
+    Cloudflare can't resolve the CNAME. Confirm the record exists at your DNS provider (`dig CNAME checkout.example.com` should return `customers.zerosettle.io`). Some providers strip the trailing dot or wrap the value — paste the value exactly as the dashboard shows it. If your TTL is high, propagation can take longer; lowering TTL before adding the record helps next time.
+  </Accordion>
+  <Accordion title="Setup blocked because Stripe Connect is not active">
+    Custom domains require a fully onboarded Stripe Connect account with charges enabled. Open **Settings > Payments** in the dashboard and finish onboarding (Managed Express details submitted, or BYOS Standard account connected). Once `tenant.stripe_account_charges_ok` is true, retry the domain setup.
+  </Accordion>
+  <Accordion title="SSL stuck in `provisioning` for hours">
+    Cloudflare issues certificates after DNS validation completes. If the domain has been in `provisioning` for more than an hour, the most common cause is a CAA record on the parent domain that excludes Cloudflare. Check `dig CAA example.com` — if a CAA record is set, add `letsencrypt.org` and `digicert.com` (Cloudflare's certificate authorities) or remove the restriction. If no CAA is set, contact support@zerosettle.io.
+  </Accordion>
+  <Accordion title="Domain transitioned from `active` to `failed`">
+    The daily health check found a problem. The dashboard shows the specific reason — usually a removed CNAME, a CAA change, or a certificate renewal failure. Restore the DNS record (or fix the CAA record) and click **Verify** again to re-run the validation flow. Checkout falls back to the default ZeroSettle host until the domain is active again, so users are not blocked from purchasing.
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+<CardGroup cols={3}>
+  <Card title="Checkout Branding" icon="palette" href="/iap/checkout-branding">
+    Logo, icon, and brand colors for the payment sheet.
+  </Card>
+  <Card title="Account Setup" icon="user-gear" href="/iap/account-setup">
+    Stripe Connect onboarding (required prerequisite).
+  </Card>
+  <Card title="Go-Live Checklist" icon="rocket" href="/iap/go-live">
+    Verify everything before processing real payments.
+  </Card>
+</CardGroup>

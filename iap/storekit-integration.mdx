@@ -79,8 +79,8 @@ A common pattern is to offer web checkout as the primary option with StoreKit as
 
 ```swift
 struct ProductView: View {
-    @State private var selectedProduct: ZSProduct?
-    let product: ZSProduct
+    @State private var selectedProduct: Product?
+    let product: Product
 
     var body: some View {
         VStack(spacing: 16) {
